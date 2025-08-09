@@ -14,11 +14,14 @@ import (
 	"github.com/bareuptime/tms/internal/config"
 	"github.com/bareuptime/tms/internal/db"
 	"github.com/bareuptime/tms/internal/handlers"
+	"github.com/bareuptime/tms/internal/mail"
 	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/rbac"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/bareuptime/tms/internal/service"
+	"github.com/bareuptime/tms/internal/worker"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 func main() {
@@ -53,6 +56,11 @@ func main() {
 	ticketRepo := repo.NewTicketRepository(database.DB.DB)
 	messageRepo := repo.NewTicketMessageRepository(database.DB.DB)
 	integrationRepo := repo.NewIntegrationRepository(database.DB)
+	emailRepo := repo.NewEmailRepo(database.DB)
+
+	// Initialize mail service
+	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	mailService := mail.NewService(mailLogger)
 
 	// Initialize services
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
@@ -66,14 +74,31 @@ func main() {
 	webhookService := service.NewWebhookService(integrationRepo)
 	integrationService := service.NewIntegrationService(integrationRepo, webhookService)
 
+	// Initialize IMAP poller manager
+	imapPollerManager := worker.NewIMAPPollerManager(
+		mailLogger,
+		emailRepo,
+		mailService,
+	)
+
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, publicService)
 	ticketHandler := handlers.NewTicketHandler(ticketService, messageService)
 	publicHandler := handlers.NewPublicHandler(publicService)
 	integrationHandler := handlers.NewIntegrationHandler(integrationService)
+	emailHandler := handlers.NewEmailHandler(emailRepo)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, ticketHandler, publicHandler, integrationHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, ticketHandler, publicHandler, integrationHandler, emailHandler)
+
+	// Start background services
+	if cfg.Email.EnableEmailToTicket {
+		go func() {
+			if err := imapPollerManager.Start(); err != nil {
+				log.Printf("Failed to start IMAP poller manager: %v", err)
+			}
+		}()
+	}
 
 	// Create HTTP server
 	server := &http.Server{
@@ -95,6 +120,11 @@ func main() {
 	<-quit
 	log.Println("Shutting down server...")
 
+	// Stop IMAP poller manager
+	if cfg.Email.EnableEmailToTicket {
+		imapPollerManager.Stop()
+	}
+
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -106,7 +136,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -190,6 +220,22 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 					webhooks.GET("", integrationHandler.ListWebhookSubscriptions)
 					webhooks.POST("", integrationHandler.CreateWebhookSubscription)
 				}
+			}
+
+			// Email connectors and mailboxes
+			email := projects.Group("/email")
+			{
+				// Email connectors
+				email.GET("/connectors", emailHandler.ListConnectors)
+				email.POST("/connectors", emailHandler.CreateConnector)
+				email.GET("/connectors/:connector_id", emailHandler.GetConnector)
+				email.PATCH("/connectors/:connector_id", emailHandler.UpdateConnector)
+				email.DELETE("/connectors/:connector_id", emailHandler.DeleteConnector)
+				email.POST("/connectors/:connector_id/test", emailHandler.TestConnector)
+
+				// Email mailboxes
+				email.GET("/mailboxes", emailHandler.ListMailboxes)
+				email.POST("/mailboxes", emailHandler.CreateMailbox)
 			}
 		}
 	}

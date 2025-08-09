@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/bareuptime/tms/internal/models"
-	// Send via SMTP (TODO: get transport for tenant/project)
-	connector := &models.EmailConnector{} // TODO: Load from database
-	return s.smtpClient.SendMessage(ctx, connector, msg)ithub.com/google/uuid"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
