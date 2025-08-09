@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/bareuptime/tms/internal/config"
 	"github.com/bareuptime/tms/internal/db"
@@ -23,7 +24,7 @@ func main() {
 	}
 
 	// Connect to database
-	database, err := db.NewConnection(cfg.Database)
+	database, err := db.Connect(&cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -55,7 +56,7 @@ func runMigrations(database *db.DB) error {
 	// a proper migration library like golang-migrate
 	migrations := []string{
 		"migrations/001_initial_schema.sql",
-		"migrations/002_rls_policies.sql",
+		"migrations/002_enable_rls.sql",
 		"migrations/003_seed_data.sql",
 	}
 
@@ -66,13 +67,56 @@ func runMigrations(database *db.DB) error {
 			return fmt.Errorf("failed to read migration file %s: %w", migration, err)
 		}
 
-		_, err = database.Exec(string(content))
+		// Parse goose format - extract SQL between +goose Up and +goose Down
+		sql := parseGooseMigration(string(content))
+		if sql == "" {
+			return fmt.Errorf("no valid SQL found in migration %s", migration)
+		}
+
+		_, err = database.Exec(sql)
 		if err != nil {
 			return fmt.Errorf("failed to execute migration %s: %w", migration, err)
 		}
 	}
 
 	return nil
+}
+
+// parseGooseMigration extracts the SQL content between +goose Up and +goose Down markers
+func parseGooseMigration(content string) string {
+	lines := strings.Split(content, "\n")
+	var sqlLines []string
+	inUpSection := false
+	inStatementBlock := false
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		
+		if strings.Contains(line, "-- +goose Up") {
+			inUpSection = true
+			continue
+		}
+		
+		if strings.Contains(line, "-- +goose Down") {
+			break
+		}
+		
+		if strings.Contains(line, "-- +goose StatementBegin") {
+			inStatementBlock = true
+			continue
+		}
+		
+		if strings.Contains(line, "-- +goose StatementEnd") {
+			inStatementBlock = false
+			continue
+		}
+		
+		if inUpSection && (inStatementBlock || !strings.HasPrefix(line, "-- +goose")) {
+			sqlLines = append(sqlLines, line)
+		}
+	}
+
+	return strings.Join(sqlLines, "\n")
 }
 
 func getCurrentMigrationVersion(database *db.DB) (string, error) {

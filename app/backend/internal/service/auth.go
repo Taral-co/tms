@@ -29,14 +29,17 @@ func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, a
 }
 
 // convertRoleBindings converts role bindings to map format
-func (s *AuthService) convertRoleBindings(roleBindings []*db.RoleBinding) map[string]string {
-	result := make(map[string]string)
+func (s *AuthService) convertRoleBindings(roleBindings []*db.RoleBinding) map[string][]string {
+	result := make(map[string][]string)
 	for _, binding := range roleBindings {
 		projectKey := ""
 		if binding.ProjectID != nil {
 			projectKey = binding.ProjectID.String()
 		}
-		result[projectKey] = binding.Role
+		if result[projectKey] == nil {
+			result[projectKey] = []string{}
+		}
+		result[projectKey] = append(result[projectKey], binding.Role)
 	}
 	return result
 }
@@ -50,10 +53,10 @@ type LoginRequest struct {
 
 // LoginResponse represents a login response
 type LoginResponse struct {
-	AccessToken  string            `json:"access_token"`
-	RefreshToken string            `json:"refresh_token"`
-	Agent        *db.Agent         `json:"agent"`
-	RoleBindings map[string]string `json:"role_bindings"`
+	AccessToken  string              `json:"access_token"`
+	RefreshToken string              `json:"refresh_token"`
+	Agent        *db.Agent           `json:"agent"`
+	RoleBindings map[string][]string `json:"role_bindings"`
 }
 
 // Login authenticates an agent and returns tokens
@@ -66,12 +69,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 	// Get agent by email
 	agent, err := s.agentRepo.GetByEmail(ctx, tenantID, req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("invalid credentials")
-	}
-
-	// Check if agent is active
-	if agent.Status != "active" {
-		return nil, fmt.Errorf("account is not active")
+		return nil, fmt.Errorf("agent not found: %w", err)
 	}
 
 	// Verify password
@@ -103,7 +101,6 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 
 	refreshToken, err := s.authService.GenerateRefreshToken(
 		agent.ID.String(),
-		agent.TenantID.String(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
@@ -213,8 +210,6 @@ func (s *AuthService) SendMagicLink(ctx context.Context, req MagicLinkRequest) e
 
 	// Generate magic link token
 	token, err := s.authService.GenerateMagicLinkToken(
-		agent.ID.String(),
-		agent.TenantID.String(),
 		agent.Email,
 	)
 	if err != nil {
@@ -285,7 +280,6 @@ func (s *AuthService) ConsumeMagicLink(ctx context.Context, req ConsumeMagicLink
 
 	refreshToken, err := s.authService.GenerateRefreshToken(
 		agent.ID.String(),
-		agent.TenantID.String(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)

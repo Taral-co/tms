@@ -92,8 +92,19 @@ func Load() (*Config, error) {
 	// Set defaults
 	setDefaults()
 
-	// Enable environment variable binding
+	// Enable environment variable binding with prefix
 	viper.AutomaticEnv()
+	viper.SetEnvPrefix("") // No prefix to allow direct env var names
+	
+	// Bind specific environment variables to config keys
+	viper.BindEnv("database.host", "DB_HOST")
+	viper.BindEnv("database.port", "DB_PORT")
+	viper.BindEnv("database.user", "DB_USER")
+	viper.BindEnv("database.password", "DB_PASSWORD")
+	viper.BindEnv("database.dbname", "DB_NAME")
+	viper.BindEnv("database.sslmode", "DB_SSLMODE")
+	viper.BindEnv("redis.host", "REDIS_HOST")
+	viper.BindEnv("redis.port", "REDIS_PORT")
 
 	// Read config file (optional)
 	if err := viper.ReadInConfig(); err != nil {

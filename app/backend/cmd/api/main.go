@@ -123,15 +123,20 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 		publicRoutes.POST("/ticket/messages", publicHandler.AddMessageByMagicLink)
 	}
 
-	// API routes
+	// Auth routes (not protected by auth middleware)
+	authRoutes := router.Group("/v1/tenants/:tenant_id/auth")
+	{
+		authRoutes.POST("/login", authHandler.Login)
+		authRoutes.POST("/refresh", authHandler.Refresh)
+	}
+
+	// API routes (protected by auth middleware)
 	api := router.Group("/v1/tenants/:tenant_id")
 	api.Use(middleware.AuthMiddleware(jwtAuth))
 	{
-		// Authentication endpoints
+		// Authentication endpoints that require auth
 		auth := api.Group("/auth")
 		{
-			auth.POST("/login", authHandler.Login)
-			auth.POST("/refresh", authHandler.Refresh)
 			auth.POST("/logout", authHandler.Logout)
 			auth.GET("/me", authHandler.Me)
 		}
