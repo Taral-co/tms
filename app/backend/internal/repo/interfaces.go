@@ -1,0 +1,116 @@
+package repo
+
+import (
+	"context"
+
+	"github.com/bareuptime/tms/internal/db"
+	"github.com/google/uuid"
+)
+
+// TicketFilters represents filters for ticket queries
+type TicketFilters struct {
+	Status      []string
+	Priority    []string
+	AssigneeID  *uuid.UUID
+	RequesterID *uuid.UUID
+	Tags        []string
+	Search      string
+	Source      []string
+	Type        []string
+}
+
+// AgentFilters represents filters for agent queries
+type AgentFilters struct {
+	Email    string
+	IsActive *bool
+	Search   string
+}
+
+// CustomerFilters represents filters for customer queries
+type CustomerFilters struct {
+	Email  string
+	Search string
+}
+
+// PaginationParams represents pagination parameters
+type PaginationParams struct {
+	Cursor string
+	Limit  int
+}
+
+// TicketRepository interface
+type TicketRepository interface {
+	Create(ctx context.Context, ticket *db.Ticket) error
+	GetByID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*db.Ticket, error)
+	Update(ctx context.Context, ticket *db.Ticket) error
+	Delete(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) error
+	List(ctx context.Context, tenantID, projectID uuid.UUID, filters TicketFilters, pagination PaginationParams) ([]*db.Ticket, string, error)
+	GetByNumber(ctx context.Context, tenantID uuid.UUID, number int) (*db.Ticket, error)
+}
+
+// AgentRepository interface
+type AgentRepository interface {
+	Create(ctx context.Context, agent *db.Agent) error
+	GetByID(ctx context.Context, tenantID, agentID uuid.UUID) (*db.Agent, error)
+	GetByEmail(ctx context.Context, tenantID uuid.UUID, email string) (*db.Agent, error)
+	Update(ctx context.Context, agent *db.Agent) error
+	Delete(ctx context.Context, tenantID, agentID uuid.UUID) error
+	List(ctx context.Context, tenantID uuid.UUID, filters AgentFilters, pagination PaginationParams) ([]*db.Agent, string, error)
+}
+
+// CustomerRepository interface
+type CustomerRepository interface {
+	Create(ctx context.Context, customer *db.Customer) error
+	GetByID(ctx context.Context, tenantID, customerID uuid.UUID) (*db.Customer, error)
+	GetByEmail(ctx context.Context, tenantID uuid.UUID, email string) (*db.Customer, error)
+	Update(ctx context.Context, customer *db.Customer) error
+	Delete(ctx context.Context, tenantID, customerID uuid.UUID) error
+	List(ctx context.Context, tenantID uuid.UUID, filters CustomerFilters, pagination PaginationParams) ([]*db.Customer, string, error)
+}
+
+// ProjectRepository interface
+type ProjectRepository interface {
+	Create(ctx context.Context, project *db.Project) error
+	GetByID(ctx context.Context, tenantID, projectID uuid.UUID) (*db.Project, error)
+	GetByKey(ctx context.Context, tenantID uuid.UUID, key string) (*db.Project, error)
+	Update(ctx context.Context, project *db.Project) error
+	Delete(ctx context.Context, tenantID, projectID uuid.UUID) error
+	List(ctx context.Context, tenantID uuid.UUID) ([]*db.Project, error)
+	ListForAgent(ctx context.Context, tenantID, agentID uuid.UUID) ([]*db.Project, error)
+}
+
+// TenantRepository interface
+type TenantRepository interface {
+	Create(ctx context.Context, tenant *db.Tenant) error
+	GetByID(ctx context.Context, tenantID uuid.UUID) (*db.Tenant, error)
+	Update(ctx context.Context, tenant *db.Tenant) error
+	Delete(ctx context.Context, tenantID uuid.UUID) error
+	List(ctx context.Context) ([]*db.Tenant, error)
+}
+
+// TicketMessageRepository interface
+type TicketMessageRepository interface {
+	Create(ctx context.Context, message *db.TicketMessage) error
+	GetByID(ctx context.Context, tenantID, projectID, ticketID, messageID uuid.UUID) (*db.TicketMessage, error)
+	GetByTicketID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID, includePrivate bool, pagination PaginationParams) ([]*db.TicketMessage, string, error)
+	Update(ctx context.Context, message *db.TicketMessage) error
+	Delete(ctx context.Context, tenantID, projectID, ticketID, messageID uuid.UUID) error
+}
+
+// AttachmentRepository interface
+type AttachmentRepository interface {
+	Create(ctx context.Context, attachment *db.Attachment) error
+	GetByID(ctx context.Context, tenantID, projectID, attachmentID uuid.UUID) (*db.Attachment, error)
+	ListByTicket(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) ([]*db.Attachment, error)
+	ListByMessage(ctx context.Context, tenantID, projectID, messageID uuid.UUID) ([]*db.Attachment, error)
+	Delete(ctx context.Context, tenantID, projectID, attachmentID uuid.UUID) error
+}
+
+// UnauthTokenRepository interface
+type UnauthTokenRepository interface {
+	Create(ctx context.Context, token *db.UnauthToken) error
+	GetByJTI(ctx context.Context, jti string) (*db.UnauthToken, error)
+	MarkConsumed(ctx context.Context, jti string) error
+	DeleteExpired(ctx context.Context) error
+	RevokeByTicket(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) error
+}

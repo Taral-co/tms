@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15
+    container_name: tms-postgres
+    environment:
+      POSTGRES_DB: tms
+      POSTGRES_USER: tms
+      POSTGRES_PASSWORD: tms123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - tms-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms -d tms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and queues
+  redis:
+    image: redis:7-alpine
+    container_name: tms-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - tms-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO for object storage
+  minio:
+    image: minio/minio:latest
+    container_name: tms-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - tms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Mailhog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: tms-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - tms-network
+
+  # Backend API
+  backend:
+    build:
+      context: ../app/backend
+      dockerfile: Dockerfile
+    container_name: tms-backend
+    environment:
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tms
+      - DB_USER=tms
+      - DB_PASSWORD=tms123
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - JWT_SECRET=your-jwt-secret-change-in-production
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:5174
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ../app/backend:/app
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Agent Console Frontend
+  agent-console:
+    build:
+      context: ../app/frontend/agent-console
+      dockerfile: Dockerfile
+    container_name: tms-agent-console
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../app/frontend/agent-console:/app
+      - /app/node_modules
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Public View Frontend
+  public-view:
+    build:
+      context: ../app/frontend/public-view
+      dockerfile: Dockerfile
+    container_name: tms-public-view
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    ports:
+      - "5174:5174"
+    volumes:
+      - ../app/frontend/public-view:/app
+      - /app/node_modules
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  tms-network:
+    driver: bridge
