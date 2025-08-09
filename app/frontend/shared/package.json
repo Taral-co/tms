@@ -1,0 +1,51 @@
+{
+  "name": "@tms/shared",
+  "version": "1.0.0",
+  "description": "Shared frontend SDK for TMS applications",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite build --watch",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "test": "vitest"
+  },
+  "keywords": ["ticketing", "support", "sdk", "typescript"],
+  "author": "TMS Team",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.51.23",
+    "axios": "^1.7.4",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.427.0",
+    "tailwind-merge": "^2.5.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.15.0",
+    "@typescript-eslint/parser": "^7.15.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.9",
+    "typescript": "^5.2.2",
+    "vite": "^5.3.4",
+    "vite-plugin-dts": "^4.0.3",
+    "vitest": "^2.0.5"
+  },
+  "files": [
+    "dist"
+  ]
+}
