@@ -95,7 +95,7 @@ func Load() (*Config, error) {
 	// Enable environment variable binding with prefix
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("") // No prefix to allow direct env var names
-	
+
 	// Bind specific environment variables to config keys
 	viper.BindEnv("database.host", "DB_HOST")
 	viper.BindEnv("database.port", "DB_PORT")

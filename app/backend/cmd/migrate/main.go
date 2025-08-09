@@ -91,26 +91,26 @@ func parseGooseMigration(content string) string {
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if strings.Contains(line, "-- +goose Up") {
 			inUpSection = true
 			continue
 		}
-		
+
 		if strings.Contains(line, "-- +goose Down") {
 			break
 		}
-		
+
 		if strings.Contains(line, "-- +goose StatementBegin") {
 			inStatementBlock = true
 			continue
 		}
-		
+
 		if strings.Contains(line, "-- +goose StatementEnd") {
 			inStatementBlock = false
 			continue
 		}
-		
+
 		if inUpSection && (inStatementBlock || !strings.HasPrefix(line, "-- +goose")) {
 			sqlLines = append(sqlLines, line)
 		}
