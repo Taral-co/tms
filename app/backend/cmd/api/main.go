@@ -52,6 +52,7 @@ func main() {
 	customerRepo := repo.NewCustomerRepository(database.DB.DB)
 	ticketRepo := repo.NewTicketRepository(database.DB.DB)
 	messageRepo := repo.NewTicketMessageRepository(database.DB.DB)
+	integrationRepo := repo.NewIntegrationRepository(database.DB)
 
 	// Initialize services
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
@@ -60,14 +61,19 @@ func main() {
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, messageRepo, rbacService)
 	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
 	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
+	
+	// Integration services
+	webhookService := service.NewWebhookService(integrationRepo)
+	integrationService := service.NewIntegrationService(integrationRepo, webhookService)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, publicService)
 	ticketHandler := handlers.NewTicketHandler(ticketService, messageService)
 	publicHandler := handlers.NewPublicHandler(publicService)
+	integrationHandler := handlers.NewIntegrationHandler(integrationService)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, ticketHandler, publicHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, ticketHandler, publicHandler, integrationHandler)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -100,7 +106,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -160,6 +166,30 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 
 				// Magic links
 				tickets.POST("/:ticket_id/magic-link", authHandler.GenerateMagicLink)
+			}
+
+			// Integrations - using the available methods
+			integrations := projects.Group("/integrations")
+			{
+				integrations.GET("", integrationHandler.ListIntegrations)
+				integrations.POST("", integrationHandler.CreateIntegration)
+				integrations.GET("/:integration_id", integrationHandler.GetIntegration)
+				integrations.PATCH("/:integration_id", integrationHandler.UpdateIntegration)
+				integrations.DELETE("/:integration_id", integrationHandler.DeleteIntegration)
+				integrations.POST("/:integration_id/test", integrationHandler.TestIntegration)
+
+				// Integration configurations
+				integrations.POST("/:integration_id/slack", integrationHandler.CreateSlackConfiguration)
+				integrations.POST("/:integration_id/jira", integrationHandler.CreateJiraConfiguration)
+				integrations.POST("/:integration_id/calendly", integrationHandler.CreateCalendlyConfiguration)
+				integrations.POST("/:integration_id/zapier", integrationHandler.CreateZapierConfiguration)
+
+				// Webhook subscriptions
+				webhooks := integrations.Group("/:integration_id/webhooks")
+				{
+					webhooks.GET("", integrationHandler.ListWebhookSubscriptions)
+					webhooks.POST("", integrationHandler.CreateWebhookSubscription)
+				}
 			}
 		}
 	}

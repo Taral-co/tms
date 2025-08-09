@@ -8,7 +8,7 @@ database:
   host: "localhost"
   port: 5432
   user: "tms"
-  password: "tms_password"
+  password: "tms123"
   dbname: "tms"
   sslmode: "disable"
   max_open_conns: 25
