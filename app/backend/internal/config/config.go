@@ -9,13 +9,15 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	MinIO    MinIOConfig    `mapstructure:"minio"`
-	SMTP     SMTPConfig     `mapstructure:"smtp"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	Features FeatureFlags   `mapstructure:"features"`
+	Server      ServerConfig      `mapstructure:"server"`
+	Database    DatabaseConfig    `mapstructure:"database"`
+	Redis       RedisConfig       `mapstructure:"redis"`
+	MinIO       MinIOConfig       `mapstructure:"minio"`
+	SMTP        SMTPConfig        `mapstructure:"smtp"`
+	JWT         JWTConfig         `mapstructure:"jwt"`
+	Features    FeatureFlags      `mapstructure:"features"`
+	Email       EmailConfig       `mapstructure:"email"`
+	Observability ObservabilityConfig `mapstructure:"observability"`
 }
 
 // ServerConfig represents server configuration
@@ -79,6 +81,22 @@ type FeatureFlags struct {
 	EnableRegistration bool `mapstructure:"enable_registration"`
 	EnableEmailLogin   bool `mapstructure:"enable_email_login"`
 	EnableMagicLinks   bool `mapstructure:"enable_magic_links"`
+}
+
+// EmailConfig represents email subsystem configuration
+type EmailConfig struct {
+	DefaultIMAPPollingInterval time.Duration `mapstructure:"default_imap_polling_interval"`
+	MaxAttachmentSize          int64         `mapstructure:"max_attachment_size"`
+	EnableEmailToTicket        bool          `mapstructure:"enable_email_to_ticket"`
+	DefaultReturnPathDomain    string        `mapstructure:"default_return_path_domain"`
+}
+
+// ObservabilityConfig represents observability configuration
+type ObservabilityConfig struct {
+	EnableTracing  bool   `mapstructure:"enable_tracing"`
+	EnableMetrics  bool   `mapstructure:"enable_metrics"`
+	TracingEndpoint string `mapstructure:"tracing_endpoint"`
+	MetricsAddr    string `mapstructure:"metrics_addr"`
 }
 
 // Load loads configuration from environment variables and config files
