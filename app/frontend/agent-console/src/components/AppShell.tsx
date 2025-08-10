@@ -20,6 +20,8 @@ import {
 import { useTheme } from '../components/ThemeProvider'
 import { useAuth } from '../hooks/useAuth'
 import { CommandPalette } from './CommandPalette'
+import { ProjectSelector } from './ProjectSelector'
+import { apiClient } from '../lib/api'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -28,9 +30,19 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>(
+    localStorage.getItem('project_id') || undefined
+  )
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuth()
   const location = useLocation()
+
+  const handleProjectChange = (projectId: string) => {
+    setCurrentProjectId(projectId)
+    apiClient.setProjectId(projectId)
+    // Optionally refresh current page data when project changes
+    window.location.reload()
+  }
 
   // Command palette keyboard shortcut
   useEffect(() => {
@@ -144,7 +156,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* Top bar */}
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
           {/* Search */}
-          <div className="flex flex-1 items-center">
+          <div className="flex flex-1 items-center space-x-4">
             <div className="relative w-96">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -155,6 +167,12 @@ export function AppShell({ children }: AppShellProps) {
                 readOnly
               />
             </div>
+            
+            {/* Project Selector */}
+            <ProjectSelector
+              currentProjectId={currentProjectId}
+              onProjectChange={handleProjectChange}
+            />
           </div>
 
           {/* Actions */}

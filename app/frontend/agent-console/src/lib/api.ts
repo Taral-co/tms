@@ -42,21 +42,19 @@ export interface TicketsResponse {
 
 export interface Ticket {
   id: string
-  title: string
-  description: string
-  status: 'open' | 'in_progress' | 'resolved' | 'closed'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  customer_id: string
-  assigned_agent_id?: string
+  number: number
+  subject: string
+  status: 'new' | 'open' | 'pending' | 'resolved' | 'closed'
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  type: 'question' | 'incident' | 'problem' | 'task'
+  source: 'web' | 'email' | 'api' | 'phone' | 'chat'
+  requester_id: string
+  customer_name: string
+  assignee_agent_id?: string
   tenant_id: string
   project_id: string
   created_at: string
   updated_at: string
-  customer?: {
-    id: string
-    name: string
-    email: string
-  }
   assigned_agent?: {
     id: string
     name: string
@@ -65,19 +63,20 @@ export interface Ticket {
 }
 
 export interface CreateTicketRequest {
-  title: string
-  description: string
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  customer_id: string
-  project_id: string
+  subject: string
+  description?: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  type: 'question' | 'incident' | 'problem' | 'task'
+  source: 'web' | 'email' | 'api' | 'phone' | 'chat'
+  requester_id: string
 }
 
 export interface UpdateTicketRequest {
-  title?: string
+  subject?: string
   description?: string
-  status?: 'open' | 'in_progress' | 'resolved' | 'closed'
-  priority?: 'low' | 'medium' | 'high' | 'urgent'
-  assigned_agent_id?: string
+  status?: 'new' | 'open' | 'pending' | 'resolved' | 'closed'
+  priority?: 'low' | 'normal' | 'high' | 'urgent'
+  assignee_agent_id?: string
 }
 
 export interface Message {
@@ -146,12 +145,16 @@ class APIClient {
         if (config.url.includes('/auth/') && !config.url.includes('/tenants/')) {
           config.url = `/tenants/${tenantId}${config.url}`
         }
+        // Tenant-level project management endpoints: /tenants/{tenant_id}/projects
+        else if (config.url.startsWith('/projects') && !config.url.includes('/tenants/')) {
+          config.url = `/tenants/${tenantId}${config.url}`
+        }
         // Project-scoped endpoints: /tenants/{tenant_id}/projects/{project_id}/*
-        else if (projectId && !config.url.includes('/auth/') && !config.url.includes('/tenants/')) {
+        else if (projectId && !config.url.includes('/auth/') && !config.url.includes('/tenants/') && !config.url.startsWith('/projects')) {
           config.url = `/tenants/${tenantId}/projects/${projectId}${config.url}`
         }
-        // Tenant-only endpoints: /tenants/{tenant_id}/*
-        else if (!config.url.includes('/auth/') && !config.url.includes('/tenants/') && !config.url.includes('/projects/')) {
+        // Other tenant-only endpoints: /tenants/{tenant_id}/*
+        else if (!config.url.includes('/auth/') && !config.url.includes('/tenants/') && !config.url.startsWith('/projects')) {
           config.url = `/tenants/${tenantId}${config.url}`
         }
       }
@@ -275,6 +278,31 @@ class APIClient {
     localStorage.removeItem('user_data')
     this.tenantId = null
     this.projectId = null
+  }
+
+  // Project endpoints
+  async getProjects(): Promise<Project[]> {
+    const response: AxiosResponse<Project[]> = await this.client.get('/projects')
+    return response.data
+  }
+
+  async getProject(id: string): Promise<Project> {
+    const response: AxiosResponse<Project> = await this.client.get(`/projects/${id}`)
+    return response.data
+  }
+
+  async createProject(data: { key: string; name: string }): Promise<Project> {
+    const response: AxiosResponse<Project> = await this.client.post('/projects', data)
+    return response.data
+  }
+
+  async updateProject(id: string, data: { key: string; name: string; status: string }): Promise<Project> {
+    const response: AxiosResponse<Project> = await this.client.put(`/projects/${id}`, data)
+    return response.data
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await this.client.delete(`/projects/${id}`)
   }
 
   // Ticket endpoints

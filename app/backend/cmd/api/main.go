@@ -53,6 +53,7 @@ func main() {
 	// Initialize repositories
 	agentRepo := repo.NewAgentRepository(database.DB.DB)
 	customerRepo := repo.NewCustomerRepository(database.DB.DB)
+	projectRepo := repo.NewProjectRepository(database.DB)
 	ticketRepo := repo.NewTicketRepository(database.DB.DB)
 	messageRepo := repo.NewTicketMessageRepository(database.DB.DB)
 	integrationRepo := repo.NewIntegrationRepository(database.DB)
@@ -64,6 +65,7 @@ func main() {
 
 	// Initialize services
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
+	projectService := service.NewProjectService(projectRepo)
 	// agentService := service.NewAgentService(agentRepo, rbacService)      // Reserved for future use
 	// customerService := service.NewCustomerService(customerRepo, rbacService) // Reserved for future use
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService)
@@ -83,13 +85,14 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, publicService)
+	projectHandler := handlers.NewProjectHandler(projectService)
 	ticketHandler := handlers.NewTicketHandler(ticketService, messageService)
 	publicHandler := handlers.NewPublicHandler(publicService)
 	integrationHandler := handlers.NewIntegrationHandler(integrationService)
 	emailHandler := handlers.NewEmailHandler(emailRepo)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, ticketHandler, publicHandler, integrationHandler, emailHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler)
 
 	// Start background services
 	if cfg.Email.EnableEmailToTicket {
@@ -136,7 +139,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -175,6 +178,15 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 		{
 			auth.POST("/logout", authHandler.Logout)
 			auth.GET("/me", authHandler.Me)
+		}
+
+		// Project management endpoints
+		{
+			api.GET("/projects", projectHandler.ListProjects)
+			api.POST("/projects", projectHandler.CreateProject)
+			api.GET("/projects/:project_id", projectHandler.GetProject)
+			api.PUT("/projects/:project_id", projectHandler.UpdateProject)
+			api.DELETE("/projects/:project_id", projectHandler.DeleteProject)
 		}
 
 		// Project-scoped endpoints
