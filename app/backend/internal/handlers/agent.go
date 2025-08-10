@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/bareuptime/tms/internal/service"
+	"github.com/gin-gonic/gin"
 )
 
 type AgentHandler struct {
@@ -28,7 +28,7 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
 		return
 	}
-	
+
 	requestorAgentID, ok := agentIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
@@ -101,7 +101,7 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
 		return
 	}
-	
+
 	creatorAgentID, ok := agentIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
@@ -140,7 +140,7 @@ func (h *AgentHandler) GetAgent(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
 		return
 	}
-	
+
 	requestorAgentID, ok := requestorAgentIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
@@ -167,7 +167,7 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
 		return
 	}
-	
+
 	updaterAgentID, ok := updaterAgentIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
@@ -200,7 +200,7 @@ func (h *AgentHandler) AssignRole(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
 		return
 	}
-	
+
 	assignerAgentID, ok := assignerAgentIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
@@ -233,7 +233,7 @@ func (h *AgentHandler) RemoveRole(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
 		return
 	}
-	
+
 	removerAgentID, ok := removerAgentIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
@@ -266,7 +266,7 @@ func (h *AgentHandler) GetAgentRoles(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
 		return
 	}
-	
+
 	requestorAgentID, ok := requestorAgentIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})

@@ -72,33 +72,6 @@ Respond **only** with:
 - Update mapper in `internal/transport/http/ticket_handlers.go` to keep public API unchanged.
 - Add unit test covering the corrected mapping.
 
-## Commands
-```bash
-go build ./...
-go test ./... -count=1
-````
-
-## Patches
-
-```diff
-*** a/internal/service/ticket/service.go
---- b/internal/service/ticket/service.go
-@@
-- func (s *Service) Create(ctx context.Context, in CreateTicketInput) (Ticket, error) {
-+ func (s *Service) Create(ctx context.Context, in CreateTicketInput) (Ticket, error) {
-+   // tenant guard preserved
-    if ctx.Value(TenantKey{}) == nil { return Ticket{}, ErrNoTenant }
-    ...
-}
-```
-
-```diff
-*** a/migrations/202508091200_add_ticket_index.up.sql
---- b/migrations/202508091200_add_ticket_index.up.sql
-@@
-+ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ticket_tenant_created_at
-+   ON tickets(tenant_id, created_at DESC);
-```
 
 ## Post-checks
 

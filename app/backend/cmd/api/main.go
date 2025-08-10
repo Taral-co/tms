@@ -51,13 +51,14 @@ func main() {
 	rbacService := rbac.NewService(database.DB.DB)
 
 	// Initialize repositories
+	ticketRepo := repo.NewTicketRepository(database.DB.DB)
 	agentRepo := repo.NewAgentRepository(database.DB.DB)
 	customerRepo := repo.NewCustomerRepository(database.DB.DB)
-	projectRepo := repo.NewProjectRepository(database.DB)
-	ticketRepo := repo.NewTicketRepository(database.DB.DB)
 	messageRepo := repo.NewTicketMessageRepository(database.DB.DB)
+	projectRepo := repo.NewProjectRepository(database.DB)
 	integrationRepo := repo.NewIntegrationRepository(database.DB)
 	emailRepo := repo.NewEmailRepo(database.DB)
+	apiKeyRepo := repo.NewApiKeyRepository(database.DB)
 
 	// Initialize mail service
 	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -91,7 +92,7 @@ func main() {
 	integrationHandler := handlers.NewIntegrationHandler(integrationService)
 	emailHandler := handlers.NewEmailHandler(emailRepo)
 	agentHandler := handlers.NewAgentHandler(agentService)
-	apiKeyHandler := handlers.NewApiKeyHandler()
+	apiKeyHandler := handlers.NewApiKeyHandler(apiKeyRepo)
 
 	// Setup router
 	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, agentHandler, apiKeyHandler)

@@ -434,7 +434,7 @@ class APIClient {
   // API Key endpoints (project-scoped)
   async getApiKeys(): Promise<ApiKey[]> {
     const response = await this.client.get('/api-keys')
-    return response.data.data || []
+    return response.data || []
   }
 
   async createApiKey(data: { name: string }): Promise<ApiKey & { key: string }> {

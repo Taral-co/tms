@@ -4,17 +4,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // Tenant represents a top-level organization
 type Tenant struct {
-	ID        uuid.UUID  `db:"id" json:"id"`
-	Name      string     `db:"name" json:"name" validate:"required,min=1,max=255"`
-	Status    string     `db:"status" json:"status" validate:"oneof=active inactive suspended"`
-	Region    string     `db:"region" json:"region"`
-	KMSKeyID  *string    `db:"kms_key_id" json:"kms_key_id,omitempty"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+	ID        uuid.UUID `db:"id" json:"id"`
+	Name      string    `db:"name" json:"name" validate:"required,min=1,max=255"`
+	Status    string    `db:"status" json:"status" validate:"oneof=active inactive suspended"`
+	Region    string    `db:"region" json:"region"`
+	KMSKeyID  *string   `db:"kms_key_id" json:"kms_key_id,omitempty"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // Project represents a tenant-scoped workspace
@@ -30,14 +31,14 @@ type Project struct {
 
 // Agent represents a user who can access the system
 type Agent struct {
-	ID           uuid.UUID  `db:"id" json:"id"`
-	TenantID     uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	Email        string     `db:"email" json:"email" validate:"required,email"`
-	Name         string     `db:"name" json:"name" validate:"required,min=1,max=255"`
-	Status       string     `db:"status" json:"status" validate:"oneof=active inactive suspended"`
-	PasswordHash *string    `db:"password_hash" json:"-"`
-	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
+	ID           uuid.UUID `db:"id" json:"id"`
+	TenantID     uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Email        string    `db:"email" json:"email" validate:"required,email"`
+	Name         string    `db:"name" json:"name" validate:"required,min=1,max=255"`
+	Status       string    `db:"status" json:"status" validate:"oneof=active inactive suspended"`
+	PasswordHash *string   `db:"password_hash" json:"-"`
+	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // AgentProjectRole represents role binding between agents and projects
@@ -76,43 +77,43 @@ type Customer struct {
 
 // Organization represents a customer organization
 type Organization struct {
-	ID          uuid.UUID  `db:"id" json:"id"`
-	TenantID    uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	Name        string     `db:"name" json:"name" validate:"required,min=1,max=255"`
-	ExternalRef *string    `db:"external_ref" json:"external_ref,omitempty"`
-	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
+	ID          uuid.UUID `db:"id" json:"id"`
+	TenantID    uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Name        string    `db:"name" json:"name" validate:"required,min=1,max=255"`
+	ExternalRef *string   `db:"external_ref" json:"external_ref,omitempty"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // Ticket represents a support ticket
 type Ticket struct {
-	ID               uuid.UUID  `db:"id" json:"id"`
-	TenantID         uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	ProjectID        uuid.UUID  `db:"project_id" json:"project_id"`
-	Number           int        `db:"number" json:"number"`
-	Subject          string     `db:"subject" json:"subject" validate:"required,min=1,max=500"`
-	Status           string     `db:"status" json:"status" validate:"oneof=new open pending resolved closed"`
-	Priority         string     `db:"priority" json:"priority" validate:"oneof=low normal high urgent"`
-	Type             string     `db:"type" json:"type" validate:"oneof=question incident problem task"`
-	Source           string     `db:"source" json:"source" validate:"oneof=web email api phone chat"`
-	RequesterID      uuid.UUID  `db:"requester_id" json:"requester_id"`
-	CustomerName     string     `db:"customer_name" json:"customer_name"`
-	AssigneeAgentID  *uuid.UUID `db:"assignee_agent_id" json:"assignee_agent_id,omitempty"`
-	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`
+	ID              uuid.UUID  `db:"id" json:"id"`
+	TenantID        uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	ProjectID       uuid.UUID  `db:"project_id" json:"project_id"`
+	Number          int        `db:"number" json:"number"`
+	Subject         string     `db:"subject" json:"subject" validate:"required,min=1,max=500"`
+	Status          string     `db:"status" json:"status" validate:"oneof=new open pending resolved closed"`
+	Priority        string     `db:"priority" json:"priority" validate:"oneof=low normal high urgent"`
+	Type            string     `db:"type" json:"type" validate:"oneof=question incident problem task"`
+	Source          string     `db:"source" json:"source" validate:"oneof=web email api phone chat"`
+	RequesterID     uuid.UUID  `db:"requester_id" json:"requester_id"`
+	CustomerName    string     `db:"customer_name" json:"customer_name"`
+	AssigneeAgentID *uuid.UUID `db:"assignee_agent_id" json:"assignee_agent_id,omitempty"`
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 // TicketMessage represents a message on a ticket
 type TicketMessage struct {
-	ID         uuid.UUID `db:"id" json:"id"`
-	TenantID   uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	ProjectID  uuid.UUID `db:"project_id" json:"project_id"`
-	TicketID   uuid.UUID `db:"ticket_id" json:"ticket_id"`
-	AuthorType string    `db:"author_type" json:"author_type" validate:"oneof=agent customer system"`
+	ID         uuid.UUID  `db:"id" json:"id"`
+	TenantID   uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	ProjectID  uuid.UUID  `db:"project_id" json:"project_id"`
+	TicketID   uuid.UUID  `db:"ticket_id" json:"ticket_id"`
+	AuthorType string     `db:"author_type" json:"author_type" validate:"oneof=agent customer system"`
 	AuthorID   *uuid.UUID `db:"author_id" json:"author_id,omitempty"`
-	Body       string    `db:"body" json:"body" validate:"required"`
-	IsPrivate  bool      `db:"is_private" json:"is_private"`
-	CreatedAt  time.Time `db:"created_at" json:"created_at"`
+	Body       string     `db:"body" json:"body" validate:"required"`
+	IsPrivate  bool       `db:"is_private" json:"is_private"`
+	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
 }
 
 // TicketTag represents a tag on a ticket
@@ -140,15 +141,15 @@ type Attachment struct {
 
 // SLAPolicy represents an SLA policy
 type SLAPolicy struct {
-	ID                    uuid.UUID  `db:"id" json:"id"`
-	TenantID              uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	ProjectID             uuid.UUID  `db:"project_id" json:"project_id"`
-	Name                  string     `db:"name" json:"name" validate:"required,min=1,max=255"`
-	FirstResponseMinutes  int        `db:"first_response_minutes" json:"first_response_minutes"`
-	ResolutionMinutes     int        `db:"resolution_minutes" json:"resolution_minutes"`
-	BusinessHoursRef      *string    `db:"business_hours_ref" json:"business_hours_ref,omitempty"`
-	CreatedAt             time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt             time.Time  `db:"updated_at" json:"updated_at"`
+	ID                   uuid.UUID `db:"id" json:"id"`
+	TenantID             uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ProjectID            uuid.UUID `db:"project_id" json:"project_id"`
+	Name                 string    `db:"name" json:"name" validate:"required,min=1,max=255"`
+	FirstResponseMinutes int       `db:"first_response_minutes" json:"first_response_minutes"`
+	ResolutionMinutes    int       `db:"resolution_minutes" json:"resolution_minutes"`
+	BusinessHoursRef     *string   `db:"business_hours_ref" json:"business_hours_ref,omitempty"`
+	CreatedAt            time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt            time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // UnauthToken represents a token for unauthenticated access
@@ -199,4 +200,21 @@ type RoleBinding struct {
 	Role      string     `db:"role" json:"role"`
 	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+}
+
+// ApiKey represents an API key for tenant/project access
+type ApiKey struct {
+	ID         uuid.UUID      `db:"id" json:"id"`
+	TenantID   uuid.UUID      `db:"tenant_id" json:"tenant_id"`
+	ProjectID  *uuid.UUID     `db:"project_id" json:"project_id,omitempty"`
+	Name       string         `db:"name" json:"name" validate:"required,min=1,max=255"`
+	KeyHash    string         `db:"key_hash" json:"-"`             // Never expose the hash
+	KeyPrefix  string         `db:"key_prefix" json:"key_preview"` // For display
+	Scopes     pq.StringArray `db:"scopes" json:"scopes,omitempty"`
+	LastUsedAt *time.Time     `db:"last_used_at" json:"last_used,omitempty"`
+	ExpiresAt  *time.Time     `db:"expires_at" json:"expires_at,omitempty"`
+	IsActive   bool           `db:"is_active" json:"is_active"`
+	CreatedBy  uuid.UUID      `db:"created_by" json:"created_by"`
+	CreatedAt  time.Time      `db:"created_at" json:"created_at"`
+	UpdatedAt  time.Time      `db:"updated_at" json:"updated_at"`
 }

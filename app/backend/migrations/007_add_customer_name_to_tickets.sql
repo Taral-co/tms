@@ -1,8 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- Add customer_name field to tickets table
-ALTER TABLE tickets ADD COLUMN customer_name VARCHAR(255);
+-- Add customer_name field to tickets table (if not exists)
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255);
 
 -- Populate existing tickets with customer names from customers table
 UPDATE tickets 
