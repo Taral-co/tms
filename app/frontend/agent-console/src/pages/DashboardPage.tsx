@@ -1,186 +1,100 @@
-import { useAuth } from '@/hooks/useAuth'
+import { FC } from 'react'
+import { Ticket, BarChart3, Users, AlertCircle } from 'lucide-react'
 
-export function DashboardPage() {
-  const { user } = useAuth()
+export const DashboardPage: FC = () => {
+  // Placeholder data - replace with real data from API
+  const stats = [
+    {
+      title: 'Open Tickets',
+      value: '24',
+      change: '+12%',
+      changeType: 'increase' as const,
+      icon: Ticket,
+    },
+    {
+      title: 'Avg Response Time',
+      value: '2.4h',
+      change: '-8%',
+      changeType: 'decrease' as const,
+      icon: BarChart3,
+    },
+    {
+      title: 'Active Agents',
+      value: '8',
+      change: '+2',
+      changeType: 'increase' as const,
+      icon: Users,
+    },
+    {
+      title: 'Urgent Tickets',
+      value: '3',
+      change: '0',
+      changeType: 'neutral' as const,
+      icon: AlertCircle,
+    },
+  ]
 
   return (
-    <div>
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Welcome back, {user?.name}! Here's an overview of your support activities.
+        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground mt-2">
+          Welcome back! Here's what's happening with your support team.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Stats cards */}
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">T</span>
-                </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {stats.map((stat, index) => (
+          <div
+            key={index}
+            className="bg-card p-6 rounded-lg border border-border shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {stat.title}
+                </p>
+                <p className="text-2xl font-bold text-foreground mt-2">
+                  {stat.value}
+                </p>
+                <p className={`text-sm mt-1 ${
+                  stat.changeType === 'increase' ? 'text-green-600' :
+                  stat.changeType === 'decrease' ? 'text-red-600' :
+                  'text-muted-foreground'
+                }`}>
+                  {stat.change} from last week
+                </p>
               </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Tickets
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">24</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">O</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Open Tickets
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">8</dd>
-                </dl>
+              <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <stat.icon className="h-6 w-6 text-primary" />
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">R</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Resolved Today
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">3</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">U</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Urgent Tickets
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">2</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      <div className="mt-8">
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Recent Activity
-            </h3>
-            <div className="mt-6">
-              <div className="flow-root">
-                <ul className="-mb-8">
-                  <li>
-                    <div className="relative pb-8">
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                      <div className="relative flex space-x-3">
-                        <div>
-                          <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center ring-8 ring-white">
-                            <span className="text-white text-xs font-medium">T</span>
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div>
-                            <div className="text-sm">
-                              <span className="font-medium text-gray-900">New ticket created</span>
-                            </div>
-                            <p className="mt-0.5 text-sm text-gray-500">
-                              "Login issues with mobile app" - Customer: john@acme.com
-                            </p>
-                          </div>
-                          <div className="mt-2 text-sm text-gray-500">
-                            <time>2 minutes ago</time>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="relative pb-8">
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                      <div className="relative flex space-x-3">
-                        <div>
-                          <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center ring-8 ring-white">
-                            <span className="text-white text-xs font-medium">R</span>
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div>
-                            <div className="text-sm">
-                              <span className="font-medium text-gray-900">Ticket resolved</span>
-                            </div>
-                            <p className="mt-0.5 text-sm text-gray-500">
-                              "Email delivery delay" resolved by Agent Smith
-                            </p>
-                          </div>
-                          <div className="mt-2 text-sm text-gray-500">
-                            <time>15 minutes ago</time>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div className="relative">
-                      <div className="relative flex space-x-3">
-                        <div>
-                          <span className="h-8 w-8 rounded-full bg-yellow-500 flex items-center justify-center ring-8 ring-white">
-                            <span className="text-white text-xs font-medium">A</span>
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div>
-                            <div className="text-sm">
-                              <span className="font-medium text-gray-900">Ticket assigned</span>
-                            </div>
-                            <p className="mt-0.5 text-sm text-gray-500">
-                              "Database connection timeout" assigned to you
-                            </p>
-                          </div>
-                          <div className="mt-2 text-sm text-gray-500">
-                            <time>1 hour ago</time>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </div>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-card p-6 rounded-lg border border-border">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            Recent Activity
+          </h2>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Recent tickets and updates will appear here...
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-card p-6 rounded-lg border border-border">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            Team Performance
+          </h2>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Team metrics and performance charts will appear here...
+            </p>
           </div>
         </div>
       </div>

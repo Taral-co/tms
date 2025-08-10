@@ -1,0 +1,24 @@
+{
+  "name": "@tms/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TMS Frontend Workspace",
+  "scripts": {
+    "dev": "pnpm --parallel run dev",
+    "build": "pnpm --recursive run build",
+    "type-check": "pnpm --recursive run type-check",
+    "lint": "pnpm --recursive run lint",
+    "test": "pnpm --recursive run test",
+    "clean": "pnpm --recursive exec rm -rf dist node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.2.0",
+    "vite": "^5.0.0"
+  },
+  "workspaces": [
+    "shared",
+    "agent-console", 
+    "public-view"
+  ]
+}
