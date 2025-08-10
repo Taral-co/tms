@@ -31,12 +31,19 @@ interface ApiKey {
   is_active: boolean
 }
 
+interface AgentProject {
+  id: string
+  name: string
+  role: string
+}
+
 export function SettingsPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<SettingsTab>((searchParams.get('tab') as SettingsTab) || 'projects')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   // Projects state
   const [projects, setProjects] = useState<Project[]>([])
@@ -101,6 +108,12 @@ export function SettingsPage() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null)
 
+  // Project assignment states
+  const [showProjectAssignment, setShowProjectAssignment] = useState(false)
+  const [selectedAgentForAssignment, setSelectedAgentForAssignment] = useState<Agent | null>(null)
+  const [agentProjects, setAgentProjects] = useState<Record<string, AgentProject[]>>({})
+  const [availableRoles] = useState(['agent', 'supervisor', 'project_admin'])
+
   const tabs = [
     { id: 'projects' as SettingsTab, name: 'Projects', icon: Settings },
     { id: 'roles' as SettingsTab, name: 'Roles & Users', icon: Users },
@@ -133,6 +146,19 @@ export function SettingsPage() {
           // Load agents with their roles
           const agentList = await apiClient.getAgents()
           setAgents(agentList)
+          
+          // Load project assignments for each agent
+          const projectAssignments: Record<string, AgentProject[]> = {}
+          for (const agent of agentList) {
+            try {
+              const assignments = await apiClient.getAgentProjects(agent.id)
+              projectAssignments[agent.id] = assignments
+            } catch (err) {
+              console.warn(`Failed to load projects for agent ${agent.id}:`, err)
+              projectAssignments[agent.id] = []
+            }
+          }
+          setAgentProjects(projectAssignments)
           break
         case 'email':
           try {
@@ -303,6 +329,35 @@ export function SettingsPage() {
       setError('Failed to delete agent')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Project assignment handlers
+  const handleAssignProject = async (agentId: string, projectId: string, role: string = 'agent') => {
+    try {
+      await apiClient.assignAgentToProject(agentId, projectId, role)
+      // Refresh agent projects
+      const updatedProjects = await apiClient.getAgentProjects(agentId)
+      setAgentProjects(prev => ({ ...prev, [agentId]: updatedProjects }))
+      setSuccessMessage('Agent assigned to project successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError(`Failed to assign project: ${err.response?.data?.error || err.message}`)
+      setTimeout(() => setError(null), 5000)
+    }
+  }
+
+  const handleRemoveProject = async (agentId: string, projectId: string) => {
+    try {
+      await apiClient.removeAgentFromProject(agentId, projectId)
+      // Refresh agent projects
+      const updatedProjects = await apiClient.getAgentProjects(agentId)
+      setAgentProjects(prev => ({ ...prev, [agentId]: updatedProjects }))
+      setSuccessMessage('Agent removed from project successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError(`Failed to remove project: ${err.response?.data?.error || err.message}`)
+      setTimeout(() => setError(null), 5000)
     }
   }
 
@@ -669,6 +724,9 @@ export function SettingsPage() {
                 Role
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Projects
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -682,7 +740,7 @@ export function SettingsPage() {
           <tbody className="bg-background divide-y divide-border">
             {agents.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
                   No users found. Add your first team member to get started.
                 </td>
               </tr>
@@ -698,6 +756,53 @@ export function SettingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-foreground">
                       {agent.roles?.map(role => role.role).join(', ') || 'No roles'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="space-y-2">
+                      {agentProjects[agent.id]?.length > 0 ? (
+                        <>
+                          {agentProjects[agent.id].map((project) => (
+                            <div key={project.id} className="flex items-center justify-between bg-muted/30 rounded px-2 py-1">
+                              <span className="text-xs font-medium">{project.name}</span>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-xs text-muted-foreground">{project.role}</span>
+                                <button
+                                  onClick={() => handleRemoveProject(agent.id, project.id)}
+                                  className="text-destructive hover:text-destructive/80 ml-1"
+                                  title="Remove from project"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No projects assigned</span>
+                      )}
+                      <div className="flex items-center space-x-1">
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleAssignProject(agent.id, e.target.value)
+                              e.target.value = ''
+                            }
+                          }}
+                          className="text-xs px-2 py-1 border rounded bg-[var(--card)] text-[var(--card-fg)]"
+                          defaultValue=""
+                        >
+                          <option value="">Assign to project...</option>
+                          {projects
+                            .filter(p => !agentProjects[agent.id]?.some(ap => ap.id === p.id))
+                            .map(project => (
+                              <option key={project.id} value={project.id}>
+                                {project.name}
+                              </option>
+                            ))
+                          }
+                        </select>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -1447,6 +1552,12 @@ export function SettingsPage() {
       {error && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
           <p className="text-destructive text-sm">{error}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-green-800 text-sm">{successMessage}</p>
         </div>
       )}
 

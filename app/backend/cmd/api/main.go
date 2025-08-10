@@ -60,6 +60,7 @@ func main() {
 	emailRepo := repo.NewEmailRepo(database.DB)
 	apiKeyRepo := repo.NewApiKeyRepository(database.DB)
 	settingsRepo := repo.NewSettingsRepository(database.DB.DB)
+	tenantRepo := repo.NewTenantRepository(database.DB.DB)
 
 	// Initialize mail service
 	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -69,6 +70,7 @@ func main() {
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
 	projectService := service.NewProjectService(projectRepo)
 	agentService := service.NewAgentService(agentRepo, rbacService)
+	tenantService := service.NewTenantService(tenantRepo, agentRepo, rbacService)
 	// customerService := service.NewCustomerService(customerRepo, rbacService) // Reserved for future use
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService)
 	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
@@ -95,9 +97,10 @@ func main() {
 	agentHandler := handlers.NewAgentHandler(agentService)
 	apiKeyHandler := handlers.NewApiKeyHandler(apiKeyRepo)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
+	tenantHandler := handlers.NewTenantHandler(tenantService)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, agentHandler, apiKeyHandler, settingsHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler)
 
 	// Start background services
 	if cfg.Email.EnableEmailToTicket {
@@ -144,7 +147,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -172,6 +175,13 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 	{
 		authRoutes.POST("/login", authHandler.Login)
 		authRoutes.POST("/refresh", authHandler.Refresh)
+	}
+
+	// Enterprise admin routes (protected by auth middleware but cross-tenant)
+	enterprise := router.Group("/v1/enterprise")
+	enterprise.Use(middleware.AuthMiddleware(jwtAuth))
+	{
+		enterprise.GET("/tenants", tenantHandler.ListTenants)
 	}
 
 	// API routes (protected by auth middleware)
@@ -204,6 +214,10 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			api.POST("/agents/:agent_id/roles", agentHandler.AssignRole)
 			api.DELETE("/agents/:agent_id/roles", agentHandler.RemoveRole)
 			api.GET("/agents/:agent_id/roles", agentHandler.GetAgentRoles)
+			// Project assignment endpoints
+			api.POST("/agents/:agent_id/projects/:project_id", agentHandler.AssignToProject)
+			api.DELETE("/agents/:agent_id/projects/:project_id", agentHandler.RemoveFromProject)
+			api.GET("/agents/:agent_id/projects", agentHandler.GetAgentProjects)
 		}
 
 		// API Key management endpoints

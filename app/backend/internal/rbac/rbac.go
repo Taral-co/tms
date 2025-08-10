@@ -291,7 +291,7 @@ func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID, 
 	query := `
 		INSERT INTO agent_project_roles (agent_id, tenant_id, project_id, role, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
-		ON CONFLICT (agent_id, tenant_id, COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid))
+		ON CONFLICT (agent_id, project_id)
 		DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
 	`
 

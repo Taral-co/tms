@@ -158,6 +158,12 @@ export interface Agent {
   }>
 }
 
+export interface AgentProject {
+  id: string
+  name: string
+  role: string
+}
+
 export interface Integration {
   id: string
   name: string
@@ -271,6 +277,21 @@ class APIClient {
     localStorage.setItem('project_id', projectId)
   }
 
+  // Enterprise admin endpoints (cross-tenant)
+  async getTenants(): Promise<Array<{id: string, name: string, status: string, region: string, created_at: string, updated_at: string}>> {
+    // Use enterprise route that bypasses tenant-scoped interceptor
+    const enterpriseClient = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      },
+    })
+    
+    const response = await enterpriseClient.get('/enterprise/tenants')
+    return response.data.tenants || []
+  }
+
   // Auth endpoints
   async login(data: LoginRequest): Promise<LoginResponse> {
     const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
@@ -371,7 +392,7 @@ class APIClient {
   // Agent endpoints (tenant-scoped)
   async getAgents(): Promise<Agent[]> {
     const response = await this.client.get('/agents')
-    return response.data.data || []
+    return response.data.agents || []
   }
 
   async createAgent(data: { name: string; email: string; password: string; role: string }): Promise<Agent> {
@@ -386,6 +407,20 @@ class APIClient {
 
   async deleteAgent(id: string): Promise<void> {
     await this.client.delete(`/agents/${id}`)
+  }
+
+  // Agent project assignment endpoints
+  async getAgentProjects(agentId: string): Promise<AgentProject[]> {
+    const response = await this.client.get(`/agents/${agentId}/projects`)
+    return response.data.projects || []
+  }
+
+  async assignAgentToProject(agentId: string, projectId: string, role: string): Promise<void> {
+    await this.client.post(`/agents/${agentId}/projects/${projectId}`, { role })
+  }
+
+  async removeAgentFromProject(agentId: string, projectId: string): Promise<void> {
+    await this.client.delete(`/agents/${agentId}/projects/${projectId}`)
   }
 
   // Ticket endpoints

@@ -283,3 +283,96 @@ func (h *AgentHandler) GetAgentRoles(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"roles": roles})
 }
+
+// AssignToProject handles POST /agents/:agent_id/projects/:project_id
+func (h *AgentHandler) AssignToProject(c *gin.Context) {
+	tenantIDStr := c.Param("tenant_id")
+	agentIDStr := c.Param("agent_id")
+	projectIDStr := c.Param("project_id")
+
+	// Get assigner agent ID from JWT claims
+	assignerAgentIDInterface, exists := c.Get("agent_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+		return
+	}
+
+	assignerAgentID, ok := assignerAgentIDInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+		return
+	}
+
+	var req service.AssignToProjectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Set the project ID from URL parameter
+	req.ProjectID = projectIDStr
+
+	err := h.agentService.AssignToProject(c.Request.Context(), tenantIDStr, agentIDStr, assignerAgentID, req)
+	if err != nil {
+		log.Printf("Failed to assign agent to project: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign agent to project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Agent assigned to project successfully"})
+}
+
+// RemoveFromProject handles DELETE /agents/:agent_id/projects/:project_id
+func (h *AgentHandler) RemoveFromProject(c *gin.Context) {
+	tenantIDStr := c.Param("tenant_id")
+	agentIDStr := c.Param("agent_id")
+	projectIDStr := c.Param("project_id")
+
+	// Get remover agent ID from JWT claims
+	removerAgentIDInterface, exists := c.Get("agent_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+		return
+	}
+
+	removerAgentID, ok := removerAgentIDInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+		return
+	}
+
+	err := h.agentService.RemoveFromProject(c.Request.Context(), tenantIDStr, agentIDStr, projectIDStr, removerAgentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove agent from project"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Agent removed from project successfully"})
+}
+
+// GetAgentProjects handles GET /agents/:agent_id/projects
+func (h *AgentHandler) GetAgentProjects(c *gin.Context) {
+	tenantIDStr := c.Param("tenant_id")
+	agentIDStr := c.Param("agent_id")
+
+	// Get requestor agent ID from JWT claims
+	requestorAgentIDInterface, exists := c.Get("agent_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+		return
+	}
+
+	requestorAgentID, ok := requestorAgentIDInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+		return
+	}
+
+	projects, err := h.agentService.GetAgentProjects(c.Request.Context(), tenantIDStr, agentIDStr, requestorAgentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get agent projects"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"projects": projects})
+}

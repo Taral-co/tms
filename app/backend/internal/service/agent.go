@@ -349,3 +349,115 @@ func (s *AgentService) DeleteAgent(ctx context.Context, tenantID, agentID, delet
 
 	return nil
 }
+
+// AssignToProjectRequest represents a project assignment request
+type AssignToProjectRequest struct {
+	ProjectID string `json:"project_id" validate:"required"`
+	Role      string `json:"role" validate:"required,oneof=admin agent supervisor viewer"`
+}
+
+// AssignToProject assigns an agent to a project with a specific role
+func (s *AgentService) AssignToProject(ctx context.Context, tenantID, agentID, assignerAgentID string, req AssignToProjectRequest) error {
+	// Check permissions - only admins can assign agents to projects
+	hasPermission, err := s.rbacService.CheckPermission(ctx, assignerAgentID, tenantID, "", rbac.PermAgentWrite)
+	if err != nil {
+		return fmt.Errorf("failed to check permission: %w", err)
+	}
+	if !hasPermission {
+		return fmt.Errorf("insufficient permissions")
+	}
+
+	// Assign the role for the specific project
+	err = s.rbacService.AssignRole(ctx, agentID, tenantID, req.ProjectID, req.Role)
+	if err != nil {
+		return fmt.Errorf("failed to assign agent to project: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveFromProject removes an agent from a project
+func (s *AgentService) RemoveFromProject(ctx context.Context, tenantID, agentID, projectID, removerAgentID string) error {
+	// Check permissions - only admins can remove agents from projects
+	hasPermission, err := s.rbacService.CheckPermission(ctx, removerAgentID, tenantID, "", rbac.PermAgentWrite)
+	if err != nil {
+		return fmt.Errorf("failed to check permission: %w", err)
+	}
+	if !hasPermission {
+		return fmt.Errorf("insufficient permissions")
+	}
+
+	// Get the agent's current role in this project first
+	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agentID, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to get role bindings: %w", err)
+	}
+
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		return fmt.Errorf("invalid project ID: %w", err)
+	}
+
+	// Find the role for this specific project
+	var roleToRemove string
+	for _, binding := range roleBindings {
+		if binding.ProjectID != nil && *binding.ProjectID == projectUUID {
+			roleToRemove = binding.Role
+			break
+		}
+	}
+
+	if roleToRemove == "" {
+		return fmt.Errorf("agent is not assigned to this project")
+	}
+
+	// Remove the role for the specific project
+	err = s.rbacService.RemoveRole(ctx, agentID, tenantID, projectID, roleToRemove)
+	if err != nil {
+		return fmt.Errorf("failed to remove agent from project: %w", err)
+	}
+
+	return nil
+}
+
+// AgentProject represents a project that an agent is assigned to
+type AgentProject struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
+
+// GetAgentProjects retrieves all projects an agent is assigned to
+func (s *AgentService) GetAgentProjects(ctx context.Context, tenantID, agentID, requestorAgentID string) ([]*AgentProject, error) {
+	// Agents can view their own projects, admins can view any agent's projects
+	if agentID != requestorAgentID {
+		hasPermission, err := s.rbacService.CheckPermission(ctx, requestorAgentID, tenantID, "", rbac.PermAgentRead)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check permission: %w", err)
+		}
+		if !hasPermission {
+			return nil, fmt.Errorf("insufficient permissions")
+		}
+	}
+
+	// Get the agent's role bindings
+	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agentID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role bindings: %w", err)
+	}
+
+	// TODO: We need a project repository to get project names
+	// For now, we'll just return project IDs and roles
+	var projects []*AgentProject
+	for _, binding := range roleBindings {
+		if binding.ProjectID != nil {
+			projects = append(projects, &AgentProject{
+				ID:   binding.ProjectID.String(),
+				Name: "Project " + binding.ProjectID.String()[:8], // Placeholder name
+				Role: binding.Role,
+			})
+		}
+	}
+
+	return projects, nil
+}
