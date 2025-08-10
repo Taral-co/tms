@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/bareuptime/tms/internal/middleware"
+	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -81,18 +82,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Determine primary role (use tenant_admin if available, otherwise first role found)
-	primaryRole := "agent" // default
+	primaryRole := models.RoleAgent.String() // default
 	for _, roles := range response.RoleBindings {
 		for _, role := range roles {
-			if role == "tenant_admin" {
+			if role == models.RoleTenantAdmin.String() {
 				primaryRole = role
 				break
 			}
-			if primaryRole == "agent" { // Only set if we haven't found a better role
+			if primaryRole == models.RoleAgent.String() { // Only set if we haven't found a better role
 				primaryRole = role
 			}
 		}
-		if primaryRole == "tenant_admin" {
+		if primaryRole == models.RoleTenantAdmin.String() {
 			break
 		}
 	}

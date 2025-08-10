@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -47,7 +48,7 @@ func (h *ProjectHandler) ListProjects(c *gin.Context) {
 
 	// Simple check: if agent is tenant_admin for this tenant, return all projects
 	rolesWithTenant := c.GetStringSlice("role_bindings")
-	if slices.Contains(rolesWithTenant, "tenant_admin") {
+	if slices.Contains(rolesWithTenant, models.RoleTenantAdmin.String()) {
 		projects, err := h.projectService.ListProjects(c.Request.Context(), tenantID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list projects"})

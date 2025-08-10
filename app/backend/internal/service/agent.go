@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/bareuptime/tms/internal/db"
+	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/rbac"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/google/uuid"
@@ -30,10 +31,10 @@ func NewAgentService(agentRepo repo.AgentRepository, projectRepo repo.ProjectRep
 
 // CreateAgentRequest represents an agent creation request
 type CreateAgentRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Name     string `json:"name" validate:"required,min=1,max=255"`
-	Password string `json:"password" validate:"required,min=8"`
-	Role     string `json:"role" validate:"required,oneof=admin agent viewer"`
+	Email    string          `json:"email" validate:"required,email"`
+	Name     string          `json:"name" validate:"required,min=1,max=255"`
+	Password string          `json:"password" validate:"required,min=8"`
+	Role     models.RoleType `json:"role" validate:"required"`
 }
 
 // CreateAgent creates a new agent
@@ -226,8 +227,8 @@ func (s *AgentService) ListAgents(ctx context.Context, tenantID, requestorAgentI
 
 // AssignRoleRequest represents a role assignment request
 type AssignRoleRequest struct {
-	Role      string  `json:"role" validate:"required,oneof=admin agent viewer"`
-	ProjectID *string `json:"project_id,omitempty"`
+	Role      models.RoleType `json:"role" validate:"required"`
+	ProjectID *string         `json:"project_id,omitempty"`
 }
 
 // AssignRole assigns a role to an agent
@@ -268,8 +269,8 @@ func (s *AgentService) AssignRole(ctx context.Context, tenantID, agentID, assign
 
 // RemoveRoleRequest represents a role removal request
 type RemoveRoleRequest struct {
-	Role      string  `json:"role" validate:"required,oneof=admin agent viewer"`
-	ProjectID *string `json:"project_id,omitempty"`
+	Role      models.RoleType `json:"role" validate:"required"`
+	ProjectID *string         `json:"project_id,omitempty"`
 }
 
 // RemoveRole removes a role from an agent
@@ -355,23 +356,15 @@ func (s *AgentService) DeleteAgent(ctx context.Context, tenantID, agentID, delet
 
 // AssignToProjectRequest represents a project assignment request
 type AssignToProjectRequest struct {
-	ProjectID string `json:"project_id" validate:"required"`
-	Role      string `json:"role" validate:"required,oneof=admin agent supervisor viewer"`
+	ProjectID string          `json:"project_id" validate:"required"`
+	Role      models.RoleType `json:"role" validate:"required"`
 }
 
 // AssignToProject assigns an agent to a project with a specific role
 func (s *AgentService) AssignToProject(ctx context.Context, tenantID, agentID, assignerAgentID string, req AssignToProjectRequest) error {
-	// Check permissions - only admins can assign agents to projects
-	hasPermission, err := s.rbacService.CheckPermission(ctx, assignerAgentID, tenantID, "", rbac.PermAgentWrite)
-	if err != nil {
-		return fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return fmt.Errorf("insufficient permissions")
-	}
 
 	// Assign the role for the specific project
-	err = s.rbacService.AssignRole(ctx, agentID, tenantID, req.ProjectID, req.Role)
+	err := s.rbacService.AssignRole(ctx, agentID, tenantID, req.ProjectID, req.Role)
 	if err != nil {
 		return fmt.Errorf("failed to assign agent to project: %w", err)
 	}
@@ -402,7 +395,7 @@ func (s *AgentService) RemoveFromProject(ctx context.Context, tenantID, agentID,
 	}
 
 	// Find the role for this specific project
-	var roleToRemove string
+	var roleToRemove models.RoleType
 	for _, binding := range roleBindings {
 		if binding.ProjectID != nil && *binding.ProjectID == projectUUID {
 			roleToRemove = binding.Role
@@ -425,9 +418,9 @@ func (s *AgentService) RemoveFromProject(ctx context.Context, tenantID, agentID,
 
 // AgentProject represents a project that an agent is assigned to
 type AgentProject struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Role string `json:"role"`
+	ID   string          `json:"id"`
+	Name string          `json:"name"`
+	Role models.RoleType `json:"role"`
 }
 
 // GetAgentProjects retrieves all projects an agent is assigned to

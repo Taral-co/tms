@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -47,21 +48,68 @@ type AgentProjectRole struct {
 	AgentID   uuid.UUID `db:"agent_id" json:"agent_id"`
 	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
 	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
-	Role      string    `db:"role" json:"role"`
+	Role      RoleType  `db:"role" json:"role"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
+// RoleType represents a system role enum
+type RoleType string
+
+// Define all system roles as constants
+const (
+	RoleTenantAdmin  RoleType = "tenant_admin"
+	RoleProjectAdmin RoleType = "project_admin"
+	RoleSupervisor   RoleType = "supervisor"
+	RoleAgent        RoleType = "agent"
+	RoleReadOnly     RoleType = "read_only"
+)
+
+// AllRoles returns all valid roles
+func AllRoles() []RoleType {
+	return []RoleType{
+		RoleTenantAdmin,
+		RoleProjectAdmin,
+		RoleSupervisor,
+		RoleAgent,
+		RoleReadOnly,
+	}
+}
+
+// String returns the string representation of the role
+func (r RoleType) String() string {
+	return string(r)
+}
+
+// IsValid checks if the role is valid
+func (r RoleType) IsValid() bool {
+	switch r {
+	case RoleTenantAdmin, RoleProjectAdmin, RoleSupervisor, RoleAgent, RoleReadOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// ParseRole parses a string into a RoleType
+func ParseRole(s string) (RoleType, error) {
+	r := RoleType(s)
+	if !r.IsValid() {
+		return "", fmt.Errorf("invalid role: %s", s)
+	}
+	return r, nil
+}
+
 // Role represents a role in the system
 type Role struct {
-	Role        string `db:"role" json:"role"`
-	Description string `db:"description" json:"description"`
+	Role        RoleType `db:"role" json:"role"`
+	Description string   `db:"description" json:"description"`
 }
 
 // RolePermission represents a permission for a role
 type RolePermission struct {
-	Role       string `db:"role" json:"role"`
-	Permission string `db:"perm" json:"permission"`
+	Role       RoleType `db:"role" json:"role"`
+	Permission string   `db:"perm" json:"permission"`
 }
 
 // Customer represents a customer

@@ -50,11 +50,13 @@ func (s *Service) GenerateAccessToken(agentID, tenantID, email string, roleBindi
 	now := time.Now()
 	jti := uuid.New().String()
 
+	fmt.Println("Generating access token for agent:", roleBindings)
+
 	// Check if roleBindings contains "tenant_admin" role in any of the role lists
 	isTenantAdmin := false
 	for _, roles := range roleBindings {
 		for _, role := range roles {
-			if role == "tenant_admin" {
+			if role == models.RoleTenantAdmin.String() {
 				isTenantAdmin = true
 				break
 			}
@@ -111,7 +113,7 @@ func (s *Service) GenerateTokens(agent *models.Agent, roleBindings map[string][]
 	isTenantAdmin := false
 	for _, roles := range roleBindings {
 		for _, role := range roles {
-			if role == "tenant_admin" {
+			if role == models.RoleTenantAdmin.String() {
 				isTenantAdmin = true
 				break
 			}

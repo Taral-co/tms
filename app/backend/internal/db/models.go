@@ -3,6 +3,7 @@ package db
 import (
 	"time"
 
+	"github.com/bareuptime/tms/internal/models"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
@@ -43,24 +44,24 @@ type Agent struct {
 
 // AgentProjectRole represents role binding between agents and projects
 type AgentProjectRole struct {
-	AgentID   uuid.UUID `db:"agent_id" json:"agent_id"`
-	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
-	Role      string    `db:"role" json:"role" validate:"required"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	AgentID   uuid.UUID       `db:"agent_id" json:"agent_id"`
+	TenantID  uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	ProjectID uuid.UUID       `db:"project_id" json:"project_id"`
+	Role      models.RoleType `db:"role" json:"role" validate:"required"`
+	CreatedAt time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // Role represents a system role
 type Role struct {
-	Role        string `db:"role" json:"role" validate:"required"`
-	Description string `db:"description" json:"description"`
+	Role        models.RoleType `db:"role" json:"role" validate:"required"`
+	Description string          `db:"description" json:"description"`
 }
 
 // RolePermission represents permissions for a role
 type RolePermission struct {
-	Role string `db:"role" json:"role" validate:"required"`
-	Perm string `db:"perm" json:"perm" validate:"required"`
+	Role models.RoleType `db:"role" json:"role" validate:"required"`
+	Perm string          `db:"perm" json:"perm" validate:"required"`
 }
 
 // Customer represents an external customer
@@ -194,12 +195,12 @@ type AuditLog struct {
 
 // RoleBinding represents an agent's role binding to a project
 type RoleBinding struct {
-	AgentID   uuid.UUID  `db:"agent_id" json:"agent_id"`
-	TenantID  uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	ProjectID *uuid.UUID `db:"project_id" json:"project_id,omitempty"`
-	Role      string     `db:"role" json:"role"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+	AgentID   uuid.UUID       `db:"agent_id" json:"agent_id"`
+	TenantID  uuid.UUID       `db:"tenant_id" json:"tenant_id"`
+	ProjectID *uuid.UUID      `db:"project_id" json:"project_id,omitempty"`
+	Role      models.RoleType `db:"role" json:"role"`
+	CreatedAt time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // ApiKey represents an API key for tenant/project access

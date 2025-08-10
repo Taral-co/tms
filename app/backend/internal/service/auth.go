@@ -39,7 +39,7 @@ func (s *AuthService) convertRoleBindings(roleBindings []*db.RoleBinding) map[st
 		if result[projectKey] == nil {
 			result[projectKey] = []string{}
 		}
-		result[projectKey] = append(result[projectKey], binding.Role)
+		result[projectKey] = append(result[projectKey], binding.Role.String())
 	}
 	return result
 }
@@ -87,6 +87,8 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role bindings: %w", err)
 	}
+
+	fmt.Println("Role bindings:", roleBindings)
 
 	// Generate tokens
 	accessToken, err := s.authService.GenerateAccessToken(

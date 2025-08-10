@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/bareuptime/tms/internal/db"
+	"github.com/bareuptime/tms/internal/models"
 	"github.com/google/uuid"
 )
 
@@ -35,14 +36,14 @@ const (
 
 // Role represents a role with its permissions
 type Role struct {
-	Name        string
+	Name        models.RoleType
 	Permissions []Permission
 }
 
 // Define roles
 var (
 	RoleTenantAdmin = Role{
-		Name: "tenant_admin",
+		Name: models.RoleTenantAdmin,
 		Permissions: []Permission{
 			PermTicketRead, PermTicketWrite, PermTicketAdmin,
 			PermAgentRead, PermAgentWrite,
@@ -52,7 +53,7 @@ var (
 	}
 
 	RoleProjectAdmin = Role{
-		Name: "project_admin",
+		Name: models.RoleProjectAdmin,
 		Permissions: []Permission{
 			PermTicketRead, PermTicketWrite, PermTicketAdmin,
 			PermAgentRead, PermAgentWrite,
@@ -62,7 +63,7 @@ var (
 	}
 
 	RoleSupervisor = Role{
-		Name: "supervisor",
+		Name: models.RoleSupervisor,
 		Permissions: []Permission{
 			PermTicketRead, PermTicketWrite,
 			PermAgentRead,
@@ -72,7 +73,7 @@ var (
 	}
 
 	RoleAgent = Role{
-		Name: "agent",
+		Name: models.RoleAgent,
 		Permissions: []Permission{
 			PermTicketRead, PermTicketWrite,
 			PermCustomerRead, PermCustomerWrite,
@@ -80,7 +81,7 @@ var (
 	}
 
 	RoleReadOnly = Role{
-		Name: "read_only",
+		Name: models.RoleReadOnly,
 		Permissions: []Permission{
 			PermTicketRead,
 			PermCustomerRead,
@@ -107,12 +108,12 @@ var (
 	}
 )
 
-var roleMap = map[string]Role{
-	"tenant_admin":  RoleTenantAdmin,
-	"project_admin": RoleProjectAdmin,
-	"supervisor":    RoleSupervisor,
-	"agent":         RoleAgent,
-	"read_only":     RoleReadOnly,
+var roleMap = map[models.RoleType]Role{
+	models.RoleTenantAdmin:  RoleTenantAdmin,
+	models.RoleProjectAdmin: RoleProjectAdmin,
+	models.RoleSupervisor:   RoleSupervisor,
+	models.RoleAgent:        RoleAgent,
+	models.RoleReadOnly:     RoleReadOnly,
 	// Legacy roles
 	"admin":  RoleAdmin,
 	"viewer": RoleViewer,
@@ -159,7 +160,7 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 		log.Printf("Checking binding: Role=%s, ProjectID=%v", binding.Role, binding.ProjectID)
 
 		// tenant_admin role grants access to ALL projects in the tenant
-		if binding.Role == "tenant_admin" {
+		if binding.Role == models.RoleTenantAdmin {
 			log.Printf("Found tenant_admin role - granting access")
 			if s.hasPermission(binding.Role, permission) {
 				log.Printf("Permission granted via tenant_admin role")
@@ -188,7 +189,7 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 					log.Printf("Permission granted via tenant-level role: %s", binding.Role)
 					return true, nil
 				}
-			} else if binding.Role == "tenant_admin" {
+			} else if binding.Role == models.RoleTenantAdmin {
 				// tenant_admin project roles also grant tenant-level permissions
 				log.Printf("Checking tenant_admin project role for tenant-level permission")
 				if s.hasPermission(binding.Role, permission) {
@@ -205,7 +206,7 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 }
 
 // hasPermission checks if a role has a specific permission
-func (s *Service) hasPermission(roleName string, permission Permission) bool {
+func (s *Service) hasPermission(roleName models.RoleType, permission Permission) bool {
 	log.Printf("hasPermission called: roleName=%s, permission=%s", roleName, permission)
 
 	role, exists := roleMap[roleName]
@@ -272,7 +273,7 @@ func (s *Service) GetAgentRoleBindings(ctx context.Context, agentID, tenantID st
 }
 
 // AssignRole assigns a role to an agent
-func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID, role string) error {
+func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID string, role models.RoleType) error {
 	agentUUID, err := uuid.Parse(agentID)
 	if err != nil {
 		return fmt.Errorf("invalid agent ID: %w", err)
@@ -313,7 +314,7 @@ func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID, 
 }
 
 // RemoveRole removes a role from an agent
-func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID, role string) error {
+func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID string, role models.RoleType) error {
 	agentUUID, err := uuid.Parse(agentID)
 	if err != nil {
 		return fmt.Errorf("invalid agent ID: %w", err)

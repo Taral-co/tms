@@ -68,11 +68,11 @@ CREATE TABLE role_permissions (
 CREATE TABLE agent_project_roles (
     agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     role VARCHAR(50) NOT NULL REFERENCES roles(role),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY(agent_id, project_id)
+    PRIMARY KEY(agent_id, tenant_id)
 );
 
 -- Create customers table

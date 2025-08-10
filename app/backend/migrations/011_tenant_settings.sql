@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 
 -- Create settings table for tenant-level configuration
-CREATE TABLE tenant_settings (
+CREATE TABLE IF NOT EXISTS tenant_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     setting_key VARCHAR(100) NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE tenant_settings (
     UNIQUE(tenant_id, setting_key)
 );
 
--- Create index for faster lookups
-CREATE INDEX idx_tenant_settings_tenant_key ON tenant_settings(tenant_id, setting_key);
+-- Create index for faster lookups (only if it doesn't exist)
+CREATE INDEX IF NOT EXISTS idx_tenant_settings_tenant_key ON tenant_settings(tenant_id, setting_key);
 
 -- Insert default settings for existing tenants
 INSERT INTO tenant_settings (tenant_id, setting_key, setting_value)
@@ -31,7 +31,8 @@ SELECT
         'enable_email_notifications', true,
         'enable_email_to_ticket', false
     ) as setting_value
-FROM tenants t;
+FROM tenants t
+ON CONFLICT (tenant_id, setting_key) DO NOTHING;
 
 INSERT INTO tenant_settings (tenant_id, setting_key, setting_value)
 SELECT 
@@ -49,7 +50,8 @@ SELECT
         'header_logo_height', 40,
         'enable_custom_branding', false
     ) as setting_value
-FROM tenants t;
+FROM tenants t
+ON CONFLICT (tenant_id, setting_key) DO NOTHING;
 
 INSERT INTO tenant_settings (tenant_id, setting_key, setting_value)
 SELECT 
@@ -64,7 +66,8 @@ SELECT
         'enable_auto_reply', false,
         'auto_reply_template', 'Thank you for contacting our support team. We have received your ticket and will respond within 24 hours.'
     ) as setting_value
-FROM tenants t;
+FROM tenants t
+ON CONFLICT (tenant_id, setting_key) DO NOTHING;
 
 -- +goose StatementEnd
 
