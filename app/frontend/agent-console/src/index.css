@@ -1,3 +1,6 @@
+/* Import enterprise theme tokens */
+@import '@tms/shared/src/theme/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

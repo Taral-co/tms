@@ -11,7 +11,9 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./src/theme/tokens.css": "./src/theme/tokens.css",
+    "./theme": "./src/theme/tokens.css"
   },
   "scripts": {
     "build": "tsc && vite build",
