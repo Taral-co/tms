@@ -7,6 +7,7 @@ import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { InboxPage } from './pages/InboxPage'
 import { TicketsPage } from './pages/TicketsPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { TicketDetailPage } from './pages/TicketDetailPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
@@ -51,6 +52,7 @@ function AppContent() {
         <Route path="/*" element={
           <AppShell>
             <Routes>
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/tickets" element={<TicketsPage />} />
               <Route path="/tickets/:id" element={<TicketDetailPage />} />
@@ -58,7 +60,7 @@ function AppContent() {
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="*" element={<Navigate to="/inbox" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </AppShell>
         } />

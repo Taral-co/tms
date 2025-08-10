@@ -72,17 +72,6 @@ Stack: **React + Vite + TypeScript + Tailwind + shadcn/ui + Radix**. Enforce **l
 - Axe a11y tests for key screens
 - Minimal Playwright/Cypress E2E: login → inbox → open ticket → reply (agent); open magic-link → view → reply (public)
 
-# Routing (default, customizable)
-**Agent Console**
-- `/login`, `/select-project`
-- `/t/:tenantId/p/:projectId/inbox`
-- `/t/:tenantId/p/:projectId/tickets/:ticketId`
-- `/t/:tenantId/p/:projectId/settings` (tabs: Projects, Roles, Email, Branding, Automations, API Keys)
-
-**Public**
-- `/public/t/:tenantId/p/:projectId/tickets/:ticketId?token=...`
-- `/public/expired`
-
 # Data & SDK
 - Use **React Query**; all fetchers in `/shared/src/sdk`.
 - `withTenantProject(tenantId, projectId)` helper returns a scoped client.

@@ -90,7 +90,7 @@ export function useAuth() {
       setIsLoading(false)
       
       // Navigate to inbox after successful login
-      navigate('/inbox')
+      window.location.assign("/dashboard")
     } catch (error: any) {
       setError(error.response?.data?.message || 'Login failed')
       setIsLoading(false)
