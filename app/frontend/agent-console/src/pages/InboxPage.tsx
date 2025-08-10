@@ -1,6 +1,41 @@
-import React, { useState, useCallback, useMemo } from 'react'
-import { Search, Filter, MoreHorizontal, Archive, Star, Reply, Forward, Trash2 } from 'lucide-react'
-import { Button, Input, Badge, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@tms/shared'
+import { useState, useCallback, useMemo } from 'react'
+import { Search, Filter, MoreHorizontal, Archive, Star, Trash2 } from 'lucide-react'
+
+// Temporary simplified UI components since @tms/shared may have build issues
+const Button = ({ children, variant = 'default', size = 'default', className = '', ...props }: any) => (
+  <button 
+    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
+      variant === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
+      variant === 'ghost' ? 'hover:bg-accent hover:text-accent-foreground' :
+      'bg-primary text-primary-foreground hover:bg-primary/90'
+    } ${
+      size === 'sm' ? 'h-9 px-3 rounded-md' : 'h-10 py-2 px-4'
+    } ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+)
+
+const Input = ({ className = '', ...props }: any) => (
+  <input
+    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    {...props}
+  />
+)
+
+const Badge = ({ children, variant = 'default', className = '' }: any) => (
+  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+    variant === 'destructive' ? 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80' :
+    variant === 'warning' ? 'border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' :
+    variant === 'success' ? 'border-transparent bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' :
+    variant === 'secondary' ? 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80' :
+    variant === 'outline' ? 'text-foreground' :
+    'border-transparent bg-primary text-primary-foreground hover:bg-primary/80'
+  } ${className}`}>
+    {children}
+  </span>
+)
 
 interface Ticket {
   id: string
@@ -47,6 +82,28 @@ const MOCK_TICKETS: Ticket[] = [
     lastMessage: 'Transaction failed with error code 500',
     updatedAt: '2024-01-20T08:45:00Z',
     unread: true
+  },
+  {
+    id: 'T-004',
+    subject: 'Website loading slowly',
+    customer: 'Emma Clark',
+    status: 'resolved',
+    priority: 'normal',
+    assignee: 'Charlie Brown',
+    lastMessage: 'Issue has been resolved by optimizing database queries',
+    updatedAt: '2024-01-19T16:20:00Z',
+    unread: false
+  },
+  {
+    id: 'T-005',
+    subject: 'Mobile app crashes on startup',
+    customer: 'David Lee',
+    status: 'open',
+    priority: 'urgent',
+    assignee: 'Alice Johnson',
+    lastMessage: 'Happening consistently on iOS 17.2',
+    updatedAt: '2024-01-20T11:45:00Z',
+    unread: true
   }
 ]
 
@@ -69,338 +126,200 @@ const getPriorityVariant = (priority: string) => {
     default: return 'default'
   }
 }
-    priority: 'high',
-    customer: { name: 'John Doe', email: 'john.doe@example.com' },
-    assignee: { name: 'Alice Agent', email: 'alice@acme.com' },
-    updated_at: '2025-08-10T05:30:00Z',
-    unread: true,
-    tags: ['mobile', 'login'],
-    sla_breached: false
-  },
-  {
-    id: '2',
-    number: 'TIC-002',
-    subject: 'Feature request: Dark mode',
-    status: 'in_progress',
-    priority: 'low',
-    customer: { name: 'Jane Smith', email: 'jane.smith@test.com' },
-    assignee: null,
-    updated_at: '2025-08-09T14:20:00Z',
-    unread: false,
-    tags: ['feature', 'ui'],
-    sla_breached: false
-  },
-  {
-    id: '3',
-    number: 'TIC-003',
-    subject: 'Server performance issues',
-    status: 'open',
-    priority: 'urgent',
-    customer: { name: 'Bob Wilson', email: 'bob.wilson@example.com' },
-    assignee: { name: 'Bob Agent', email: 'bob@acme.com' },
-    updated_at: '2025-08-10T02:15:00Z',
-    unread: true,
-    tags: ['performance', 'server'],
-    sla_breached: true
-  }
-]
-
-const filters = [
-  { id: 'all', name: 'All tickets', count: 156 },
-  { id: 'open', name: 'Open', count: 42 },
-  { id: 'assigned', name: 'Assigned to me', count: 12 },
-  { id: 'unassigned', name: 'Unassigned', count: 8 },
-  { id: 'overdue', name: 'Overdue', count: 3 }
-]
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'open':
-      return <Circle className="h-4 w-4" />
-    case 'in_progress':
-      return <Clock className="h-4 w-4" />
-    case 'resolved':
-      return <CheckCircle className="h-4 w-4" />
-    case 'closed':
-      return <CheckCircle className="h-4 w-4" />
-    default:
-      return <Circle className="h-4 w-4" />
-  }
-}
-
-const getPriorityIcon = (priority: string) => {
-  switch (priority) {
-    case 'urgent':
-      return <AlertTriangle className="h-4 w-4 text-red-500" />
-    case 'high':
-      return <Zap className="h-4 w-4 text-orange-500" />
-    default:
-      return null
-  }
-}
-
-const formatTimeAgo = (dateString: string) => {
-  const now = new Date()
-  const date = new Date(dateString)
-  const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-  
-  if (diffInHours < 1) return 'Just now'
-  if (diffInHours < 24) return `${diffInHours}h ago`
-  const diffInDays = Math.floor(diffInHours / 24)
-  return `${diffInDays}d ago`
-}
 
 export function InboxPage() {
-  const [selectedFilter, setSelectedFilter] = useState('all')
-  const [selectedTicket, setSelectedTicket] = useState(mockTickets[0])
+  const [selectedTickets, setSelectedTickets] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+
+  const filteredTickets = useMemo(() => {
+    return MOCK_TICKETS.filter(ticket => {
+      const matchesSearch = ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           ticket.customer.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesFilter = filterStatus === 'all' || ticket.status === filterStatus
+      return matchesSearch && matchesFilter
+    })
+  }, [searchQuery, filterStatus])
+
+  const handleSelectTicket = useCallback((ticketId: string) => {
+    setSelectedTickets(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(ticketId)) {
+        newSet.delete(ticketId)
+      } else {
+        newSet.add(ticketId)
+      }
+      return newSet
+    })
+  }, [])
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedTickets.size === filteredTickets.length) {
+      setSelectedTickets(new Set())
+    } else {
+      setSelectedTickets(new Set(filteredTickets.map(t => t.id)))
+    }
+  }, [selectedTickets.size, filteredTickets])
 
   return (
-    <div className="flex h-full">
-      {/* Filters Panel */}
-      <div className="w-64 border-r border-border bg-card">
-        <div className="p-4 border-b border-border">
-          <h2 className="font-semibold text-fg">Filters</h2>
-        </div>
-        <div className="p-2">
-          {filters.map((filter) => (
-            <button
-              key={filter.id}
-              onClick={() => setSelectedFilter(filter.id)}
-              className={`w-full flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors ${
-                selectedFilter === filter.id
-                  ? 'bg-primary text-primary-fg'
-                  : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
-              }`}
-            >
-              <span>{filter.name}</span>
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                selectedFilter === filter.id
-                  ? 'bg-primary-fg/20 text-primary-fg'
-                  : 'bg-bg-muted text-fg-muted'
-              }`}>
-                {filter.count}
-              </span>
-            </button>
-          ))}
+    <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      <div className="border-b bg-background px-6 py-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-foreground">Inbox</h1>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm">
+              <Filter className="w-4 h-4 mr-2" />
+              Filters
+            </Button>
+            <Button size="sm">
+              New Ticket
+            </Button>
+          </div>
         </div>
         
-        {/* Quick actions */}
-        <div className="p-4 border-t border-border mt-4">
-          <h3 className="font-medium text-fg mb-2">Quick Actions</h3>
-          <div className="space-y-1">
-            <button className="w-full text-left rounded-md px-3 py-2 text-sm text-fg-muted hover:bg-bg-muted hover:text-fg transition-colors">
-              Bulk assign
-            </button>
-            <button className="w-full text-left rounded-md px-3 py-2 text-sm text-fg-muted hover:bg-bg-muted hover:text-fg transition-colors">
-              Export CSV
-            </button>
+        {/* Search and filters */}
+        <div className="flex items-center gap-4 mt-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search tickets..."
+              value={searchQuery}
+              onChange={(e: any) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant={filterStatus === 'all' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setFilterStatus('all')}
+            >
+              All
+            </Button>
+            <Button 
+              variant={filterStatus === 'open' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setFilterStatus('open')}
+            >
+              Open
+            </Button>
+            <Button 
+              variant={filterStatus === 'pending' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setFilterStatus('pending')}
+            >
+              Pending
+            </Button>
+            <Button 
+              variant={filterStatus === 'resolved' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setFilterStatus('resolved')}
+            >
+              Resolved
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Tickets List */}
-      <div className="w-96 border-r border-border bg-card">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-fg">Tickets</h2>
-            <button className="rounded-md p-2 text-fg-muted hover:bg-bg-muted hover:text-fg transition-colors">
-              <Filter className="h-4 w-4" />
-            </button>
+      {/* Bulk actions */}
+      {selectedTickets.size > 0 && (
+        <div className="border-b bg-muted/50 px-6 py-3">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              {selectedTickets.size} ticket{selectedTickets.size > 1 ? 's' : ''} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">
+                <Archive className="w-4 h-4 mr-2" />
+                Archive
+              </Button>
+              <Button variant="outline" size="sm">
+                <Star className="w-4 h-4 mr-2" />
+                Star
+              </Button>
+              <Button variant="outline" size="sm">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </div>
           </div>
         </div>
-        
-        <div className="overflow-y-auto">
-          {mockTickets.map((ticket) => (
-            <div
-              key={ticket.id}
-              onClick={() => setSelectedTicket(ticket)}
-              className={`p-4 border-b border-border cursor-pointer transition-colors ${
-                selectedTicket?.id === ticket.id
-                  ? 'bg-primary/10 border-l-2 border-l-primary'
-                  : 'hover:bg-bg-muted'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    {ticket.unread && (
-                      <div className="h-2 w-2 rounded-full bg-primary"></div>
-                    )}
-                    <span className="text-xs font-medium text-fg-muted">
-                      {ticket.number}
-                    </span>
-                    {ticket.sla_breached && (
-                      <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
-                        SLA
-                      </span>
-                    )}
-                  </div>
-                  
-                  <h3 className="font-medium text-fg truncate">
-                    {ticket.subject}
-                  </h3>
-                  
-                  <div className="flex items-center space-x-2 mt-2 text-xs text-fg-muted">
-                    <div className="flex items-center space-x-1">
-                      {getStatusIcon(ticket.status)}
-                      <span className={`status-${ticket.status} px-2 py-1 rounded text-xs font-medium`}>
-                        {ticket.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    
-                    {getPriorityIcon(ticket.priority) && (
-                      <div className="flex items-center space-x-1">
-                        {getPriorityIcon(ticket.priority)}
-                        <span className={`priority-${ticket.priority} px-2 py-1 rounded text-xs font-medium`}>
-                          {ticket.priority}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-fg-muted truncate">
-                      {ticket.customer.name}
-                    </span>
-                    <span className="text-xs text-fg-muted">
-                      {formatTimeAgo(ticket.updated_at)}
-                    </span>
-                  </div>
-                  
-                  {ticket.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {ticket.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center px-2 py-1 rounded text-xs bg-bg-muted text-fg-muted"
-                        >
-                          <Tag className="h-3 w-3 mr-1" />
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Ticket Detail */}
-      <div className="flex-1 flex flex-col">
-        {selectedTicket ? (
-          <>
-            {/* Ticket Header */}
-            <div className="p-6 border-b border-border bg-card">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h1 className="text-xl font-semibold text-fg">
-                      {selectedTicket.subject}
-                    </h1>
-                    <span className="text-sm text-fg-muted">
-                      #{selectedTicket.number}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4 text-sm">
-                    <div className="flex items-center space-x-1">
-                      {getStatusIcon(selectedTicket.status)}
-                      <span className={`status-${selectedTicket.status} px-2 py-1 rounded font-medium`}>
-                        {selectedTicket.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-1">
-                      {getPriorityIcon(selectedTicket.priority)}
-                      <span className={`priority-${selectedTicket.priority} px-2 py-1 rounded font-medium`}>
-                        {selectedTicket.priority}
-                      </span>
-                    </div>
-                    
-                    {selectedTicket.assignee ? (
-                      <div className="flex items-center space-x-1">
-                        <User className="h-4 w-4" />
-                        <span>{selectedTicket.assignee.name}</span>
-                      </div>
-                    ) : (
-                      <span className="text-fg-muted">Unassigned</span>
-                    )}
-                  </div>
-                </div>
-                
-                <button className="rounded-md p-2 text-fg-muted hover:bg-bg-muted hover:text-fg transition-colors">
-                  <MoreHorizontal className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Ticket Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-4">
-                {/* Customer info */}
-                <div className="card p-4">
-                  <h3 className="font-medium text-fg mb-2">Customer</h3>
-                  <div className="space-y-1 text-sm">
-                    <div className="font-medium">{selectedTicket.customer.name}</div>
-                    <div className="text-fg-muted">{selectedTicket.customer.email}</div>
-                  </div>
-                </div>
-
-                {/* Timeline placeholder */}
-                <div className="card p-4">
-                  <h3 className="font-medium text-fg mb-4">Timeline</h3>
-                  <div className="space-y-4">
-                    <div className="flex space-x-3">
-                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                        <User className="h-4 w-4 text-primary-fg" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{selectedTicket.customer.name}</div>
-                        <div className="text-xs text-fg-muted mb-2">
-                          {formatTimeAgo(selectedTicket.updated_at)}
-                        </div>
-                        <div className="text-sm text-fg">
-                          I cannot login to the mobile app. It keeps saying "Invalid credentials" 
-                          even though I am using the correct password.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Reply editor */}
-                <div className="card p-4">
-                  <h3 className="font-medium text-fg mb-4">Reply</h3>
-                  <div className="space-y-3">
-                    <textarea
-                      placeholder="Write your reply..."
-                      className="w-full h-32 px-3 py-2 border border-input-border rounded-md bg-input text-fg placeholder-fg-muted resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+      {/* Tickets table */}
+      <div className="flex-1 overflow-auto">
+        <div className="relative w-full overflow-auto">
+          <table className="w-full caption-bottom text-sm">
+            <thead className="[&_tr]:border-b">
+              <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedTickets.size === filteredTickets.length && filteredTickets.length > 0}
+                    onChange={handleSelectAll}
+                    className="rounded border-input"
+                  />
+                </th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Ticket</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Customer</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Status</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Priority</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Assignee</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Last Updated</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 w-12"></th>
+              </tr>
+            </thead>
+            <tbody className="[&_tr:last-child]:border-0">
+              {filteredTickets.map((ticket) => (
+                <tr 
+                  key={ticket.id}
+                  className={`border-b transition-colors hover:bg-muted/50 cursor-pointer ${ticket.unread ? 'font-medium' : ''} ${selectedTickets.has(ticket.id) ? 'bg-muted/50' : ''}`}
+                >
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedTickets.has(ticket.id)}
+                      onChange={() => handleSelectTicket(ticket.id)}
+                      className="rounded border-input"
                     />
-                    <div className="flex justify-between items-center">
-                      <div className="flex space-x-2">
-                        <button className="btn btn-secondary text-sm">
-                          Attach
-                        </button>
-                        <button className="btn btn-secondary text-sm">
-                          Templates
-                        </button>
+                  </td>
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <div className="space-y-1">
+                      <div className="font-medium text-foreground flex items-center gap-2">
+                        {ticket.unread && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
+                        {ticket.subject}
                       </div>
-                      <button className="btn btn-primary">
-                        Send Reply
-                      </button>
+                      <div className="text-sm text-muted-foreground line-clamp-1">
+                        {ticket.lastMessage}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-fg-muted">
-            Select a ticket to view details
-          </div>
-        )}
+                  </td>
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 font-medium">{ticket.customer}</td>
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <Badge variant={getStatusVariant(ticket.status)}>
+                      {ticket.status}
+                    </Badge>
+                  </td>
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <Badge variant={getPriorityVariant(ticket.priority)}>
+                      {ticket.priority}
+                    </Badge>
+                  </td>
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">{ticket.assignee || 'Unassigned'}</td>
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    {new Date(ticket.updatedAt).toLocaleDateString()}
+                  </td>
+                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <Button variant="ghost" size="sm">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

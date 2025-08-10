@@ -154,7 +154,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                   {group}
                 </div>
-                {commands.map((command, index) => {
+                {commands.map((command) => {
                   const globalIndex = filteredCommands.findIndex(c => c.id === command.id)
                   return (
                     <div
