@@ -172,7 +172,7 @@ export function SettingsPage() {
                 type="text"
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
                 placeholder="Customer Support"
               />
             </div>
@@ -182,7 +182,7 @@ export function SettingsPage() {
                 type="text"
                 value={newProjectKey}
                 onChange={(e) => setNewProjectKey(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
                 placeholder="SUPPORT"
                 maxLength={10}
               />
@@ -292,7 +292,7 @@ export function SettingsPage() {
                 type="text"
                 value={newAgentName}
                 onChange={(e) => setNewAgentName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
                 placeholder="John Doe"
               />
             </div>
@@ -302,7 +302,7 @@ export function SettingsPage() {
                 type="email"
                 value={newAgentEmail}
                 onChange={(e) => setNewAgentEmail(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
                 placeholder="john@company.com"
               />
             </div>
@@ -321,7 +321,7 @@ export function SettingsPage() {
               <select
                 value={newAgentRole}
                 onChange={(e) => setNewAgentRole(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
               >
                 <option value="agent">Agent</option>
                 <option value="admin">Admin</option>
