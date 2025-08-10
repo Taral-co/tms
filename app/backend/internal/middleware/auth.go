@@ -108,6 +108,7 @@ func AuthMiddleware(jwtAuth *auth.Service) gin.HandlerFunc {
 		c.Set("agent_id", claims.AgentID)
 		c.Set("role_bindings", claims.RoleBindings)
 		c.Set("claims", claims)
+		c.Set("is_tenant_admin", claims.IsTenantAdmin)
 
 		c.Next()
 	}

@@ -1,69 +1,69 @@
 package service
 
 import (
-    "context"
-    "fmt"
-    "time"
+	"context"
+	"fmt"
+	"time"
 
-    "github.com/bareuptime/tms/internal/auth"
-    "github.com/bareuptime/tms/internal/db"
-    "github.com/bareuptime/tms/internal/repo"
-    "github.com/google/uuid"
+	"github.com/bareuptime/tms/internal/auth"
+	"github.com/bareuptime/tms/internal/db"
+	"github.com/bareuptime/tms/internal/repo"
+	"github.com/google/uuid"
 )
 
 // PublicService handles public operations (magic link access, etc.)
 type PublicService struct {
-    ticketRepo  repo.TicketRepository
-    messageRepo repo.TicketMessageRepository
-    jwtAuth     *auth.Service
+	ticketRepo  repo.TicketRepository
+	messageRepo repo.TicketMessageRepository
+	jwtAuth     *auth.Service
 }
 
 // NewPublicService creates a new public service
 func NewPublicService(
-    ticketRepo repo.TicketRepository,
-    messageRepo repo.TicketMessageRepository,
-    jwtAuth *auth.Service,
+	ticketRepo repo.TicketRepository,
+	messageRepo repo.TicketMessageRepository,
+	jwtAuth *auth.Service,
 ) *PublicService {
-    return &PublicService{
-        ticketRepo:  ticketRepo,
-        messageRepo: messageRepo,
-        jwtAuth:     jwtAuth,
-    }
+	return &PublicService{
+		ticketRepo:  ticketRepo,
+		messageRepo: messageRepo,
+		jwtAuth:     jwtAuth,
+	}
 }
 
 // AddPublicMessageRequest represents a request to add a public message to a ticket
 type AddPublicMessageRequest struct {
-    Body string `json:"body" validate:"required"`
+	Body string `json:"body" validate:"required"`
 }
 
 // GetTicketByMagicLink retrieves a ticket using a magic link token
 func (s *PublicService) GetTicketByMagicLink(ctx context.Context, magicToken string) (*db.Ticket, error) {
-    // Validate public ticket token
-    claims, err := s.jwtAuth.ValidatePublicToken(magicToken)
-    if err != nil {
-        return nil, fmt.Errorf("invalid magic link: %w", err)
-    }
+	// Validate public ticket token
+	claims, err := s.jwtAuth.ValidatePublicToken(magicToken)
+	if err != nil {
+		return nil, fmt.Errorf("invalid magic link: %w", err)
+	}
 
-    // Check token type
-    if claims.Sub != "public-ticket" {
-        return nil, fmt.Errorf("invalid token type")
-    }
+	// Check token type
+	if claims.Sub != "public-ticket" {
+		return nil, fmt.Errorf("invalid token type")
+	}
 
-    // Check expiration
-    if time.Now().Unix() > claims.Exp {
-        return nil, fmt.Errorf("magic link has expired")
-    }
+	// Check expiration
+	if time.Now().Unix() > claims.Exp {
+		return nil, fmt.Errorf("magic link has expired")
+	}
 
-    // Extract ticket information from claims
-    tenantID := claims.TenantID
-    projectID := claims.ProjectID
-    ticketID := claims.TicketID
+	// Extract ticket information from claims
+	tenantID := claims.TenantID
+	projectID := claims.ProjectID
+	ticketID := claims.TicketID
 
-    // Get ticket
-    ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
-    if err != nil {
-        return nil, fmt.Errorf("ticket not found: %w", err)
-    }
+	// Get ticket
+	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("ticket not found: %w", err)
+	}
 
 	return ticket, nil
 }
@@ -162,25 +162,24 @@ func (s *PublicService) AddMessageByMagicLink(ctx context.Context, magicToken st
 	}
 
 	return message, nil
-}// GenerateMagicLinkToken generates a magic link token for a ticket
+}
+
+// GenerateMagicLinkToken generates a magic link token for a ticket
 func (s *PublicService) GenerateMagicLinkToken(tenantID, projectID, ticketID, customerID string) (string, error) {
-    tenantUUID, err := uuid.Parse(tenantID)
-    if err != nil {
-        return "", fmt.Errorf("invalid tenant ID: %w", err)
-    }
-    
-    projectUUID, err := uuid.Parse(projectID)
-    if err != nil {
-        return "", fmt.Errorf("invalid project ID: %w", err)
-    }
-    
-    ticketUUID, err := uuid.Parse(ticketID)
-    if err != nil {
-        return "", fmt.Errorf("invalid ticket ID: %w", err)
-    }
-    
-    // For public ticket access, we don't need to include customer ID in the token
-    // The customer ownership is verified when the ticket is accessed
-    scope := []string{"read", "write"}
-    return s.jwtAuth.GeneratePublicToken(tenantUUID, projectUUID, ticketUUID, scope)
+	tenantUUID, _ := uuid.Parse(tenantID)
+
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		return "", fmt.Errorf("invalid project ID: %w", err)
+	}
+
+	ticketUUID, err := uuid.Parse(ticketID)
+	if err != nil {
+		return "", fmt.Errorf("invalid ticket ID: %w", err)
+	}
+
+	// For public ticket access, we don't need to include customer ID in the token
+	// The customer ownership is verified when the ticket is accessed
+	scope := []string{"read", "write"}
+	return s.jwtAuth.GeneratePublicToken(tenantUUID, projectUUID, ticketUUID, scope)
 }

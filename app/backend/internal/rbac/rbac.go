@@ -230,15 +230,8 @@ func (s *Service) hasPermission(roleName models.RoleType, permission Permission)
 
 // GetAgentRoleBindings retrieves all role bindings for an agent
 func (s *Service) GetAgentRoleBindings(ctx context.Context, agentID, tenantID string) ([]*db.RoleBinding, error) {
-	agentUUID, err := uuid.Parse(agentID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid agent ID: %w", err)
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid tenant ID: %w", err)
-	}
+	agentUUID, _ := uuid.Parse(agentID)
+	tenantUUID, _ := uuid.Parse(tenantID)
 
 	query := `
 		SELECT agent_id, tenant_id, project_id, role, created_at, updated_at
@@ -274,23 +267,12 @@ func (s *Service) GetAgentRoleBindings(ctx context.Context, agentID, tenantID st
 
 // AssignRole assigns a role to an agent
 func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID string, role models.RoleType) error {
-	agentUUID, err := uuid.Parse(agentID)
-	if err != nil {
-		return fmt.Errorf("invalid agent ID: %w", err)
-	}
+	agentUUID, _ := uuid.Parse(agentID)
+	tenantUUID, _ := uuid.Parse(tenantID)
 
-	tenantUUID, err := uuid.Parse(tenantID)
+	projectUUID, err := uuid.Parse(projectID)
 	if err != nil {
-		return fmt.Errorf("invalid tenant ID: %w", err)
-	}
-
-	var projectUUID *uuid.UUID
-	if projectID != "" {
-		parsed, err := uuid.Parse(projectID)
-		if err != nil {
-			return fmt.Errorf("invalid project ID: %w", err)
-		}
-		projectUUID = &parsed
+		return fmt.Errorf("invalid project ID: %w", err)
 	}
 
 	// Validate role exists
@@ -301,7 +283,7 @@ func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID s
 	query := `
 		INSERT INTO agent_project_roles (agent_id, tenant_id, project_id, role, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW())
-		ON CONFLICT (agent_id, project_id)
+		ON CONFLICT (agent_id, tenant_id, project_id)
 		DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
 	`
 
@@ -315,15 +297,8 @@ func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID s
 
 // RemoveRole removes a role from an agent
 func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID string, role models.RoleType) error {
-	agentUUID, err := uuid.Parse(agentID)
-	if err != nil {
-		return fmt.Errorf("invalid agent ID: %w", err)
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		return fmt.Errorf("invalid tenant ID: %w", err)
-	}
+	agentUUID, _ := uuid.Parse(agentID)
+	tenantUUID, _ := uuid.Parse(tenantID)
 
 	var projectUUID *uuid.UUID
 	if projectID != "" {
@@ -341,7 +316,7 @@ func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID s
 		      AND role = $4
 	`
 
-	_, err = s.db.ExecContext(ctx, query, agentUUID, tenantUUID, projectUUID, role)
+	_, err := s.db.ExecContext(ctx, query, agentUUID, tenantUUID, projectUUID, role)
 	if err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}

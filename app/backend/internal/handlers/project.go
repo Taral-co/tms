@@ -3,11 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"golang.org/x/exp/slices"
 )
 
 type ProjectHandler struct {
@@ -33,22 +31,15 @@ func NewProjectHandler(projectService *service.ProjectService) *ProjectHandler {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/tenants/{tenant_id}/projects [get]
 func (h *ProjectHandler) ListProjects(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
-
+	tenantID, _ := uuid.Parse(c.Param("tenant_id"))
 	// Get validated agent ID from middleware
-	agentIDStr := c.GetString("agent_id")
-	agentID, _ := uuid.Parse(agentIDStr) // Already validated in middleware
+	agentID, _ := uuid.Parse(c.GetString("agent_id")) // Already validated in middleware
+	isTenantAdmin := c.GetBool("is_tenant_admin")     // Check if agent is tenant admin
 
 	// Get validated claims from middleware
 
 	// Simple check: if agent is tenant_admin for this tenant, return all projects
-	rolesWithTenant := c.GetStringSlice("role_bindings")
-	if slices.Contains(rolesWithTenant, models.RoleTenantAdmin.String()) {
+	if isTenantAdmin {
 		projects, err := h.projectService.ListProjects(c.Request.Context(), tenantID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list projects"})

@@ -99,11 +99,7 @@ func (h *ApiKeyHandler) CreateApiKey(c *gin.Context) {
 		return
 	}
 
-	agentUUID, err := uuid.Parse(agentID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID"})
-		return
-	}
+	agentUUID, _ := uuid.Parse(agentID)
 
 	var req ApiKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
