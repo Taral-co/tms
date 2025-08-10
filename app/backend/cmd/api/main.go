@@ -59,6 +59,7 @@ func main() {
 	integrationRepo := repo.NewIntegrationRepository(database.DB)
 	emailRepo := repo.NewEmailRepo(database.DB)
 	apiKeyRepo := repo.NewApiKeyRepository(database.DB)
+	settingsRepo := repo.NewSettingsRepository(database.DB.DB)
 
 	// Initialize mail service
 	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -93,9 +94,10 @@ func main() {
 	emailHandler := handlers.NewEmailHandler(emailRepo)
 	agentHandler := handlers.NewAgentHandler(agentService)
 	apiKeyHandler := handlers.NewApiKeyHandler(apiKeyRepo)
+	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, agentHandler, apiKeyHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, agentHandler, apiKeyHandler, settingsHandler)
 
 	// Start background services
 	if cfg.Email.EnableEmailToTicket {
@@ -142,7 +144,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -211,6 +213,16 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			api.GET("/api-keys/:key_id", apiKeyHandler.GetApiKey)
 			api.PATCH("/api-keys/:key_id", apiKeyHandler.UpdateApiKey)
 			api.DELETE("/api-keys/:key_id", apiKeyHandler.DeleteApiKey)
+		}
+
+		// Settings endpoints
+		{
+			api.GET("/settings/email", settingsHandler.GetEmailSettings)
+			api.PUT("/settings/email", settingsHandler.UpdateEmailSettings)
+			api.GET("/settings/branding", settingsHandler.GetBrandingSettings)
+			api.PUT("/settings/branding", settingsHandler.UpdateBrandingSettings)
+			api.GET("/settings/automation", settingsHandler.GetAutomationSettings)
+			api.PUT("/settings/automation", settingsHandler.UpdateAutomationSettings)
 		}
 
 		// Project-scoped endpoints

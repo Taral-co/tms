@@ -13,9 +13,11 @@ import {
   Eye,
   EyeOff,
   Copy,
-  Check
+  Check,
+  X,
+  Save
 } from 'lucide-react'
-import { apiClient, Project, Agent } from '../lib/api'
+import { apiClient, Project, Agent, EmailSettings, BrandingSettings, AutomationSettings } from '../lib/api'
 
 // Tab types for settings navigation
 type SettingsTab = 'projects' | 'roles' | 'email' | 'branding' | 'automations' | 'api-keys'
@@ -50,7 +52,7 @@ export function SettingsPage() {
   const [newAgentPassword, setNewAgentPassword] = useState('')
   const [newAgentRole, setNewAgentRole] = useState('agent')
   // Email settings state
-  const [emailSettings, setEmailSettings] = useState({
+  const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     smtp_host: '',
     smtp_port: 587,
     smtp_username: '',
@@ -63,7 +65,7 @@ export function SettingsPage() {
   })
 
   // Branding state
-  const [brandingSettings, setBrandingSettings] = useState({
+  const [brandingSettings, setBrandingSettings] = useState<BrandingSettings>({
     company_name: '',
     logo_url: '',
     support_url: '',
@@ -76,19 +78,8 @@ export function SettingsPage() {
     enable_custom_branding: false
   })
 
-  // Automations state
-  const [automations, setAutomations] = useState([])
-  const [showCreateAutomation, setShowCreateAutomation] = useState(false)
-  const [newAutomation, setNewAutomation] = useState({
-    name: '',
-    trigger: 'ticket_created',
-    conditions: [],
-    actions: [],
-    is_active: true
-  })
-
   // Automation settings state
-  const [automationSettings, setAutomationSettings] = useState({
+  const [automationSettings, setAutomationSettings] = useState<AutomationSettings>({
     enable_auto_assignment: false,
     assignment_strategy: 'round_robin',
     max_tickets_per_agent: 10,
@@ -104,6 +95,11 @@ export function SettingsPage() {
   const [newApiKeyName, setNewApiKeyName] = useState('')
   const [showApiKeyValue, setShowApiKeyValue] = useState<string | null>(null)
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null)
+
+  // Edit modal states
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
+  const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null)
 
   const tabs = [
     { id: 'projects' as SettingsTab, name: 'Projects', icon: Settings },
@@ -135,18 +131,40 @@ export function SettingsPage() {
           break
         case 'roles':
           // Load agents with their roles
-          // Note: We'll need to implement the agents API endpoint
-          // const agentList = await apiClient.getAgents()
-          // setAgents(agentList)
-          setAgents([]) // Placeholder for now
+          const agentList = await apiClient.getAgents()
+          setAgents(agentList)
+          break
+        case 'email':
+          try {
+            const emailConfig = await apiClient.getEmailSettings()
+            setEmailSettings(emailConfig)
+          } catch (err) {
+            console.log('Email settings not available, using defaults')
+          }
+          break
+        case 'branding':
+          try {
+            const brandingConfig = await apiClient.getBrandingSettings()
+            setBrandingSettings(brandingConfig)
+          } catch (err) {
+            console.log('Branding settings not available, using defaults')
+          }
+          break
+        case 'automations':
+          try {
+            const automationConfig = await apiClient.getAutomationSettings()
+            setAutomationSettings(automationConfig)
+          } catch (err) {
+            console.log('Automation settings not available, using defaults')
+          }
           break
         case 'api-keys':
           try {
             const keysList = await apiClient.getApiKeys()
             setApiKeys(keysList)
           } catch (err) {
-            console.log('API keys endpoint not yet implemented:', err)
-            setApiKeys([]) // Placeholder for now
+            console.log('API keys endpoint error:', err)
+            setApiKeys([])
           }
           break
       }
@@ -303,13 +321,24 @@ export function SettingsPage() {
     }
   }
 
+  const handleEditApiKey = async (keyId: string, updates: Partial<ApiKey>) => {
+    try {
+      setLoading(true)
+      const updatedKey = await apiClient.updateApiKey(keyId, updates)
+      setApiKeys(prev => prev.map(k => k.id === keyId ? updatedKey : k))
+    } catch (err) {
+      setError('Failed to update API key')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Email settings handlers
   const handleSaveEmailSettings = async () => {
     try {
       setLoading(true)
-      // TODO: Implement email settings API
-      console.log('Saving email settings:', emailSettings)
-      // await apiClient.updateEmailSettings(emailSettings)
+      await apiClient.updateEmailSettings(emailSettings)
+      // Show success message
     } catch (err) {
       setError('Failed to save email settings')
     } finally {
@@ -321,9 +350,8 @@ export function SettingsPage() {
   const handleSaveBrandingSettings = async () => {
     try {
       setLoading(true)
-      // TODO: Implement branding settings API
-      console.log('Saving branding settings:', brandingSettings)
-      // await apiClient.updateBrandingSettings(brandingSettings)
+      await apiClient.updateBrandingSettings(brandingSettings)
+      // Show success message
     } catch (err) {
       setError('Failed to save branding settings')
     } finally {
@@ -335,9 +363,8 @@ export function SettingsPage() {
   const handleSaveAutomationSettings = async () => {
     try {
       setLoading(true)
-      // TODO: Implement automation settings API
-      console.log('Saving automation settings:', automationSettings)
-      // await apiClient.updateAutomationSettings(automationSettings)
+      await apiClient.updateAutomationSettings(automationSettings)
+      // Show success message
     } catch (err) {
       setError('Failed to save automation settings')
     } finally {
@@ -451,14 +478,16 @@ export function SettingsPage() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                   <button 
-                    onClick={() => handleEditProject(project.id, { name: project.name, key: project.key, status: 'active' })}
+                    onClick={() => setEditingProject(project)}
                     className="text-primary hover:text-primary/80 mr-3"
+                    title="Edit Project"
                   >
                     <Edit className="h-4 w-4" />
                   </button>
                   <button 
                     onClick={() => handleDeleteProject(project.id)}
                     className="text-destructive hover:text-destructive/80"
+                    title="Delete Project"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -468,6 +497,77 @@ export function SettingsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Edit Project Modal */}
+      {editingProject && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium mb-4">Edit Project</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Project Name</label>
+                <input
+                  type="text"
+                  value={editingProject.name}
+                  onChange={(e) => setEditingProject(prev => prev ? { ...prev, name: e.target.value } : null)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Project Key</label>
+                <input
+                  type="text"
+                  value={editingProject.key}
+                  onChange={(e) => setEditingProject(prev => prev ? { ...prev, key: e.target.value.toUpperCase() } : null)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="project-active"
+                  checked={editingProject.status === 'active'}
+                  onChange={(e) => setEditingProject(prev => prev ? { ...prev, status: e.target.checked ? 'active' : 'inactive' } : null)}
+                  className="rounded"
+                />
+                <label htmlFor="project-active" className="text-sm">Active</label>
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={async () => {
+                  if (editingProject) {
+                    try {
+                      setLoading(true)
+                      const updatedProject = await apiClient.updateProject(editingProject.id, {
+                        name: editingProject.name,
+                        key: editingProject.key,
+                        status: editingProject.status || 'active'
+                      })
+                      setProjects(prev => prev.map(p => p.id === editingProject.id ? updatedProject : p))
+                      setEditingProject(null)
+                    } catch (err) {
+                      setError('Failed to update project')
+                    } finally {
+                      setLoading(false)
+                    }
+                  }
+                }}
+                disabled={loading}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => setEditingProject(null)}
+                className="px-4 py-2 border rounded-md hover:bg-accent"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -612,14 +712,16 @@ export function SettingsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     <button 
-                      onClick={() => handleEditAgent(agent.id, { name: agent.name, email: agent.email })}
+                      onClick={() => setEditingAgent(agent)}
                       className="text-primary hover:text-primary/80 mr-3"
+                      title="Edit Agent"
                     >
                       <Edit className="h-4 w-4" />
                     </button>
                     <button 
                       onClick={() => handleDeleteAgent(agent.id)}
                       className="text-destructive hover:text-destructive/80"
+                      title="Delete Agent"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -630,6 +732,137 @@ export function SettingsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Edit Agent Modal */}
+      {editingAgent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium mb-4">Edit Agent</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  type="text"
+                  value={editingAgent.name}
+                  onChange={(e) => setEditingAgent(prev => prev ? { ...prev, name: e.target.value } : null)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editingAgent.email}
+                  onChange={(e) => setEditingAgent(prev => prev ? { ...prev, email: e.target.value } : null)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="agent-active"
+                  checked={editingAgent.is_active}
+                  onChange={(e) => setEditingAgent(prev => prev ? { ...prev, is_active: e.target.checked } : null)}
+                  className="rounded"
+                />
+                <label htmlFor="agent-active" className="text-sm">Active</label>
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={async () => {
+                  if (editingAgent) {
+                    try {
+                      setLoading(true)
+                      const updatedAgent = await apiClient.updateAgent(editingAgent.id, {
+                        name: editingAgent.name,
+                        email: editingAgent.email,
+                        is_active: editingAgent.is_active
+                      })
+                      setAgents(prev => prev.map(a => a.id === editingAgent.id ? updatedAgent : a))
+                      setEditingAgent(null)
+                    } catch (err) {
+                      setError('Failed to update agent')
+                    } finally {
+                      setLoading(false)
+                    }
+                  }
+                }}
+                disabled={loading}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => setEditingAgent(null)}
+                className="px-4 py-2 border rounded-md hover:bg-accent"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit API Key Modal */}
+      {editingApiKey && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background border rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium mb-4">Edit API Key</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  type="text"
+                  value={editingApiKey.name}
+                  onChange={(e) => setEditingApiKey({ ...editingApiKey, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  value={editingApiKey.is_active ? 'active' : 'inactive'}
+                  onChange={(e) => setEditingApiKey({ ...editingApiKey, is_active: e.target.value === 'active' })}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true)
+                    const updatedKey = await apiClient.updateApiKey(editingApiKey.id, {
+                      name: editingApiKey.name,
+                      is_active: editingApiKey.is_active
+                    })
+                    setApiKeys(prev => prev.map(k => k.id === editingApiKey.id ? updatedKey : k))
+                    setEditingApiKey(null)
+                  } catch (err) {
+                    setError('Failed to update API key')
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+                disabled={loading}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => setEditingApiKey(null)}
+                className="px-4 py-2 border rounded-md hover:bg-accent"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -689,7 +922,7 @@ export function SettingsPage() {
               <label className="block text-sm font-medium mb-1">Encryption</label>
               <select
                 value={emailSettings.smtp_encryption}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_encryption: e.target.value }))}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_encryption: e.target.value as 'tls' | 'ssl' | 'none' }))}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
               >
                 <option value="tls">TLS</option>
@@ -1163,7 +1396,10 @@ export function SettingsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <button className="text-primary hover:text-primary/80 mr-3">
+                    <button 
+                      onClick={() => setEditingApiKey(apiKey)}
+                      className="text-primary hover:text-primary/80 mr-3"
+                    >
                       <Edit className="h-4 w-4" />
                     </button>
                     <button 

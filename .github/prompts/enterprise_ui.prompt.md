@@ -11,14 +11,18 @@ Create a **production-grade frontend** for a multi-tenant ticketing system with:
 - **Shared SDK** (typed client, hooks)
 Stack: **React + Vite + TypeScript + Tailwind + shadcn/ui + Radix**. Enforce **light/dark themes**, **project-scoped RBAC**, **strict accessibility**, and **fast performance**.
 
+# Development Environment Assumptions
+**CRITICAL: The development servers are ALWAYS running with hot reload enabled. NEVER ask the user to run `npm run dev`, `pnpm dev`, or start development servers. Assume all changes are automatically reflected via hot module replacement (HMR). Only use build/test commands when explicitly needed for verification.**
+
 # Non-negotiables (read carefully)
 1. **No demos or rewrites.** Work **in place** and keep the enterprise architecture intact.
-2. **Smallest compatible change.** Do not remove features to “make it run.”
+2. **Smallest compatible change.** Do not remove features to "make it run."
 3. **Theming must be CSS-variable based** (light/dark + high-contrast), with **per-tenant accent** override only.
 4. **Accessibility (WCAG AA)**, keyboard-first, ARIA complete. No unlabeled icons.
 5. **Performance targets:** route code-splitting, virtualized lists, <2s FCP on cold dev run, p95 interaction <100ms.
 6. **Security:** never store magic-link tokens beyond memory; CORS safe defaults; sanitize any HTML.
-7. **Output format:** plan → patches (full file paths & code) → commands → post-checks. No prose-only answers.
+7. **Output format:** plan → patches (full file paths & code) → post-checks. No prose-only answers.
+8. **NEVER ask to run development servers** - they are always running with HMR.
 
 # Inputs (auto-detect, fall back to defaults)
 - `agent_base_url` (default: `http://localhost:8080`)
@@ -29,17 +33,15 @@ Stack: **React + Vite + TypeScript + Tailwind + shadcn/ui + Radix**. Enforce **l
 
 # Monorepo UI structure (create if missing)
 ```
-
 /app/frontend
 /agent-console
 /public-view
 /shared
-
-````
+```
 
 # Deliverables (exact files)
 **Root**
-- `README.md` section: “Frontend Dev — run, build, test”
+- `README.md` section: "Frontend Dev — run, build, test"
 - `.editorconfig`, `.prettierrc`, `.eslintrc.cjs`
 
 **Shared**
@@ -99,9 +101,9 @@ Stack: **React + Vite + TypeScript + Tailwind + shadcn/ui + Radix**. Enforce **l
 # Components & UX (must implement)
 - **AppShell** with collapsible Sidebar (56px → 240px), Topbar (search, project switcher, quick actions).
 - **Inbox**: virtualized list (5k+ rows), filters (status, priority, assignee, tags), search, saved views, infinite scroll.
-- **Ticket View**: header (status/priority/assignee/SLA), side panel (customer/org), **Timeline** (public vs private note styles), **ReplyEditor** (attachments, canned replies, AI assist modal), collision indicator (“Agent X is viewing”).
+- **Ticket View**: header (status/priority/assignee/SLA), side panel (customer/org), **Timeline** (public vs private note styles), **ReplyEditor** (attachments, canned replies, AI assist modal), collision indicator ("Agent X is viewing").
 - **Settings**: forms with inline validation, optimistic updates, toasts.
-- **Public Ticket View**: read-only timeline of public messages/attachments, reply area when token scope includes `reply`, friendly expired screen with “Send new link” button.
+- **Public Ticket View**: read-only timeline of public messages/attachments, reply area when token scope includes `reply`, friendly expired screen with "Send new link" button.
 
 # Accessibility
 - WCAG AA contrast; keyboard nav for all interactive elements.
@@ -128,14 +130,16 @@ Stack: **React + Vite + TypeScript + Tailwind + shadcn/ui + Radix**. Enforce **l
 
 # Output format (strict)
 1) **Plan** — 5–10 bullets: what exists, what will be created/modified, assumptions.
-2) **Commands** — install/build/test commands for both apps + shared.
+2) **Commands** — install/build/test commands for both apps + shared (NO dev server commands).
 3) **Patches** — create/modify files with **full contents** (paths + imports). No placeholders.
 4) **Post-checks** — how you verified theme toggle, a11y checks, virtualization, and token handling.
 
 # Guardrails (reject these fallbacks)
-- “Minimal UI to demonstrate” → **forbidden**. Must deliver the full shell + pages above.
-- “Removed virtualization/tests to simplify” → **forbidden**.
-- “Stored magic-link token in localStorage for convenience” → **forbidden**.
+- "Minimal UI to demonstrate" → **forbidden**. Must deliver the full shell + pages above.
+- "Removed virtualization/tests to simplify" → **forbidden**.
+- "Stored magic-link token in localStorage for convenience" → **forbidden**.
+- "Please run npm run dev to see changes" → **forbidden**. Dev servers are always running.
+- "Start the development server" → **forbidden**. Assume HMR is active.
 
 # Acceptance criteria
 - Theme toggle persists; respects system preference by default.
@@ -143,18 +147,23 @@ Stack: **React + Vite + TypeScript + Tailwind + shadcn/ui + Radix**. Enforce **l
 - Ticket view and public view both pass axe (no serious violations).
 - Public link token lives only in memory; page refresh requires the URL token again.
 - p95 interaction latency <100ms for filter/apply/reply; initial paint <2s in dev.
+- **Changes are immediately visible via hot reload** - no manual server restarts needed.
 
-# Commands (to include in output)
+# Commands (to include in output - BUILD/TEST ONLY)
 ```bash
 # in repo root or /app/frontend
 pnpm -w install || npm install -w
-pnpm -w -r run dev   # runs all three (shared build/watch first)
-pnpm -w -r run test
+pnpm -w -r run build  # production builds
+pnpm -w -r run test   # run test suites
+pnpm -w -r run lint   # lint check
 ```
 
-``` common APIS
-curl -s -X POST http://localhost:8080/v1/tenants/550e8400-e29b-41d4-a716-446655440000/auth/login -H "Content-Type: application/json" -d '{"email": "admin@acme.com", "password": "password"}' | jq -r '.access_token'
-
+# API Reference (for testing)
+```bash
+# Get auth token for testing
+curl -s -X POST http://localhost:8080/v1/tenants/550e8400-e29b-41d4-a716-446655440000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@acme.com", "password": "password"}' | jq -r '.access_token'
 ```
 
-**Always expect UI is running, don't ask me to run npm run dev** - the server is always running in the background.
+**IMPORTANT: Development servers run continuously with hot module replacement. Never instruct users to start dev servers or assume they need to manually refresh. All code changes are automatically reflected in the browser.**

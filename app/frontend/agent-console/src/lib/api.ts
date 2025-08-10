@@ -72,6 +72,41 @@ export interface CreateTicketRequest {
   requester_id: string
 }
 
+export interface EmailSettings {
+  smtp_host: string
+  smtp_port: number
+  smtp_username: string
+  smtp_password: string
+  smtp_encryption: 'tls' | 'ssl' | 'none'
+  from_email: string
+  from_name: string
+  enable_email_notifications: boolean
+  enable_email_to_ticket: boolean
+}
+
+export interface BrandingSettings {
+  company_name: string
+  logo_url: string
+  support_url: string
+  primary_color: string
+  accent_color: string
+  secondary_color: string
+  custom_css: string
+  favicon_url: string
+  header_logo_height: number
+  enable_custom_branding: boolean
+}
+
+export interface AutomationSettings {
+  enable_auto_assignment: boolean
+  assignment_strategy: string
+  max_tickets_per_agent: number
+  enable_escalation: boolean
+  escalation_threshold_hours: number
+  enable_auto_reply: boolean
+  auto_reply_template: string
+}
+
 export interface UpdateTicketRequest {
   subject?: string
   description?: string
@@ -454,6 +489,37 @@ class APIClient {
   // Analytics endpoints
   async getAnalytics(period: string = '7d') {
     const response = await this.client.get(`/analytics?period=${period}`)
+    return response.data
+  }
+
+  // Settings endpoints
+  async getEmailSettings(): Promise<EmailSettings> {
+    const response = await this.client.get('/settings/email')
+    return response.data
+  }
+
+  async updateEmailSettings(data: EmailSettings): Promise<EmailSettings> {
+    const response = await this.client.put('/settings/email', data)
+    return response.data
+  }
+
+  async getBrandingSettings(): Promise<BrandingSettings> {
+    const response = await this.client.get('/settings/branding')
+    return response.data
+  }
+
+  async updateBrandingSettings(data: BrandingSettings): Promise<BrandingSettings> {
+    const response = await this.client.put('/settings/branding', data)
+    return response.data
+  }
+
+  async getAutomationSettings(): Promise<AutomationSettings> {
+    const response = await this.client.get('/settings/automation')
+    return response.data
+  }
+
+  async updateAutomationSettings(data: AutomationSettings): Promise<AutomationSettings> {
+    const response = await this.client.put('/settings/automation', data)
     return response.data
   }
 }
