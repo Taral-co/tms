@@ -53,7 +53,53 @@ func AuthMiddleware(jwtAuth *auth.Service) gin.HandlerFunc {
 			return
 		}
 
-		// Store claims in context
+		// Validate mandatory fields
+		if claims.AgentID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "agent_id missing from token"})
+			c.Abort()
+			return
+		}
+
+		if claims.TenantID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id missing from token"})
+			c.Abort()
+			return
+		}
+
+		if claims.Email == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "email missing from token"})
+			c.Abort()
+			return
+		}
+
+		if claims.RoleBindings == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "role_bindings missing from token"})
+			c.Abort()
+			return
+		}
+
+		// Validate UUID format for agent_id
+		if _, err := uuid.Parse(claims.AgentID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent_id format in token"})
+			c.Abort()
+			return
+		}
+
+		// Validate UUID format for tenant_id
+		if _, err := uuid.Parse(claims.TenantID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id format in token"})
+			c.Abort()
+			return
+		}
+
+		// Validate that role_bindings has at least one role
+		if len(claims.RoleBindings) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "no role_bindings found in token"})
+			c.Abort()
+			return
+		}
+
+		// Store validated claims in context
 		c.Set("user_id", claims.Subject)
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("email", claims.Email)

@@ -6,6 +6,7 @@ import (
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/exp/slices"
 )
 
 type ProjectHandler struct {
@@ -38,25 +39,25 @@ func (h *ProjectHandler) ListProjects(c *gin.Context) {
 		return
 	}
 
-	// Get agent ID from context (set by auth middleware)
-	agentIDValue, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "agent not found in context"})
+	// Get validated agent ID from middleware
+	agentIDStr := c.GetString("agent_id")
+	agentID, _ := uuid.Parse(agentIDStr) // Already validated in middleware
+
+	// Get validated claims from middleware
+
+	// Simple check: if agent is tenant_admin for this tenant, return all projects
+	rolesWithTenant := c.GetStringSlice("role_bindings")
+	if slices.Contains(rolesWithTenant, "tenant_admin") {
+		projects, err := h.projectService.ListProjects(c.Request.Context(), tenantID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list projects"})
+			return
+		}
+		c.JSON(http.StatusOK, projects)
 		return
 	}
 
-	agentIDStr, ok := agentIDValue.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid agent_id type"})
-		return
-	}
-
-	agentID, err := uuid.Parse(agentIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent_id format"})
-		return
-	}
-
+	// Otherwise, return projects for the agent
 	projects, err := h.projectService.ListProjectsForAgent(c.Request.Context(), tenantID, agentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list projects"})
@@ -64,6 +65,17 @@ func (h *ProjectHandler) ListProjects(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, projects)
+}
+
+// hasAccess checks if the agent has access to the given tenant based on role bindings.
+func hasAccess(roleBindings []string, tenantID uuid.UUID) bool {
+	tenantIDStr := tenantID.String()
+	for _, binding := range roleBindings {
+		if binding == tenantIDStr {
+			return true
+		}
+	}
+	return false
 }
 
 // GetProject godoc

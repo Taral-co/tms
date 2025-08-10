@@ -16,18 +16,18 @@ type Permission string
 // Define permissions
 const (
 	// Ticket permissions
-	PermTicketRead       Permission = "ticket:read"
-	PermTicketWrite      Permission = "ticket:write"
-	PermTicketAdmin      Permission = "ticket:admin"
-	
+	PermTicketRead  Permission = "ticket:read"
+	PermTicketWrite Permission = "ticket:write"
+	PermTicketAdmin Permission = "ticket:admin"
+
 	// Agent permissions
-	PermAgentRead        Permission = "agent:read"
-	PermAgentWrite       Permission = "agent:write"
-	
+	PermAgentRead  Permission = "agent:read"
+	PermAgentWrite Permission = "agent:write"
+
 	// Customer permissions
-	PermCustomerRead     Permission = "customer:read"
-	PermCustomerWrite    Permission = "customer:write"
-	
+	PermCustomerRead  Permission = "customer:read"
+	PermCustomerWrite Permission = "customer:write"
+
 	// Note permissions
 	PermNotePrivateRead  Permission = "note:private:read"
 	PermNotePrivateWrite Permission = "note:private:write"
@@ -70,7 +70,7 @@ var (
 			PermNotePrivateRead, PermNotePrivateWrite,
 		},
 	}
-	
+
 	RoleAgent = Role{
 		Name: "agent",
 		Permissions: []Permission{
@@ -78,7 +78,7 @@ var (
 			PermCustomerRead, PermCustomerWrite,
 		},
 	}
-	
+
 	RoleReadOnly = Role{
 		Name: "read_only",
 		Permissions: []Permission{
@@ -97,7 +97,7 @@ var (
 			PermNotePrivateRead, PermNotePrivateWrite,
 		},
 	}
-	
+
 	RoleViewer = Role{
 		Name: "viewer",
 		Permissions: []Permission{
@@ -108,14 +108,14 @@ var (
 )
 
 var roleMap = map[string]Role{
-	"tenant_admin":   RoleTenantAdmin,
-	"project_admin":  RoleProjectAdmin,
-	"supervisor":     RoleSupervisor,
-	"agent":          RoleAgent,
-	"read_only":      RoleReadOnly,
+	"tenant_admin":  RoleTenantAdmin,
+	"project_admin": RoleProjectAdmin,
+	"supervisor":    RoleSupervisor,
+	"agent":         RoleAgent,
+	"read_only":     RoleReadOnly,
 	// Legacy roles
-	"admin":          RoleAdmin,
-	"viewer":         RoleViewer,
+	"admin":  RoleAdmin,
+	"viewer": RoleViewer,
 }
 
 // Service handles RBAC operations
@@ -131,12 +131,12 @@ func NewService(database *sql.DB) *Service {
 // CheckPermission checks if an agent has a specific permission
 func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projectID string, permission Permission) (bool, error) {
 	log.Printf("CheckPermission called: agentID=%s, tenantID=%s, projectID=%s, permission=%s", agentID, tenantID, projectID, permission)
-	
+
 	_, err := uuid.Parse(agentID)
 	if err != nil {
 		return false, fmt.Errorf("invalid agent ID: %w", err)
 	}
-	
+
 	_, err = uuid.Parse(tenantID)
 	if err != nil {
 		return false, fmt.Errorf("invalid tenant ID: %w", err)
@@ -157,7 +157,16 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 	// Check permissions for each role binding
 	for _, binding := range roleBindings {
 		log.Printf("Checking binding: Role=%s, ProjectID=%v", binding.Role, binding.ProjectID)
-		
+
+		// tenant_admin role grants access to ALL projects in the tenant
+		if binding.Role == "tenant_admin" {
+			log.Printf("Found tenant_admin role - granting access")
+			if s.hasPermission(binding.Role, permission) {
+				log.Printf("Permission granted via tenant_admin role")
+				return true, nil
+			}
+		}
+
 		// If projectID is specified, check project-specific roles
 		if projectID != "" {
 			projectUUID, err := uuid.Parse(projectID)
@@ -198,7 +207,7 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 // hasPermission checks if a role has a specific permission
 func (s *Service) hasPermission(roleName string, permission Permission) bool {
 	log.Printf("hasPermission called: roleName=%s, permission=%s", roleName, permission)
-	
+
 	role, exists := roleMap[roleName]
 	if !exists {
 		log.Printf("Role not found in roleMap: %s", roleName)
@@ -224,7 +233,7 @@ func (s *Service) GetAgentRoleBindings(ctx context.Context, agentID, tenantID st
 	if err != nil {
 		return nil, fmt.Errorf("invalid agent ID: %w", err)
 	}
-	
+
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tenant ID: %w", err)
@@ -268,7 +277,7 @@ func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID, 
 	if err != nil {
 		return fmt.Errorf("invalid agent ID: %w", err)
 	}
-	
+
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return fmt.Errorf("invalid tenant ID: %w", err)
@@ -309,7 +318,7 @@ func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID, 
 	if err != nil {
 		return fmt.Errorf("invalid agent ID: %w", err)
 	}
-	
+
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return fmt.Errorf("invalid tenant ID: %w", err)

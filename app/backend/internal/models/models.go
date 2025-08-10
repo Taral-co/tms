@@ -20,11 +20,11 @@ type Tenant struct {
 
 // Project represents a project within a tenant
 type Project struct {
-	ID       uuid.UUID `db:"id" json:"id"`
-	TenantID uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	Key      string    `db:"key" json:"key"`
-	Name     string    `db:"name" json:"name"`
-	Status   string    `db:"status" json:"status"`
+	ID        uuid.UUID `db:"id" json:"id"`
+	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	Key       string    `db:"key" json:"key"`
+	Name      string    `db:"name" json:"name"`
+	Status    string    `db:"status" json:"status"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -100,13 +100,13 @@ type Ticket struct {
 	AssigneeAgentID *uuid.UUID `db:"assignee_agent_id" json:"assignee_agent_id,omitempty"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
-	
+
 	// Joined fields
-	RequesterName   string `db:"requester_name" json:"requester_name,omitempty"`
-	RequesterEmail  string `db:"requester_email" json:"requester_email,omitempty"`
-	AssigneeName    string `db:"assignee_name" json:"assignee_name,omitempty"`
-	ProjectKey      string `db:"project_key" json:"project_key,omitempty"`
-	ProjectName     string `db:"project_name" json:"project_name,omitempty"`
+	RequesterName  string `db:"requester_name" json:"requester_name,omitempty"`
+	RequesterEmail string `db:"requester_email" json:"requester_email,omitempty"`
+	AssigneeName   string `db:"assignee_name" json:"assignee_name,omitempty"`
+	ProjectKey     string `db:"project_key" json:"project_key,omitempty"`
+	ProjectName    string `db:"project_name" json:"project_name,omitempty"`
 }
 
 // TicketMessage represents a message in a ticket
@@ -120,7 +120,7 @@ type TicketMessage struct {
 	Body       string     `db:"body" json:"body"`
 	IsPrivate  bool       `db:"is_private" json:"is_private"`
 	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
-	
+
 	// Joined fields
 	AuthorName  string `db:"author_name" json:"author_name,omitempty"`
 	AuthorEmail string `db:"author_email" json:"author_email,omitempty"`
@@ -151,15 +151,15 @@ type Attachment struct {
 
 // SLAPolicy represents an SLA policy
 type SLAPolicy struct {
-	ID                     uuid.UUID `db:"id" json:"id"`
-	TenantID               uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	ProjectID              uuid.UUID `db:"project_id" json:"project_id"`
-	Name                   string    `db:"name" json:"name"`
-	FirstResponseMinutes   int       `db:"first_response_minutes" json:"first_response_minutes"`
-	ResolutionMinutes      int       `db:"resolution_minutes" json:"resolution_minutes"`
-	BusinessHoursRef       *string   `db:"business_hours_ref" json:"business_hours_ref,omitempty"`
-	CreatedAt              time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt              time.Time `db:"updated_at" json:"updated_at"`
+	ID                   uuid.UUID `db:"id" json:"id"`
+	TenantID             uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ProjectID            uuid.UUID `db:"project_id" json:"project_id"`
+	Name                 string    `db:"name" json:"name"`
+	FirstResponseMinutes int       `db:"first_response_minutes" json:"first_response_minutes"`
+	ResolutionMinutes    int       `db:"resolution_minutes" json:"resolution_minutes"`
+	BusinessHoursRef     *string   `db:"business_hours_ref" json:"business_hours_ref,omitempty"`
+	CreatedAt            time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt            time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // UnauthToken represents an unauthenticated token for magic links
@@ -177,15 +177,15 @@ type UnauthToken struct {
 
 // Webhook represents a webhook configuration
 type Webhook struct {
-	ID        uuid.UUID    `db:"id" json:"id"`
-	TenantID  uuid.UUID    `db:"tenant_id" json:"tenant_id"`
-	ProjectID uuid.UUID    `db:"project_id" json:"project_id"`
-	URL       string       `db:"url" json:"url"`
-	Secret    string       `db:"secret" json:"secret"`
-	EventMask []string     `db:"event_mask" json:"event_mask"`
-	IsActive  bool         `db:"is_active" json:"is_active"`
-	CreatedAt time.Time    `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time    `db:"updated_at" json:"updated_at"`
+	ID        uuid.UUID `db:"id" json:"id"`
+	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
+	URL       string    `db:"url" json:"url"`
+	Secret    string    `db:"secret" json:"secret"`
+	EventMask []string  `db:"event_mask" json:"event_mask"`
+	IsActive  bool      `db:"is_active" json:"is_active"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // AuditLog represents an audit log entry
@@ -291,14 +291,14 @@ func (c *PublicTokenClaims) GetAudience() (jwt.ClaimStrings, error) {
 
 // CreateTicketRequest represents a request to create a ticket
 type CreateTicketRequest struct {
-	Subject         string    `json:"subject" binding:"required,max=500"`
-	Priority        string    `json:"priority" binding:"required,oneof=low normal high urgent"`
-	Type            string    `json:"type" binding:"required,oneof=question incident problem task"`
-	Source          string    `json:"source" binding:"required,oneof=web email api phone chat"`
-	RequesterEmail  string    `json:"requester_email" binding:"required,email"`
-	RequesterName   string    `json:"requester_name" binding:"required,max=255"`
-	Body            string    `json:"body" binding:"required"`
-	Tags            []string  `json:"tags,omitempty"`
+	Subject         string     `json:"subject" binding:"required,max=500"`
+	Priority        string     `json:"priority" binding:"required,oneof=low normal high urgent"`
+	Type            string     `json:"type" binding:"required,oneof=question incident problem task"`
+	Source          string     `json:"source" binding:"required,oneof=web email api phone chat"`
+	RequesterEmail  string     `json:"requester_email" binding:"required,email"`
+	RequesterName   string     `json:"requester_name" binding:"required,max=255"`
+	Body            string     `json:"body" binding:"required"`
+	Tags            []string   `json:"tags,omitempty"`
 	AssigneeAgentID *uuid.UUID `json:"assignee_agent_id,omitempty"`
 }
 

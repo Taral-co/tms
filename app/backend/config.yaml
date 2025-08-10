@@ -37,8 +37,8 @@ smtp:
 
 jwt:
   secret: "your-super-secret-jwt-key-change-this-in-production"
-  access_token_expiry: "15m"
-  refresh_token_expiry: "24h"
+  access_token_expiry: "150m"
+  refresh_token_expiry: "240h"
   magic_link_expiry: "1h"
   unauth_token_expiry: "24h"
 

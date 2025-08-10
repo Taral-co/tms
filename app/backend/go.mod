@@ -16,6 +16,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/viper v1.20.1
 	golang.org/x/crypto v0.38.0
+	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
 )
 
 require (

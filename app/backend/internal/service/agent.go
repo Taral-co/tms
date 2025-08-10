@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/bareuptime/tms/internal/db"
 	"github.com/bareuptime/tms/internal/rbac"
@@ -14,13 +15,15 @@ import (
 // AgentService handles agent management operations
 type AgentService struct {
 	agentRepo   repo.AgentRepository
+	projectRepo repo.ProjectRepository
 	rbacService *rbac.Service
 }
 
 // NewAgentService creates a new agent service
-func NewAgentService(agentRepo repo.AgentRepository, rbacService *rbac.Service) *AgentService {
+func NewAgentService(agentRepo repo.AgentRepository, projectRepo repo.ProjectRepository, rbacService *rbac.Service) *AgentService {
 	return &AgentService{
 		agentRepo:   agentRepo,
+		projectRepo: projectRepo,
 		rbacService: rbacService,
 	}
 }
@@ -446,14 +449,25 @@ func (s *AgentService) GetAgentProjects(ctx context.Context, tenantID, agentID, 
 		return nil, fmt.Errorf("failed to get role bindings: %w", err)
 	}
 
-	// TODO: We need a project repository to get project names
-	// For now, we'll just return project IDs and roles
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tenant ID: %w", err)
+	}
+
+	// Get project details for each role binding
 	var projects []*AgentProject
 	for _, binding := range roleBindings {
 		if binding.ProjectID != nil {
+			project, err := s.projectRepo.GetByID(ctx, tenantUUID, *binding.ProjectID)
+			if err != nil {
+				// Log error but continue - project might have been deleted
+				log.Printf("Failed to get project %s: %v", binding.ProjectID.String(), err)
+				continue
+			}
+
 			projects = append(projects, &AgentProject{
-				ID:   binding.ProjectID.String(),
-				Name: "Project " + binding.ProjectID.String()[:8], // Placeholder name
+				ID:   project.ID.String(),
+				Name: project.Name,
 				Role: binding.Role,
 			})
 		}
