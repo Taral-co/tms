@@ -2,20 +2,22 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/v1'
 
+export interface User {
+  id: string
+  email: string
+  name: string
+  role: string
+  tenant_id: string
+}
+
 export interface LoginRequest {
   email: string
   password: string
 }
 
 export interface LoginResponse {
-  token: string
-  user: {
-    id: string
-    email: string
-    name: string
-    role: string
-    tenant_id: string
-  }
+  access_token: string
+  user: User
 }
 
 export interface Ticket {
@@ -148,16 +150,15 @@ class APIClient {
 
   // Auth endpoints
   async login(data: LoginRequest): Promise<LoginResponse> {
-    const tenantId = localStorage.getItem('tenant_id') || 'default'
-    const response: AxiosResponse<LoginResponse> = await this.client.post(
-      `/tenants/${tenantId}/auth/login`,
-      data
-    )
+    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
+    const response = await axios.post<LoginResponse>('/auth/login', { 
+      email: data.email, 
+      password: data.password, 
+      tenant_id: tenantId 
+    })
     
-    if (response.data.token) {
-      localStorage.setItem('auth_token', response.data.token)
-      localStorage.setItem('tenant_id', response.data.user.tenant_id)
-      this.setTenantId(response.data.user.tenant_id)
+    if (response.data.access_token) {
+      localStorage.setItem('auth_token', response.data.access_token)
     }
     
     return response.data

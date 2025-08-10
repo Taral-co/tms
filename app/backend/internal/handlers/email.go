@@ -43,7 +43,12 @@ type CreateConnectorRequest struct {
 
 // CreateConnector creates a new email connector
 func (h *EmailHandler) CreateConnector(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 	
 	var req CreateConnectorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -102,7 +107,12 @@ func (h *EmailHandler) CreateConnector(c *gin.Context) {
 
 // ListConnectors lists all email connectors for a tenant
 func (h *EmailHandler) ListConnectors(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 	
 	var connectorType *models.EmailConnectorType
 	if typeParam := c.Query("type"); typeParam != "" {
@@ -128,7 +138,12 @@ func (h *EmailHandler) ListConnectors(c *gin.Context) {
 
 // GetConnector gets a specific email connector
 func (h *EmailHandler) GetConnector(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 	
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
@@ -158,7 +173,12 @@ func (h *EmailHandler) GetConnector(c *gin.Context) {
 
 // UpdateConnector updates an email connector
 func (h *EmailHandler) UpdateConnector(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 	
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
@@ -222,7 +242,12 @@ func (h *EmailHandler) UpdateConnector(c *gin.Context) {
 
 // DeleteConnector deletes an email connector
 func (h *EmailHandler) DeleteConnector(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 	
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
@@ -241,7 +266,12 @@ func (h *EmailHandler) DeleteConnector(c *gin.Context) {
 
 // TestConnector tests an email connector connection
 func (h *EmailHandler) TestConnector(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 	
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
@@ -283,7 +313,12 @@ type CreateMailboxRequest struct {
 
 // CreateMailbox creates a new email mailbox
 func (h *EmailHandler) CreateMailbox(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 	
 	var req CreateMailboxRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -326,7 +361,12 @@ func (h *EmailHandler) CreateMailbox(c *gin.Context) {
 
 // ListMailboxes lists all email mailboxes for a tenant
 func (h *EmailHandler) ListMailboxes(c *gin.Context) {
-	tenantID := c.MustGet("tenant_id").(uuid.UUID)
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
 
 	mailboxes, err := h.emailRepo.ListMailboxes(c.Request.Context(), tenantID)
 	if err != nil {

@@ -1,13 +1,5 @@
 import { useState, useEffect } from 'react'
-import { apiClient, LoginRequest } from '@/lib/api'
-
-interface User {
-  id: string
-  email: string
-  name: string
-  role: string
-  tenant_id: string
-}
+import { apiClient, LoginRequest, User } from '@/lib/api'
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)

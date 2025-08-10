@@ -37,6 +37,16 @@ type LoginResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
+	User         User   `json:"user"`
+}
+
+// User represents the user data returned in login response
+type User struct {
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	TenantID string `json:"tenant_id"`
 }
 
 // Login handles user login
@@ -70,11 +80,35 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Determine primary role (use tenant_admin if available, otherwise first role found)
+	primaryRole := "agent" // default
+	for _, roles := range response.RoleBindings {
+		for _, role := range roles {
+			if role == "tenant_admin" {
+				primaryRole = role
+				break
+			}
+			if primaryRole == "agent" { // Only set if we haven't found a better role
+				primaryRole = role
+			}
+		}
+		if primaryRole == "tenant_admin" {
+			break
+		}
+	}
+
 	c.JSON(http.StatusOK, LoginResponse{
 		AccessToken:  response.AccessToken,
 		RefreshToken: response.RefreshToken,
 		TokenType:    "Bearer",
 		ExpiresIn:    3600, // 1 hour
+		User: User{
+			ID:       response.Agent.ID.String(),
+			Email:    response.Agent.Email,
+			Name:     response.Agent.Name,
+			Role:     primaryRole,
+			TenantID: response.Agent.TenantID.String(),
+		},
 	})
 }
 
