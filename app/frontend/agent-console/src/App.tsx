@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { ThemeProvider } from '@tms/shared'
+import { ThemeProvider } from './components/ThemeProvider'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
@@ -40,24 +40,34 @@ function AppContent() {
     )
   }
 
-  if (!isAuthenticated) {
-    return <LoginPage />
-  }
-
   return (
-    <AppShell>
-      <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/tickets" element={<TicketsPage />} />
-        <Route path="/tickets/:id" element={<TicketDetailPage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/integrations" element={<IntegrationsPage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </AppShell>
+    <Routes>
+      <Route path="/login" element={
+        isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
+      } />
+      <Route path="/" element={
+        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+      } />
+      {isAuthenticated ? (
+        <Route path="/*" element={
+          <AppShell>
+            <Routes>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/tickets" element={<TicketsPage />} />
+              <Route path="/tickets/:id" element={<TicketDetailPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/integrations" element={<IntegrationsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </AppShell>
+        } />
+      ) : (
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      )}
+    </Routes>
   )
 }
 

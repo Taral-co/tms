@@ -40,11 +40,31 @@ type Role struct {
 
 // Define roles
 var (
-	RoleAdmin = Role{
-		Name: "admin",
+	RoleTenantAdmin = Role{
+		Name: "tenant_admin",
 		Permissions: []Permission{
 			PermTicketRead, PermTicketWrite, PermTicketAdmin,
 			PermAgentRead, PermAgentWrite,
+			PermCustomerRead, PermCustomerWrite,
+			PermNotePrivateRead, PermNotePrivateWrite,
+		},
+	}
+
+	RoleProjectAdmin = Role{
+		Name: "project_admin",
+		Permissions: []Permission{
+			PermTicketRead, PermTicketWrite, PermTicketAdmin,
+			PermAgentRead, PermAgentWrite,
+			PermCustomerRead, PermCustomerWrite,
+			PermNotePrivateRead, PermNotePrivateWrite,
+		},
+	}
+
+	RoleSupervisor = Role{
+		Name: "supervisor",
+		Permissions: []Permission{
+			PermTicketRead, PermTicketWrite,
+			PermAgentRead,
 			PermCustomerRead, PermCustomerWrite,
 			PermNotePrivateRead, PermNotePrivateWrite,
 		},
@@ -54,6 +74,24 @@ var (
 		Name: "agent",
 		Permissions: []Permission{
 			PermTicketRead, PermTicketWrite,
+			PermCustomerRead, PermCustomerWrite,
+		},
+	}
+	
+	RoleReadOnly = Role{
+		Name: "read_only",
+		Permissions: []Permission{
+			PermTicketRead,
+			PermCustomerRead,
+		},
+	}
+
+	// Legacy roles for backwards compatibility
+	RoleAdmin = Role{
+		Name: "admin",
+		Permissions: []Permission{
+			PermTicketRead, PermTicketWrite, PermTicketAdmin,
+			PermAgentRead, PermAgentWrite,
 			PermCustomerRead, PermCustomerWrite,
 			PermNotePrivateRead, PermNotePrivateWrite,
 		},
@@ -69,9 +107,14 @@ var (
 )
 
 var roleMap = map[string]Role{
-	"admin":  RoleAdmin,
-	"agent":  RoleAgent,
-	"viewer": RoleViewer,
+	"tenant_admin":   RoleTenantAdmin,
+	"project_admin":  RoleProjectAdmin,
+	"supervisor":     RoleSupervisor,
+	"agent":          RoleAgent,
+	"read_only":      RoleReadOnly,
+	// Legacy roles
+	"admin":          RoleAdmin,
+	"viewer":         RoleViewer,
 }
 
 // Service handles RBAC operations

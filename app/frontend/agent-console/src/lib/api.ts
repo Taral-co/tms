@@ -8,6 +8,14 @@ export interface User {
   name: string
   role: string
   tenant_id: string
+  current_project_id?: string
+}
+
+export interface Project {
+  id: string
+  tenant_id: string
+  key: string
+  name: string
 }
 
 export interface LoginRequest {
@@ -17,7 +25,19 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   access_token: string
+  refresh_token: string
   user: User
+  projects?: Project[]
+}
+
+export interface RefreshTokenResponse {
+  access_token: string
+  refresh_token: string
+}
+
+export interface TicketsResponse {
+  tickets: Ticket[]
+  next_cursor?: string
 }
 
 export interface Ticket {
@@ -96,6 +116,7 @@ export interface Integration {
 class APIClient {
   private client: AxiosInstance
   private tenantId: string | null = null
+  private projectId: string | null = null
 
   constructor() {
     this.client = axios.create({
@@ -109,19 +130,28 @@ class APIClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add auth token and tenant ID
+    // Request interceptor to add auth token and build proper URLs
     this.client.interceptors.request.use((config) => {
       const token = localStorage.getItem('auth_token')
       const tenantId = localStorage.getItem('tenant_id') || this.tenantId
+      const projectId = localStorage.getItem('project_id') || this.projectId
 
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
 
-      if (tenantId && !config.url?.includes('/tenants/')) {
-        // Add tenant ID to URL path for tenant-scoped endpoints
-        const segments = config.url?.split('/') || []
-        if (segments.length > 0 && !segments.includes(tenantId)) {
+      // Build the correct URL structure based on the endpoint
+      if (config.url && tenantId) {
+        // Auth endpoints: /tenants/{tenant_id}/auth/*
+        if (config.url.includes('/auth/') && !config.url.includes('/tenants/')) {
+          config.url = `/tenants/${tenantId}${config.url}`
+        }
+        // Project-scoped endpoints: /tenants/{tenant_id}/projects/{project_id}/*
+        else if (projectId && !config.url.includes('/auth/') && !config.url.includes('/tenants/')) {
+          config.url = `/tenants/${tenantId}/projects/${projectId}${config.url}`
+        }
+        // Tenant-only endpoints: /tenants/{tenant_id}/*
+        else if (!config.url.includes('/auth/') && !config.url.includes('/tenants/') && !config.url.includes('/projects/')) {
           config.url = `/tenants/${tenantId}${config.url}`
         }
       }
@@ -129,15 +159,37 @@ class APIClient {
       return config
     })
 
-    // Response interceptor for error handling
+    // Response interceptor for error handling and token refresh
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token')
-          localStorage.removeItem('tenant_id')
-          window.location.href = '/login'
+      async (error) => {
+        const originalRequest = error.config
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true
+
+          try {
+            // Try to refresh the token
+            await this.refreshToken()
+            
+            // Retry the original request with new token
+            const token = localStorage.getItem('auth_token')
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`
+            }
+            
+            return this.client(originalRequest)
+          } catch (refreshError) {
+            // Refresh failed, redirect to login
+            localStorage.removeItem('auth_token')
+            localStorage.removeItem('refresh_token')
+            localStorage.removeItem('tenant_id')
+            localStorage.removeItem('user_data')
+            window.location.href = '/login'
+            return Promise.reject(refreshError)
+          }
         }
+
         return Promise.reject(error)
       }
     )
@@ -148,32 +200,87 @@ class APIClient {
     localStorage.setItem('tenant_id', tenantId)
   }
 
+  setProjectId(projectId: string) {
+    this.projectId = projectId
+    localStorage.setItem('project_id', projectId)
+  }
+
   // Auth endpoints
   async login(data: LoginRequest): Promise<LoginResponse> {
     const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
-    const response = await axios.post<LoginResponse>('/auth/login', { 
-      email: data.email, 
-      password: data.password, 
-      tenant_id: tenantId 
+    
+    // Create a separate axios instance for login to avoid the interceptor adding tenant to URL
+    const loginClient = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    const response = await loginClient.post<LoginResponse>(`/tenants/${tenantId}/auth/login`, {
+      email: data.email,
+      password: data.password
     })
     
     if (response.data.access_token) {
       localStorage.setItem('auth_token', response.data.access_token)
     }
     
+    if (response.data.refresh_token) {
+      localStorage.setItem('refresh_token', response.data.refresh_token)
+    }
+
+    // Set default project (Customer Support project)
+    const defaultProjectId = '550e8400-e29b-41d4-a716-446655440001'
+    this.setProjectId(defaultProjectId)
+    
+    return response.data
+  }
+
+  async refreshToken(): Promise<RefreshTokenResponse> {
+    const refreshToken = localStorage.getItem('refresh_token')
+    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
+    
+    if (!refreshToken) {
+      throw new Error('No refresh token available')
+    }
+
+    const refreshClient = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const response = await refreshClient.post<RefreshTokenResponse>(`/tenants/${tenantId}/auth/refresh`, {
+      refresh_token: refreshToken
+    })
+
+    if (response.data.access_token) {
+      localStorage.setItem('auth_token', response.data.access_token)
+    }
+
+    if (response.data.refresh_token) {
+      localStorage.setItem('refresh_token', response.data.refresh_token)
+    }
+
     return response.data
   }
 
   async logout(): Promise<void> {
     localStorage.removeItem('auth_token')
+    localStorage.removeItem('refresh_token')
     localStorage.removeItem('tenant_id')
+    localStorage.removeItem('project_id')
+    localStorage.removeItem('user_data')
     this.tenantId = null
+    this.projectId = null
   }
 
   // Ticket endpoints
   async getTickets(): Promise<Ticket[]> {
-    const response: AxiosResponse<Ticket[]> = await this.client.get('/tickets')
-    return response.data
+    const response: AxiosResponse<TicketsResponse> = await this.client.get('/tickets')
+    return response.data.tickets
   }
 
   async getTicket(id: string): Promise<Ticket> {
