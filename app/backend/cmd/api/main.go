@@ -66,7 +66,7 @@ func main() {
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
 	// agentService := service.NewAgentService(agentRepo, rbacService)      // Reserved for future use
 	// customerService := service.NewCustomerService(customerRepo, rbacService) // Reserved for future use
-	ticketService := service.NewTicketService(ticketRepo, customerRepo, messageRepo, rbacService)
+	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService)
 	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
 	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
 	

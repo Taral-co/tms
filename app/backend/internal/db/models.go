@@ -96,6 +96,7 @@ type Ticket struct {
 	Type             string     `db:"type" json:"type" validate:"oneof=question incident problem task"`
 	Source           string     `db:"source" json:"source" validate:"oneof=web email api phone chat"`
 	RequesterID      uuid.UUID  `db:"requester_id" json:"requester_id"`
+	CustomerName     string     `db:"customer_name" json:"customer_name"`
 	AssigneeAgentID  *uuid.UUID `db:"assignee_agent_id" json:"assignee_agent_id,omitempty"`
 	CreatedAt        time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt        time.Time  `db:"updated_at" json:"updated_at"`

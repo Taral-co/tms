@@ -15,20 +15,44 @@ import (
 type TicketService struct {
 	ticketRepo    repo.TicketRepository
 	customerRepo  repo.CustomerRepository
+	agentRepo     repo.AgentRepository
 	messageRepo   repo.TicketMessageRepository
 	rbacService   *rbac.Service
+}
+
+// TicketWithDetails represents a ticket with populated customer and agent details
+type TicketWithDetails struct {
+	*db.Ticket
+	Customer     *CustomerInfo `json:"customer,omitempty"`
+	AssignedAgent *AgentInfo   `json:"assigned_agent,omitempty"`
+}
+
+// CustomerInfo represents basic customer information
+type CustomerInfo struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// AgentInfo represents basic agent information
+type AgentInfo struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 // NewTicketService creates a new ticket service
 func NewTicketService(
 	ticketRepo repo.TicketRepository,
 	customerRepo repo.CustomerRepository,
+	agentRepo repo.AgentRepository,
 	messageRepo repo.TicketMessageRepository,
 	rbacService *rbac.Service,
 ) *TicketService {
 	return &TicketService{
 		ticketRepo:   ticketRepo,
 		customerRepo: customerRepo,
+		agentRepo:    agentRepo,
 		messageRepo:  messageRepo,
 		rbacService:  rbacService,
 	}
@@ -78,15 +102,16 @@ func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, a
 
 	// Create ticket
 	ticket := &db.Ticket{
-		ID:          uuid.New(),
-		TenantID:    tenantUUID,
-		ProjectID:   projectUUID,
-		Subject:     req.Subject,
-		Status:      "new",
-		Priority:    req.Priority,
-		Type:        req.Type,
-		Source:      req.Source,
-		RequesterID: customer.ID,
+		ID:           uuid.New(),
+		TenantID:     tenantUUID,
+		ProjectID:    projectUUID,
+		Subject:      req.Subject,
+		Status:       "new",
+		Priority:     req.Priority,
+		Type:         req.Type,
+		Source:       req.Source,
+		RequesterID:  customer.ID,
+		CustomerName: customer.Name,
 	}
 
 	// Set assignee if provided
@@ -225,7 +250,7 @@ type ListTicketsRequest struct {
 }
 
 // ListTickets retrieves a list of tickets
-func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, agentID string, req ListTicketsRequest) ([]*db.Ticket, string, error) {
+func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, agentID string, req ListTicketsRequest) ([]*TicketWithDetails, string, error) {
 	// Check permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
 	if err != nil {
@@ -274,7 +299,38 @@ func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, ag
 		return nil, "", fmt.Errorf("failed to list tickets: %w", err)
 	}
 
-	return tickets, nextCursor, nil
+	// Convert to TicketWithDetails by fetching agent information
+	ticketsWithDetails := make([]*TicketWithDetails, len(tickets))
+	for i, ticket := range tickets {
+		ticketDetail := &TicketWithDetails{
+			Ticket: ticket,
+		}
+
+		// Customer name is already in the ticket record
+		if ticket.CustomerName != "" {
+			ticketDetail.Customer = &CustomerInfo{
+				ID:    ticket.RequesterID.String(),
+				Name:  ticket.CustomerName,
+				Email: "", // Email not available in tickets table, could be added if needed
+			}
+		}
+
+		// Fetch agent details if assigned
+		if ticket.AssigneeAgentID != nil {
+			agent, err := s.agentRepo.GetByID(ctx, tenantUUID, *ticket.AssigneeAgentID)
+			if err == nil && agent != nil {
+				ticketDetail.AssignedAgent = &AgentInfo{
+					ID:    agent.ID.String(),
+					Name:  agent.Name,
+					Email: agent.Email,
+				}
+			}
+		}
+
+		ticketsWithDetails[i] = ticketDetail
+	}
+
+	return ticketsWithDetails, nextCursor, nil
 }
 
 // AddMessageRequest represents a request to add a message to a ticket
