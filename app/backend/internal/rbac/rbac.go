@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/bareuptime/tms/internal/db"
 	"github.com/google/uuid"
@@ -129,6 +130,8 @@ func NewService(database *sql.DB) *Service {
 
 // CheckPermission checks if an agent has a specific permission
 func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projectID string, permission Permission) (bool, error) {
+	log.Printf("CheckPermission called: agentID=%s, tenantID=%s, projectID=%s, permission=%s", agentID, tenantID, projectID, permission)
+	
 	_, err := uuid.Parse(agentID)
 	if err != nil {
 		return false, fmt.Errorf("invalid agent ID: %w", err)
@@ -142,11 +145,19 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 	// Get agent's role bindings
 	roleBindings, err := s.GetAgentRoleBindings(ctx, agentID, tenantID)
 	if err != nil {
+		log.Printf("Failed to get role bindings: %v", err)
 		return false, fmt.Errorf("failed to get role bindings: %w", err)
+	}
+
+	log.Printf("Found %d role bindings", len(roleBindings))
+	for i, binding := range roleBindings {
+		log.Printf("Role binding %d: Role=%s, ProjectID=%v", i, binding.Role, binding.ProjectID)
 	}
 
 	// Check permissions for each role binding
 	for _, binding := range roleBindings {
+		log.Printf("Checking binding: Role=%s, ProjectID=%v", binding.Role, binding.ProjectID)
+		
 		// If projectID is specified, check project-specific roles
 		if projectID != "" {
 			projectUUID, err := uuid.Parse(projectID)
@@ -154,36 +165,56 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 				continue
 			}
 			if binding.ProjectID != nil && *binding.ProjectID == projectUUID {
+				log.Printf("Checking project-specific role: %s", binding.Role)
 				if s.hasPermission(binding.Role, permission) {
+					log.Printf("Permission granted via project-specific role: %s", binding.Role)
+					return true, nil
+				}
+			}
+		} else {
+			// For tenant-level permissions, check both tenant-level roles and tenant_admin project roles
+			if binding.ProjectID == nil {
+				log.Printf("Checking tenant-level role: %s", binding.Role)
+				if s.hasPermission(binding.Role, permission) {
+					log.Printf("Permission granted via tenant-level role: %s", binding.Role)
+					return true, nil
+				}
+			} else if binding.Role == "tenant_admin" {
+				// tenant_admin project roles also grant tenant-level permissions
+				log.Printf("Checking tenant_admin project role for tenant-level permission")
+				if s.hasPermission(binding.Role, permission) {
+					log.Printf("Permission granted via tenant_admin project role")
 					return true, nil
 				}
 			}
 		}
-		
-		// Check tenant-level roles (when ProjectID is nil)
-		if binding.ProjectID == nil {
-			if s.hasPermission(binding.Role, permission) {
-				return true, nil
-			}
-		}
 	}
+
+	log.Printf("Permission denied: no role grants permission %s", permission)
 
 	return false, nil
 }
 
 // hasPermission checks if a role has a specific permission
 func (s *Service) hasPermission(roleName string, permission Permission) bool {
+	log.Printf("hasPermission called: roleName=%s, permission=%s", roleName, permission)
+	
 	role, exists := roleMap[roleName]
 	if !exists {
+		log.Printf("Role not found in roleMap: %s", roleName)
 		return false
 	}
 
+	log.Printf("Role found, checking %d permissions", len(role.Permissions))
 	for _, perm := range role.Permissions {
+		log.Printf("Checking permission: %s", perm)
 		if perm == permission {
+			log.Printf("Permission match found!")
 			return true
 		}
 	}
 
+	log.Printf("No permission match found for role %s", roleName)
 	return false
 }
 

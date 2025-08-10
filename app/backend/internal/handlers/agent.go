@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -50,6 +51,7 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 
 	agents, nextCursor, err := h.agentService.ListAgents(c.Request.Context(), tenantIDStr, requestorAgentID, req)
 	if err != nil {
+		log.Printf("Failed to list agents: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agents"})
 		return
 	}
