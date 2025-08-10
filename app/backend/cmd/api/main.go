@@ -66,7 +66,7 @@ func main() {
 	// Initialize services
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
 	projectService := service.NewProjectService(projectRepo)
-	// agentService := service.NewAgentService(agentRepo, rbacService)      // Reserved for future use
+	agentService := service.NewAgentService(agentRepo, rbacService)
 	// customerService := service.NewCustomerService(customerRepo, rbacService) // Reserved for future use
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService)
 	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
@@ -90,9 +90,10 @@ func main() {
 	publicHandler := handlers.NewPublicHandler(publicService)
 	integrationHandler := handlers.NewIntegrationHandler(integrationService)
 	emailHandler := handlers.NewEmailHandler(emailRepo)
+	agentHandler := handlers.NewAgentHandler(agentService)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, agentHandler)
 
 	// Start background services
 	if cfg.Email.EnableEmailToTicket {
@@ -139,7 +140,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, agentHandler *handlers.AgentHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -187,6 +188,17 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			api.GET("/projects/:project_id", projectHandler.GetProject)
 			api.PUT("/projects/:project_id", projectHandler.UpdateProject)
 			api.DELETE("/projects/:project_id", projectHandler.DeleteProject)
+		}
+
+		// Agent management endpoints
+		{
+			api.GET("/agents", agentHandler.ListAgents)
+			api.POST("/agents", agentHandler.CreateAgent)
+			api.GET("/agents/:agent_id", agentHandler.GetAgent)
+			api.PATCH("/agents/:agent_id", agentHandler.UpdateAgent)
+			api.POST("/agents/:agent_id/roles", agentHandler.AssignRole)
+			api.DELETE("/agents/:agent_id/roles", agentHandler.RemoveRole)
+			api.GET("/agents/:agent_id/roles", agentHandler.GetAgentRoles)
 		}
 
 		// Project-scoped endpoints

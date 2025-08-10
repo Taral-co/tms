@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ChevronDown, Check, Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { apiClient, Project } from '../lib/api'
 
 interface ProjectSelectorProps {
@@ -15,6 +16,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentProject, setCurrentProject] = useState<Project | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     loadProjects()
@@ -133,9 +135,8 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             <div className="border-t border-border mt-1 pt-1">
               <button
                 onClick={() => {
-                  // TODO: Implement project creation dialog
-                  console.log('Create new project')
                   setIsOpen(false)
+                  navigate('/settings')
                 }}
                 className="w-full flex items-center space-x-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground rounded-sm transition-colors"
               >
