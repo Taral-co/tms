@@ -1,6 +1,17 @@
 version: '3.8'
 
 services:
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: tms-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - tms-network
+
   # Database
   postgres:
     image: postgres:15

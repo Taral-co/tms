@@ -93,10 +93,12 @@ func AuthMiddleware(jwtAuth *auth.Service) gin.HandlerFunc {
 		}
 
 		// Validate that role_bindings has at least one role
-		if len(claims.RoleBindings) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "no role_bindings found in token"})
-			c.Abort()
-			return
+		for projectID, roles := range claims.RoleBindings {
+			if len(roles) == 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "no roles found for project " + projectID})
+				c.Abort()
+				return
+			}
 		}
 
 		// Store validated claims in context
@@ -224,4 +226,24 @@ func GetClaims(c *gin.Context) *auth.Claims {
 		}
 	}
 	return nil
+}
+
+// TenantAdminMiddleware ensures only tenant admins can access the endpoint
+func TenantAdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := GetClaims(c)
+		if claims == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No valid claims found"})
+			c.Abort()
+			return
+		}
+
+		if !claims.IsTenantAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Tenant admin access required"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
 }

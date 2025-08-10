@@ -15,21 +15,21 @@ type Claims = models.JWTClaims
 
 // Service provides authentication functionality
 type Service struct {
-	secretKey            string
-	accessTokenExpiry    time.Duration
-	refreshTokenExpiry   time.Duration
-	magicLinkExpiry      time.Duration
-	unauthTokenExpiry    time.Duration
+	secretKey          string
+	accessTokenExpiry  time.Duration
+	refreshTokenExpiry time.Duration
+	magicLinkExpiry    time.Duration
+	unauthTokenExpiry  time.Duration
 }
 
 // NewService creates a new auth service
 func NewService(secretKey string, accessTokenExpiry, refreshTokenExpiry, magicLinkExpiry, unauthTokenExpiry int) *Service {
 	return &Service{
-		secretKey:            secretKey,
-		accessTokenExpiry:    time.Duration(accessTokenExpiry) * time.Second,
-		refreshTokenExpiry:   time.Duration(refreshTokenExpiry) * time.Second,
-		magicLinkExpiry:      time.Duration(magicLinkExpiry) * time.Second,
-		unauthTokenExpiry:    time.Duration(unauthTokenExpiry) * time.Second,
+		secretKey:          secretKey,
+		accessTokenExpiry:  time.Duration(accessTokenExpiry) * time.Second,
+		refreshTokenExpiry: time.Duration(refreshTokenExpiry) * time.Second,
+		magicLinkExpiry:    time.Duration(magicLinkExpiry) * time.Second,
+		unauthTokenExpiry:  time.Duration(unauthTokenExpiry) * time.Second,
 	}
 }
 
@@ -50,18 +50,33 @@ func (s *Service) GenerateAccessToken(agentID, tenantID, email string, roleBindi
 	now := time.Now()
 	jti := uuid.New().String()
 
+	// Check if roleBindings contains "tenant_admin" role in any of the role lists
+	isTenantAdmin := false
+	for _, roles := range roleBindings {
+		for _, role := range roles {
+			if role == "tenant_admin" {
+				isTenantAdmin = true
+				break
+			}
+		}
+		if isTenantAdmin {
+			break
+		}
+	}
+
 	// Create access token claims
 	accessClaims := &models.JWTClaims{
-		Sub:          agentID,
-		Subject:      agentID, // For backward compatibility
-		TenantID:     tenantID,
-		AgentID:      agentID,
-		Email:        email,
-		RoleBindings: roleBindings,
-		TokenType:    "access",
-		JTI:          jti,
-		Exp:          now.Add(s.accessTokenExpiry).Unix(),
-		Iat:          now.Unix(),
+		Sub:           agentID,
+		Subject:       agentID, // For backward compatibility
+		TenantID:      tenantID,
+		AgentID:       agentID,
+		Email:         email,
+		RoleBindings:  roleBindings,
+		TokenType:     "access",
+		JTI:           jti,
+		Exp:           now.Add(s.accessTokenExpiry).Unix(),
+		Iat:           now.Unix(),
+		IsTenantAdmin: isTenantAdmin,
 	}
 
 	// Generate access token
@@ -92,18 +107,33 @@ func (s *Service) GenerateTokens(agent *models.Agent, roleBindings map[string][]
 	now := time.Now()
 	jti := uuid.New().String()
 
+	// Check if roleBindings contains "tenant_admin" role in any of the role lists
+	isTenantAdmin := false
+	for _, roles := range roleBindings {
+		for _, role := range roles {
+			if role == "tenant_admin" {
+				isTenantAdmin = true
+				break
+			}
+		}
+		if isTenantAdmin {
+			break
+		}
+	}
+
 	// Create access token claims
 	accessClaims := &models.JWTClaims{
-		Sub:          agent.ID.String(),
-		Subject:      agent.ID.String(),
-		TenantID:     agent.TenantID.String(),
-		AgentID:      agent.ID.String(),
-		Email:        agent.Email,
-		RoleBindings: roleBindings,
-		TokenType:    "access",
-		JTI:          jti,
-		Exp:          now.Add(s.accessTokenExpiry).Unix(),
-		Iat:          now.Unix(),
+		Sub:           agent.ID.String(),
+		Subject:       agent.ID.String(),
+		TenantID:      agent.TenantID.String(),
+		AgentID:       agent.ID.String(),
+		Email:         agent.Email,
+		RoleBindings:  roleBindings,
+		TokenType:     "access",
+		JTI:           jti,
+		Exp:           now.Add(s.accessTokenExpiry).Unix(),
+		Iat:           now.Unix(),
+		IsTenantAdmin: isTenantAdmin,
 	}
 
 	// Generate access token

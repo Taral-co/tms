@@ -214,9 +214,9 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			api.POST("/agents/:agent_id/roles", agentHandler.AssignRole)
 			api.DELETE("/agents/:agent_id/roles", agentHandler.RemoveRole)
 			api.GET("/agents/:agent_id/roles", agentHandler.GetAgentRoles)
-			// Project assignment endpoints
-			api.POST("/agents/:agent_id/projects/:project_id", agentHandler.AssignToProject)
-			api.DELETE("/agents/:agent_id/projects/:project_id", agentHandler.RemoveFromProject)
+			// Project assignment endpoints - restricted to tenant admins only
+			api.POST("/agents/:agent_id/projects/:project_id", middleware.TenantAdminMiddleware(), agentHandler.AssignToProject)
+			api.DELETE("/agents/:agent_id/projects/:project_id", middleware.TenantAdminMiddleware(), agentHandler.RemoveFromProject)
 			api.GET("/agents/:agent_id/projects", agentHandler.GetAgentProjects)
 		}
 

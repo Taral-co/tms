@@ -204,16 +204,17 @@ type AuditLog struct {
 
 // JWT Claims
 type JWTClaims struct {
-	Sub          string              `json:"sub"`
-	TenantID     string              `json:"tenant_id"`
-	AgentID      string              `json:"agent_id"`
-	Email        string              `json:"email"`
-	RoleBindings map[string][]string `json:"role_bindings"`
-	TokenType    string              `json:"token_type"`
-	JTI          string              `json:"jti"`
-	Exp          int64               `json:"exp"`
-	Iat          int64               `json:"iat"`
-	Subject      string              `json:"subject"` // Alias for Sub for backward compatibility
+	Sub           string              `json:"sub"`
+	TenantID      string              `json:"tenant_id"`
+	AgentID       string              `json:"agent_id"`
+	Email         string              `json:"email"`
+	RoleBindings  map[string][]string `json:"role_bindings"`
+	TokenType     string              `json:"token_type"`
+	JTI           string              `json:"jti"`
+	Exp           int64               `json:"exp"`
+	Iat           int64               `json:"iat"`
+	Subject       string              `json:"subject"` // Alias for Sub for backward compatibility
+	IsTenantAdmin bool                `json:"is_tenant_admin"`
 }
 
 // GetExpirationTime implements jwt.Claims
