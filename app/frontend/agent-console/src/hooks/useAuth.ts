@@ -81,10 +81,16 @@ export function useAuth() {
       setIsAuthenticated(true)
       localStorage.setItem('user_data', JSON.stringify(response.user))
       apiClient.setTenantId(response.user.tenant_id)
+      
+      // Set default project ID if not already set
+      const defaultProjectId = '550e8400-e29b-41d4-a716-446655440001'
+      apiClient.setProjectId(defaultProjectId)
+      localStorage.setItem('project_id', defaultProjectId)
+      
       setIsLoading(false)
       
-      // Navigate to dashboard after successful login
-      navigate('/dashboard')
+      // Navigate to inbox after successful login
+      navigate('/inbox')
     } catch (error: any) {
       setError(error.response?.data?.message || 'Login failed')
       setIsLoading(false)

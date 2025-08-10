@@ -64,6 +64,33 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// DeleteAgent handles DELETE /agents/:agent_id
+func (h *AgentHandler) DeleteAgent(c *gin.Context) {
+	tenantIDStr := c.Param("tenant_id")
+	agentIDStr := c.Param("agent_id")
+
+	// Get requestor agent ID from JWT claims
+	requestorAgentID, exists := c.Get("agent_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+		return
+	}
+
+	requestorAgentIDStr, ok := requestorAgentID.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+		return
+	}
+
+	err := h.agentService.DeleteAgent(c.Request.Context(), tenantIDStr, agentIDStr, requestorAgentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Agent deleted successfully"})
+}
+
 // CreateAgent handles POST /agents
 func (h *AgentHandler) CreateAgent(c *gin.Context) {
 	tenantIDStr := c.Param("tenant_id")

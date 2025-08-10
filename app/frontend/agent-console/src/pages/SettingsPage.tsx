@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Settings, 
   Users, 
@@ -8,25 +9,16 @@ import {
   Key, 
   Plus,
   Trash2,
-  Edit
+  Edit,
+  Eye,
+  EyeOff,
+  Copy,
+  Check
 } from 'lucide-react'
-import { apiClient, Project } from '../lib/api'
+import { apiClient, Project, Agent } from '../lib/api'
 
 // Tab types for settings navigation
 type SettingsTab = 'projects' | 'roles' | 'email' | 'branding' | 'automations' | 'api-keys'
-
-interface Agent {
-  id: string
-  name: string
-  email: string
-  created_at: string
-  is_active: boolean
-  roles?: Array<{
-    role: string
-    project_id?: string
-    project_name?: string
-  }>
-}
 
 interface ApiKey {
   id: string
@@ -38,7 +30,9 @@ interface ApiKey {
 }
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('projects')
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<SettingsTab>((searchParams.get('tab') as SettingsTab) || 'projects')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -55,6 +49,61 @@ export function SettingsPage() {
   const [newAgentEmail, setNewAgentEmail] = useState('')
   const [newAgentPassword, setNewAgentPassword] = useState('')
   const [newAgentRole, setNewAgentRole] = useState('agent')
+  // Email settings state
+  const [emailSettings, setEmailSettings] = useState({
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_username: '',
+    smtp_password: '',
+    smtp_encryption: 'tls',
+    from_email: '',
+    from_name: '',
+    enable_email_notifications: true,
+    enable_email_to_ticket: false
+  })
+
+  // Branding state
+  const [brandingSettings, setBrandingSettings] = useState({
+    company_name: '',
+    logo_url: '',
+    support_url: '',
+    primary_color: '#3b82f6',
+    accent_color: '#10b981',
+    secondary_color: '#64748b',
+    custom_css: '',
+    favicon_url: '',
+    header_logo_height: 40,
+    enable_custom_branding: false
+  })
+
+  // Automations state
+  const [automations, setAutomations] = useState([])
+  const [showCreateAutomation, setShowCreateAutomation] = useState(false)
+  const [newAutomation, setNewAutomation] = useState({
+    name: '',
+    trigger: 'ticket_created',
+    conditions: [],
+    actions: [],
+    is_active: true
+  })
+
+  // Automation settings state
+  const [automationSettings, setAutomationSettings] = useState({
+    enable_auto_assignment: false,
+    assignment_strategy: 'round_robin',
+    max_tickets_per_agent: 10,
+    enable_escalation: false,
+    escalation_threshold_hours: 24,
+    enable_auto_reply: false,
+    auto_reply_template: 'Thank you for contacting our support team. We have received your ticket and will respond within 24 hours.'
+  })
+
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
+  const [showCreateApiKey, setShowCreateApiKey] = useState(false)
+  const [newApiKeyName, setNewApiKeyName] = useState('')
+  const [showApiKeyValue, setShowApiKeyValue] = useState<string | null>(null)
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null)
 
   const tabs = [
     { id: 'projects' as SettingsTab, name: 'Projects', icon: Settings },
@@ -64,6 +113,11 @@ export function SettingsPage() {
     { id: 'automations' as SettingsTab, name: 'Automations', icon: Zap },
     { id: 'api-keys' as SettingsTab, name: 'API Keys', icon: Key },
   ]
+
+  const handleTabChange = (tabId: SettingsTab) => {
+    setActiveTab(tabId)
+    setSearchParams({ tab: tabId })
+  }
 
   useEffect(() => {
     loadData()
@@ -87,10 +141,13 @@ export function SettingsPage() {
           setAgents([]) // Placeholder for now
           break
         case 'api-keys':
-          // Load API keys
-          // const keysList = await apiClient.getApiKeys()
-          // setApiKeys(keysList)
-          // Placeholder for now
+          try {
+            const keysList = await apiClient.getApiKeys()
+            setApiKeys(keysList)
+          } catch (err) {
+            console.log('API keys endpoint not yet implemented:', err)
+            setApiKeys([]) // Placeholder for now
+          }
           break
       }
     } catch (err) {
@@ -126,14 +183,13 @@ export function SettingsPage() {
 
     try {
       setLoading(true)
-      // Note: We'll need to implement the create agent API
-      // const agent = await apiClient.createAgent({
-      //   name: newAgentName,
-      //   email: newAgentEmail,
-      //   password: newAgentPassword,
-      //   role: newAgentRole
-      // })
-      // setAgents(prev => [agent, ...prev])
+      const agent = await apiClient.createAgent({
+        name: newAgentName,
+        email: newAgentEmail,
+        password: newAgentPassword,
+        role: newAgentRole
+      })
+      setAgents(prev => [agent, ...prev])
       setNewAgentName('')
       setNewAgentEmail('')
       setNewAgentPassword('')
@@ -141,6 +197,149 @@ export function SettingsPage() {
       setShowCreateAgent(false)
     } catch (err) {
       setError('Failed to create agent')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateApiKey = async () => {
+    if (!newApiKeyName.trim()) return
+
+    try {
+      setLoading(true)
+      const response = await apiClient.createApiKey({
+        name: newApiKeyName
+      })
+      // Backend returns the API key data directly with the key field
+      const { key, ...apiKeyData } = response
+      setApiKeys(prev => [apiKeyData, ...prev])
+      setShowApiKeyValue(key)
+      setNewApiKeyName('')
+      setShowCreateApiKey(false)
+    } catch (err) {
+      console.error('Create API key error:', err)
+      setError('Failed to create API key')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCopyApiKey = async (key: string, keyId: string) => {
+    try {
+      await navigator.clipboard.writeText(key)
+      setCopiedKeyId(keyId)
+      setTimeout(() => setCopiedKeyId(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy API key:', err)
+    }
+  }
+
+  // Project handlers
+  const handleEditProject = async (projectId: string, updates: { key: string; name: string; status: string }) => {
+    try {
+      setLoading(true)
+      const updatedProject = await apiClient.updateProject(projectId, updates)
+      setProjects(prev => prev.map(p => p.id === projectId ? updatedProject : p))
+    } catch (err) {
+      setError('Failed to update project')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return
+    
+    try {
+      setLoading(true)
+      await apiClient.deleteProject(projectId)
+      setProjects(prev => prev.filter(p => p.id !== projectId))
+    } catch (err) {
+      setError('Failed to delete project')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Agent handlers  
+  const handleEditAgent = async (agentId: string, updates: Partial<Agent>) => {
+    try {
+      setLoading(true)
+      const updatedAgent = await apiClient.updateAgent(agentId, updates)
+      setAgents(prev => prev.map(a => a.id === agentId ? updatedAgent : a))
+    } catch (err) {
+      setError('Failed to update agent')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteAgent = async (agentId: string) => {
+    if (!confirm('Are you sure you want to delete this agent? This action cannot be undone.')) return
+    
+    try {
+      setLoading(true)
+      await apiClient.deleteAgent(agentId)
+      setAgents(prev => prev.filter(a => a.id !== agentId))
+    } catch (err) {
+      setError('Failed to delete agent')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // API Key handlers
+  const handleDeleteApiKey = async (keyId: string) => {
+    if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) return
+    
+    try {
+      setLoading(true)
+      await apiClient.deleteApiKey(keyId)
+      setApiKeys(prev => prev.filter(k => k.id !== keyId))
+    } catch (err) {
+      setError('Failed to delete API key')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Email settings handlers
+  const handleSaveEmailSettings = async () => {
+    try {
+      setLoading(true)
+      // TODO: Implement email settings API
+      console.log('Saving email settings:', emailSettings)
+      // await apiClient.updateEmailSettings(emailSettings)
+    } catch (err) {
+      setError('Failed to save email settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Branding settings handlers
+  const handleSaveBrandingSettings = async () => {
+    try {
+      setLoading(true)
+      // TODO: Implement branding settings API
+      console.log('Saving branding settings:', brandingSettings)
+      // await apiClient.updateBrandingSettings(brandingSettings)
+    } catch (err) {
+      setError('Failed to save branding settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Automation settings handlers
+  const handleSaveAutomationSettings = async () => {
+    try {
+      setLoading(true)
+      // TODO: Implement automation settings API
+      console.log('Saving automation settings:', automationSettings)
+      // await apiClient.updateAutomationSettings(automationSettings)
+    } catch (err) {
+      setError('Failed to save automation settings')
     } finally {
       setLoading(false)
     }
@@ -251,10 +450,16 @@ export function SettingsPage() {
                   Recently created
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                  <button className="text-primary hover:text-primary/80 mr-3">
+                  <button 
+                    onClick={() => handleEditProject(project.id, { name: project.name, key: project.key, status: 'active' })}
+                    className="text-primary hover:text-primary/80 mr-3"
+                  >
                     <Edit className="h-4 w-4" />
                   </button>
-                  <button className="text-destructive hover:text-destructive/80">
+                  <button 
+                    onClick={() => handleDeleteProject(project.id)}
+                    className="text-destructive hover:text-destructive/80"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </td>
@@ -312,7 +517,7 @@ export function SettingsPage() {
                 type="password"
                 value={newAgentPassword}
                 onChange={(e) => setNewAgentPassword(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
                 placeholder="••••••••"
               />
             </div>
@@ -406,10 +611,16 @@ export function SettingsPage() {
                     {new Date(agent.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <button className="text-primary hover:text-primary/80 mr-3">
+                    <button 
+                      onClick={() => handleEditAgent(agent.id, { name: agent.name, email: agent.email })}
+                      className="text-primary hover:text-primary/80 mr-3"
+                    >
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button className="text-destructive hover:text-destructive/80">
+                    <button 
+                      onClick={() => handleDeleteAgent(agent.id)}
+                      className="text-destructive hover:text-destructive/80"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </td>
@@ -422,18 +633,551 @@ export function SettingsPage() {
     </div>
   )
 
-  const renderPlaceholderTab = (title: string, description: string) => (
+  const renderEmailTab = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-foreground">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <h3 className="text-lg font-medium text-foreground">Email Settings</h3>
+        <p className="text-sm text-muted-foreground">Configure email integration and notification preferences</p>
       </div>
-      <div className="border rounded-lg p-8 text-center">
-        <div className="text-muted-foreground">
-          <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <h4 className="text-lg font-medium mb-2">Coming Soon</h4>
-          <p className="text-sm">This feature is under development and will be available in a future update.</p>
+
+      <div className="space-y-6">
+        {/* SMTP Configuration */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">SMTP Configuration</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">SMTP Host</label>
+              <input
+                type="text"
+                value={emailSettings.smtp_host}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_host: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="smtp.gmail.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">SMTP Port</label>
+              <input
+                type="number"
+                value={emailSettings.smtp_port}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_port: parseInt(e.target.value) }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="587"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Username</label>
+              <input
+                type="text"
+                value={emailSettings.smtp_username}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_username: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="your-email@company.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Password</label>
+              <input
+                type="password"
+                value={emailSettings.smtp_password}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_password: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Encryption</label>
+              <select
+                value={emailSettings.smtp_encryption}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_encryption: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+              >
+                <option value="tls">TLS</option>
+                <option value="ssl">SSL</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+          </div>
         </div>
+
+        {/* Email Branding */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Email Branding</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">From Email</label>
+              <input
+                type="email"
+                value={emailSettings.from_email}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, from_email: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="support@company.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">From Name</label>
+              <input
+                type="text"
+                value={emailSettings.from_name}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, from_name: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="Company Support"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Email Features */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Email Features</h4>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Email Notifications</label>
+                <p className="text-xs text-muted-foreground">Send email notifications for ticket updates</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={emailSettings.enable_email_notifications}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, enable_email_notifications: e.target.checked }))}
+                className="rounded"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Email to Ticket</label>
+                <p className="text-xs text-muted-foreground">Convert incoming emails to tickets</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={emailSettings.enable_email_to_ticket}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, enable_email_to_ticket: e.target.checked }))}
+                className="rounded"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex space-x-3">
+          <button 
+            onClick={handleSaveEmailSettings}
+            disabled={loading}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save Email Settings'}
+          </button>
+          <button className="px-4 py-2 border rounded-md hover:bg-accent">
+            Test Connection
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderBrandingTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium text-foreground">Branding</h3>
+        <p className="text-sm text-muted-foreground">Customize your organization's branding and appearance</p>
+      </div>
+
+      <div className="space-y-6">
+        {/* Company Information */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Company Information</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Company Name</label>
+              <input
+                type="text"
+                value={brandingSettings.company_name}
+                onChange={(e) => setBrandingSettings(prev => ({ ...prev, company_name: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="Your Company Name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Support URL</label>
+              <input
+                type="url"
+                value={brandingSettings.support_url}
+                onChange={(e) => setBrandingSettings(prev => ({ ...prev, support_url: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="https://support.company.com"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Logo */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Logo</h4>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Logo URL</label>
+              <input
+                type="url"
+                value={brandingSettings.logo_url}
+                onChange={(e) => setBrandingSettings(prev => ({ ...prev, logo_url: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+            {brandingSettings.logo_url && (
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <p className="text-sm text-muted-foreground mb-2">Logo Preview:</p>
+                <img 
+                  src={brandingSettings.logo_url} 
+                  alt="Logo preview"
+                  className="max-h-16 object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Color Scheme */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Color Scheme</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Primary Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={brandingSettings.primary_color}
+                  onChange={(e) => setBrandingSettings(prev => ({ ...prev, primary_color: e.target.value }))}
+                  className="w-12 h-10 border rounded-md cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={brandingSettings.primary_color}
+                  onChange={(e) => setBrandingSettings(prev => ({ ...prev, primary_color: e.target.value }))}
+                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                  placeholder="#3B82F6"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Accent Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={brandingSettings.accent_color}
+                  onChange={(e) => setBrandingSettings(prev => ({ ...prev, accent_color: e.target.value }))}
+                  className="w-12 h-10 border rounded-md cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={brandingSettings.accent_color}
+                  onChange={(e) => setBrandingSettings(prev => ({ ...prev, accent_color: e.target.value }))}
+                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                  placeholder="#10B981"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex space-x-3">
+          <button 
+            onClick={handleSaveBrandingSettings}
+            disabled={loading}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save Branding Settings'}
+          </button>
+          <button className="px-4 py-2 border rounded-md hover:bg-accent">
+            Preview Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAutomationsTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium text-foreground">Automations</h3>
+        <p className="text-sm text-muted-foreground">Set up automated workflows and rules</p>
+      </div>
+
+      <div className="space-y-6">
+        {/* Auto-Assignment Rules */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Auto-Assignment Rules</h4>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Enable Auto-Assignment</label>
+                <p className="text-xs text-muted-foreground">Automatically assign tickets to available agents</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={automationSettings.enable_auto_assignment}
+                onChange={(e) => setAutomationSettings(prev => ({ ...prev, enable_auto_assignment: e.target.checked }))}
+                className="rounded"
+              />
+            </div>
+            
+            {automationSettings.enable_auto_assignment && (
+              <div className="space-y-3 pl-4 border-l-2 border-muted">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Assignment Strategy</label>
+                  <select
+                    value={automationSettings.assignment_strategy}
+                    onChange={(e) => setAutomationSettings(prev => ({ ...prev, assignment_strategy: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                  >
+                    <option value="round_robin">Round Robin</option>
+                    <option value="least_busy">Least Busy</option>
+                    <option value="random">Random</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Max Tickets per Agent</label>
+                  <input
+                    type="number"
+                    value={automationSettings.max_tickets_per_agent}
+                    onChange={(e) => setAutomationSettings(prev => ({ ...prev, max_tickets_per_agent: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                    placeholder="10"
+                    min="1"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Escalation Rules */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Escalation Rules</h4>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Enable Auto-Escalation</label>
+                <p className="text-xs text-muted-foreground">Escalate tickets based on priority and time</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={automationSettings.enable_escalation}
+                onChange={(e) => setAutomationSettings(prev => ({ ...prev, enable_escalation: e.target.checked }))}
+                className="rounded"
+              />
+            </div>
+            
+            {automationSettings.enable_escalation && (
+              <div className="space-y-3 pl-4 border-l-2 border-muted">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Escalation Threshold (hours)</label>
+                  <input
+                    type="number"
+                    value={automationSettings.escalation_threshold_hours}
+                    onChange={(e) => setAutomationSettings(prev => ({ ...prev, escalation_threshold_hours: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                    placeholder="24"
+                    min="1"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Response Templates */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">Automated Responses</h4>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Auto-Reply to New Tickets</label>
+                <p className="text-xs text-muted-foreground">Send automatic acknowledgment emails</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={automationSettings.enable_auto_reply}
+                onChange={(e) => setAutomationSettings(prev => ({ ...prev, enable_auto_reply: e.target.checked }))}
+                className="rounded"
+              />
+            </div>
+            
+            {automationSettings.enable_auto_reply && (
+              <div className="pl-4 border-l-2 border-muted">
+                <label className="block text-sm font-medium mb-1">Auto-Reply Template</label>
+                <textarea
+                  value={automationSettings.auto_reply_template}
+                  onChange={(e) => setAutomationSettings(prev => ({ ...prev, auto_reply_template: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                  rows={4}
+                  placeholder="Thank you for contacting our support team. We have received your ticket and will respond within 24 hours."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex space-x-3">
+          <button 
+            onClick={handleSaveAutomationSettings}
+            disabled={loading}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : 'Save Automation Settings'}
+          </button>
+          <button className="px-4 py-2 border rounded-md hover:bg-accent">
+            Test Rules
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderApiKeysTab = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium text-foreground">API Keys</h3>
+          <p className="text-sm text-muted-foreground">Manage API keys for external integrations</p>
+        </div>
+        <button
+          onClick={() => setShowCreateApiKey(true)}
+          className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Create API Key</span>
+        </button>
+      </div>
+
+      {showCreateApiKey && (
+        <div className="border rounded-lg p-4 bg-card">
+          <h4 className="font-medium mb-4">Create API Key</h4>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Key Name</label>
+              <input
+                type="text"
+                value={newApiKeyName}
+                onChange={(e) => setNewApiKeyName(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="Integration API Key"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Choose a descriptive name to help identify this key later
+              </p>
+            </div>
+          </div>
+          <div className="flex space-x-3 mt-4">
+            <button
+              onClick={handleCreateApiKey}
+              disabled={loading || !newApiKeyName.trim()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+            >
+              {loading ? 'Creating...' : 'Create Key'}
+            </button>
+            <button
+              onClick={() => {
+                setShowCreateApiKey(false)
+                setNewApiKeyName('')
+              }}
+              className="px-4 py-2 border rounded-md hover:bg-accent"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showApiKeyValue && (
+        <div className="border rounded-lg p-4 bg-card border-primary">
+          <h4 className="font-medium mb-2 text-primary">Your New API Key</h4>
+          <p className="text-sm text-muted-foreground mb-4">
+            Please copy this key and store it securely. You won't be able to see it again.
+          </p>
+          <div className="flex items-center space-x-2 p-3 bg-muted rounded-md">
+            <code className="flex-1 text-sm font-mono">{showApiKeyValue}</code>
+            <button
+              onClick={() => handleCopyApiKey(showApiKeyValue, 'new')}
+              className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+            >
+              {copiedKeyId === 'new' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+          <button
+            onClick={() => setShowApiKeyValue(null)}
+            className="mt-3 text-sm text-primary hover:text-primary/80"
+          >
+            I've copied the key
+          </button>
+        </div>
+      )}
+
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Key Preview
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Last Used
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-background divide-y divide-border">
+            {apiKeys.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
+                  No API keys found. Create your first API key to get started.
+                </td>
+              </tr>
+            ) : (
+              apiKeys.map((apiKey) => (
+                <tr key={apiKey.id} className="hover:bg-muted/50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-foreground">{apiKey.name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <code className="text-sm font-mono text-muted-foreground">{apiKey.key_preview}</code>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                    {apiKey.last_used ? new Date(apiKey.last_used).toLocaleDateString() : 'Never'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      apiKey.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {apiKey.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                    <button className="text-primary hover:text-primary/80 mr-3">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteApiKey(apiKey.id)}
+                      className="text-destructive hover:text-destructive/80"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   )
@@ -445,13 +1189,13 @@ export function SettingsPage() {
       case 'roles':
         return renderRolesTab()
       case 'email':
-        return renderPlaceholderTab('Email Settings', 'Configure email integration and notification preferences')
+        return renderEmailTab()
       case 'branding':
-        return renderPlaceholderTab('Branding', 'Customize your organization\'s branding and appearance')
+        return renderBrandingTab()
       case 'automations':
-        return renderPlaceholderTab('Automations', 'Set up automated workflows and rules')
+        return renderAutomationsTab()
       case 'api-keys':
-        return renderPlaceholderTab('API Keys', 'Manage API keys for external integrations')
+        return renderApiKeysTab()
       default:
         return null
     }
@@ -479,7 +1223,7 @@ export function SettingsPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-md transition-colors ${
                     activeTab === tab.id
                       ? 'bg-primary/10 text-primary border-l-2 border-primary'

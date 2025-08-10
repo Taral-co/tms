@@ -6,7 +6,6 @@ import { AppShell } from './components/AppShell'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { InboxPage } from './pages/InboxPage'
-import { DashboardPage } from './pages/DashboardPage'
 import { TicketsPage } from './pages/TicketsPage'
 import { TicketDetailPage } from './pages/TicketDetailPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
@@ -43,24 +42,23 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
+        isAuthenticated ? <Navigate to="/inbox" replace /> : <LoginPage />
       } />
       <Route path="/" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+        isAuthenticated ? <Navigate to="/inbox" replace /> : <Navigate to="/login" replace />
       } />
       {isAuthenticated ? (
         <Route path="/*" element={
           <AppShell>
             <Routes>
-              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/tickets" element={<TicketsPage />} />
               <Route path="/tickets/:id" element={<TicketDetailPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/inbox" replace />} />
             </Routes>
           </AppShell>
         } />

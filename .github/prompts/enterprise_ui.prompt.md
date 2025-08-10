@@ -150,3 +150,11 @@ Stack: **React + Vite + TypeScript + Tailwind + shadcn/ui + Radix**. Enforce **l
 pnpm -w install || npm install -w
 pnpm -w -r run dev   # runs all three (shared build/watch first)
 pnpm -w -r run test
+```
+
+``` common APIS
+curl -s -X POST http://localhost:8080/v1/tenants/550e8400-e29b-41d4-a716-446655440000/auth/login -H "Content-Type: application/json" -d '{"email": "admin@acme.com", "password": "password"}' | jq -r '.access_token'
+
+```
+
+**Always expect UI is running, don't ask me to run npm run dev** - the server is always running in the background.

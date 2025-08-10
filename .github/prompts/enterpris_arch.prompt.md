@@ -129,3 +129,9 @@ Ask **one** precise question, e.g.,
 * No loss of security/tenancy/observability features
 * No architectural simplification or demo code introduced
 * New migrations added (if schema touched), reversible and idempotent
+
+
+
+``` common APIS
+curl -s -X POST http://localhost:8080/v1/tenants/550e8400-e29b-41d4-a716-446655440000/auth/login -H "Content-Type: application/json" -d '{"email": "admin@acme.com", "password": "password"}' | jq -r '.access_token'
+```

@@ -313,3 +313,39 @@ func (s *AgentService) GetAgentRoles(ctx context.Context, tenantID, agentID, req
 
 	return roleBindings, nil
 }
+
+// DeleteAgent deletes an agent
+func (s *AgentService) DeleteAgent(ctx context.Context, tenantID, agentID, deleterAgentID string) error {
+	// Check permissions - only admins can delete agents
+	hasPermission, err := s.rbacService.CheckPermission(ctx, deleterAgentID, tenantID, "", rbac.PermAgentWrite)
+	if err != nil {
+		return fmt.Errorf("failed to check permission: %w", err)
+	}
+	if !hasPermission {
+		return fmt.Errorf("insufficient permissions")
+	}
+
+	// Prevent self-deletion
+	if agentID == deleterAgentID {
+		return fmt.Errorf("cannot delete yourself")
+	}
+
+	// Parse UUIDs
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return fmt.Errorf("invalid tenant ID: %w", err)
+	}
+
+	agentUUID, err := uuid.Parse(agentID)
+	if err != nil {
+		return fmt.Errorf("invalid agent ID: %w", err)
+	}
+
+	// Delete the agent
+	err = s.agentRepo.Delete(ctx, tenantUUID, agentUUID)
+	if err != nil {
+		return fmt.Errorf("failed to delete agent: %w", err)
+	}
+
+	return nil
+}

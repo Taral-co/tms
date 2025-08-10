@@ -16,6 +16,7 @@ export interface Project {
   tenant_id: string
   key: string
   name: string
+  status?: string
 }
 
 export interface LoginRequest {
@@ -100,6 +101,28 @@ export interface CreateMessageRequest {
   attachments?: File[]
 }
 
+export interface ApiKey {
+  id: string
+  name: string
+  key_preview: string
+  created_at: string
+  last_used?: string
+  is_active: boolean
+}
+
+export interface Agent {
+  id: string
+  name: string
+  email: string
+  created_at: string
+  is_active: boolean
+  roles?: Array<{
+    role: string
+    project_id?: string
+    project_name?: string
+  }>
+}
+
 export interface Integration {
   id: string
   name: string
@@ -145,17 +168,22 @@ class APIClient {
         if (config.url.includes('/auth/') && !config.url.includes('/tenants/')) {
           config.url = `/tenants/${tenantId}${config.url}`
         }
-        // Tenant-level project management endpoints: /tenants/{tenant_id}/projects
-        else if (config.url.startsWith('/projects') && !config.url.includes('/tenants/')) {
+        // Tenant-level endpoints: /tenants/{tenant_id}/* (projects, agents, api-keys at tenant level)
+        else if ((
+          config.url.startsWith('/projects') || 
+          config.url.startsWith('/agents') || 
+          config.url.startsWith('/api-keys')
+        ) && !config.url.includes('/tenants/')) {
           config.url = `/tenants/${tenantId}${config.url}`
         }
-        // Project-scoped endpoints: /tenants/{tenant_id}/projects/{project_id}/*
-        else if (projectId && !config.url.includes('/auth/') && !config.url.includes('/tenants/') && !config.url.startsWith('/projects')) {
+        // Project-scoped endpoints: /tenants/{tenant_id}/projects/{project_id}/* (tickets, integrations, email)
+        else if (projectId && (
+          config.url.startsWith('/tickets') || 
+          config.url.startsWith('/integrations') || 
+          config.url.startsWith('/email') ||
+          config.url.startsWith('/analytics')
+        ) && !config.url.includes('/tenants/')) {
           config.url = `/tenants/${tenantId}/projects/${projectId}${config.url}`
-        }
-        // Other tenant-only endpoints: /tenants/{tenant_id}/*
-        else if (!config.url.includes('/auth/') && !config.url.includes('/tenants/') && !config.url.startsWith('/projects')) {
-          config.url = `/tenants/${tenantId}${config.url}`
         }
       }
 
@@ -305,6 +333,26 @@ class APIClient {
     await this.client.delete(`/projects/${id}`)
   }
 
+  // Agent endpoints (tenant-scoped)
+  async getAgents(): Promise<Agent[]> {
+    const response = await this.client.get('/agents')
+    return response.data.data || []
+  }
+
+  async createAgent(data: { name: string; email: string; password: string; role: string }): Promise<Agent> {
+    const response = await this.client.post('/agents', data)
+    return response.data
+  }
+
+  async updateAgent(id: string, data: Partial<Agent>): Promise<Agent> {
+    const response = await this.client.patch(`/agents/${id}`, data)
+    return response.data
+  }
+
+  async deleteAgent(id: string): Promise<void> {
+    await this.client.delete(`/agents/${id}`)
+  }
+
   // Ticket endpoints
   async getTickets(): Promise<Ticket[]> {
     const response: AxiosResponse<TicketsResponse> = await this.client.get('/tickets')
@@ -381,6 +429,26 @@ class APIClient {
 
   async deleteIntegration(id: string): Promise<void> {
     await this.client.delete(`/integrations/${id}`)
+  }
+
+  // API Key endpoints (project-scoped)
+  async getApiKeys(): Promise<ApiKey[]> {
+    const response = await this.client.get('/api-keys')
+    return response.data.data || []
+  }
+
+  async createApiKey(data: { name: string }): Promise<ApiKey & { key: string }> {
+    const response = await this.client.post('/api-keys', data)
+    return response.data
+  }
+
+  async updateApiKey(id: string, data: Partial<ApiKey>): Promise<ApiKey> {
+    const response = await this.client.patch(`/api-keys/${id}`, data)
+    return response.data.api_key
+  }
+
+  async deleteApiKey(id: string): Promise<void> {
+    await this.client.delete(`/api-keys/${id}`)
   }
 
   // Analytics endpoints
