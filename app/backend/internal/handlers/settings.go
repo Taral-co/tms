@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -60,17 +61,7 @@ type AutomationSettings struct {
 
 // GetEmailSettings retrieves email settings for a tenant
 func (h *SettingsHandler) GetEmailSettings(c *gin.Context) {
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID not found"})
-		return
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID.(string))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID"})
-		return
-	}
+	tenantUUID := middleware.GetTenantID(c)
 
 	settings, err := h.settingsRepo.GetSetting(context.Background(), tenantUUID, "email_settings")
 	if err != nil {

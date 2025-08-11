@@ -13,18 +13,18 @@ import (
 
 // TicketService handles ticket operations
 type TicketService struct {
-	ticketRepo    repo.TicketRepository
-	customerRepo  repo.CustomerRepository
-	agentRepo     repo.AgentRepository
-	messageRepo   repo.TicketMessageRepository
-	rbacService   *rbac.Service
+	ticketRepo   repo.TicketRepository
+	customerRepo repo.CustomerRepository
+	agentRepo    repo.AgentRepository
+	messageRepo  repo.TicketMessageRepository
+	rbacService  *rbac.Service
 }
 
 // TicketWithDetails represents a ticket with populated customer and agent details
 type TicketWithDetails struct {
 	*db.Ticket
-	Customer     *CustomerInfo `json:"customer,omitempty"`
-	AssignedAgent *AgentInfo   `json:"assigned_agent,omitempty"`
+	Customer      *CustomerInfo `json:"customer,omitempty"`
+	AssignedAgent *AgentInfo    `json:"assigned_agent,omitempty"`
 }
 
 // CustomerInfo represents basic customer information
@@ -71,7 +71,7 @@ type CreateTicketRequest struct {
 }
 
 // CreateTicket creates a new ticket
-func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, agentID string, req CreateTicketRequest) (*db.Ticket, error) {
+func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, agentID uuid.UUID, req CreateTicketRequest) (*db.Ticket, error) {
 	// Check permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketWrite)
 	if err != nil {
@@ -81,16 +81,13 @@ func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, a
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-
 	// Find or create customer
-	customer, err := s.customerRepo.GetByEmail(ctx, tenantUUID, req.RequesterEmail)
+	customer, err := s.customerRepo.GetByEmail(ctx, tenantID, req.RequesterEmail)
 	if err != nil {
 		// Create new customer
 		customer = &db.Customer{
 			ID:       uuid.New(),
-			TenantID: tenantUUID,
+			TenantID: tenantID,
 			Email:    req.RequesterEmail,
 			Name:     req.RequesterName,
 		}
@@ -103,8 +100,8 @@ func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, a
 	// Create ticket
 	ticket := &db.Ticket{
 		ID:           uuid.New(),
-		TenantID:     tenantUUID,
-		ProjectID:    projectUUID,
+		TenantID:     tenantID,
+		ProjectID:    projectID,
 		Subject:      req.Subject,
 		Status:       "new",
 		Priority:     req.Priority,
@@ -131,8 +128,8 @@ func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, a
 	// Create initial message
 	initialMessage := &db.TicketMessage{
 		ID:         uuid.New(),
-		TenantID:   tenantUUID,
-		ProjectID:  projectUUID,
+		TenantID:   tenantID,
+		ProjectID:  projectID,
 		TicketID:   ticket.ID,
 		AuthorType: "customer",
 		AuthorID:   &customer.ID,
@@ -159,7 +156,7 @@ type UpdateTicketRequest struct {
 }
 
 // UpdateTicket updates an existing ticket
-func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, ticketID, agentID string, req UpdateTicketRequest) (*db.Ticket, error) {
+func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID, req UpdateTicketRequest) (*db.Ticket, error) {
 	// Check permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketWrite)
 	if err != nil {
@@ -169,12 +166,8 @@ func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, t
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-	ticketUUID, _ := uuid.Parse(ticketID)
-
 	// Get existing ticket
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantUUID, projectUUID, ticketUUID)
+	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -213,7 +206,7 @@ func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, t
 }
 
 // GetTicket retrieves a ticket by ID
-func (s *TicketService) GetTicket(ctx context.Context, tenantID, projectID, ticketID, agentID string) (*db.Ticket, error) {
+func (s *TicketService) GetTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID) (*db.Ticket, error) {
 	// Check permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
 	if err != nil {
@@ -223,11 +216,7 @@ func (s *TicketService) GetTicket(ctx context.Context, tenantID, projectID, tick
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-	ticketUUID, _ := uuid.Parse(ticketID)
-
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantUUID, projectUUID, ticketUUID)
+	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -250,7 +239,7 @@ type ListTicketsRequest struct {
 }
 
 // ListTickets retrieves a list of tickets
-func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, agentID string, req ListTicketsRequest) ([]*TicketWithDetails, string, error) {
+func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, agentID uuid.UUID, req ListTicketsRequest) ([]*TicketWithDetails, string, error) {
 	// Check permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
 	if err != nil {
@@ -259,9 +248,6 @@ func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, ag
 	if !hasPermission {
 		return nil, "", fmt.Errorf("insufficient permissions")
 	}
-
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
 
 	// Convert filters
 	filters := repo.TicketFilters{
@@ -294,7 +280,7 @@ func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, ag
 		Limit:  req.Limit,
 	}
 
-	tickets, nextCursor, err := s.ticketRepo.List(ctx, tenantUUID, projectUUID, filters, pagination)
+	tickets, nextCursor, err := s.ticketRepo.List(ctx, tenantID, projectID, filters, pagination)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to list tickets: %w", err)
 	}
@@ -317,7 +303,7 @@ func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, ag
 
 		// Fetch agent details if assigned
 		if ticket.AssigneeAgentID != nil {
-			agent, err := s.agentRepo.GetByID(ctx, tenantUUID, *ticket.AssigneeAgentID)
+			agent, err := s.agentRepo.GetByID(ctx, tenantID, *ticket.AssigneeAgentID)
 			if err == nil && agent != nil {
 				ticketDetail.AssignedAgent = &AgentInfo{
 					ID:    agent.ID.String(),
@@ -340,7 +326,7 @@ type AddMessageRequest struct {
 }
 
 // AddMessage adds a message to a ticket
-func (s *TicketService) AddMessage(ctx context.Context, tenantID, projectID, ticketID, agentID string, req AddMessageRequest) (*db.TicketMessage, error) {
+func (s *TicketService) AddMessage(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID, req AddMessageRequest) (*db.TicketMessage, error) {
 	// Check permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketWrite)
 	if err != nil {
@@ -361,13 +347,8 @@ func (s *TicketService) AddMessage(ctx context.Context, tenantID, projectID, tic
 		}
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-	ticketUUID, _ := uuid.Parse(ticketID)
-	agentUUID, _ := uuid.Parse(agentID)
-
 	// Verify ticket exists
-	_, err = s.ticketRepo.GetByID(ctx, tenantUUID, projectUUID, ticketUUID)
+	_, err = s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -375,11 +356,11 @@ func (s *TicketService) AddMessage(ctx context.Context, tenantID, projectID, tic
 	// Create message
 	message := &db.TicketMessage{
 		ID:         uuid.New(),
-		TenantID:   tenantUUID,
-		ProjectID:  projectUUID,
-		TicketID:   ticketUUID,
+		TenantID:   tenantID,
+		ProjectID:  projectID,
+		TicketID:   ticketID,
 		AuthorType: "agent",
-		AuthorID:   &agentUUID,
+		AuthorID:   &agentID,
 		Body:       req.Body,
 		IsPrivate:  req.IsPrivate,
 		CreatedAt:  time.Now(),

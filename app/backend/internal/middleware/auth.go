@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -102,7 +103,6 @@ func AuthMiddleware(jwtAuth *auth.Service) gin.HandlerFunc {
 		}
 
 		// Store validated claims in context
-		c.Set("user_id", claims.Subject)
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("email", claims.Email)
 		c.Set("agent_id", claims.AgentID)
@@ -199,24 +199,59 @@ func ValidationMiddleware() gin.HandlerFunc {
 
 // Helper functions to extract values from context
 
-// GetUserID extracts user ID from context
-func GetUserID(c *gin.Context) string {
-	if userID, exists := c.Get("user_id"); exists {
-		if id, ok := userID.(string); ok {
-			return id
-		}
-	}
-	return ""
-}
-
 // GetTenantID extracts tenant ID from context
-func GetTenantID(c *gin.Context) string {
+func GetTenantID(c *gin.Context) uuid.UUID {
 	if tenantID, exists := c.Get("tenant_id"); exists {
 		if id, ok := tenantID.(string); ok {
-			return id
+			tenantUUID, _ := uuid.Parse(id)
+			return tenantUUID
 		}
 	}
-	return ""
+	// raise error
+	err := errors.New("tenant ID not found")
+	panic(err)
+}
+
+func GetAgentID(c *gin.Context) uuid.UUID {
+	if agentID, exists := c.Get("agent_id"); exists {
+		if id, ok := agentID.(string); ok {
+			agentUUID, _ := uuid.Parse(id)
+			return agentUUID
+		}
+	}
+	// raise error
+	err := errors.New("agent ID not found")
+	panic(err)
+}
+
+func GetEmail(c *gin.Context) uuid.UUID {
+	if email, exists := c.Get("email"); exists {
+		if id, ok := email.(string); ok {
+			emailUUID, _ := uuid.Parse(id)
+			return emailUUID
+		}
+	}
+	// raise error
+	err := errors.New("email not found")
+	panic(err)
+}
+
+func IsTenantAdmin(c *gin.Context) bool {
+	if isAdmin, exists := c.Get("is_tenant_admin"); exists {
+		if admin, ok := isAdmin.(bool); ok {
+			return admin
+		}
+	}
+	return false
+}
+
+func GetRoleBindings(c *gin.Context) []string {
+	if roleBindings, exists := c.Get("role_bindings"); exists {
+		if roles, ok := roleBindings.([]string); ok {
+			return roles
+		}
+	}
+	return []string{}
 }
 
 // GetClaims extracts JWT claims from context

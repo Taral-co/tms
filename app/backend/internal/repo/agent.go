@@ -154,6 +154,12 @@ func (r *agentRepository) List(ctx context.Context, tenantID uuid.UUID, filters 
 		args = append(args, status)
 	}
 
+	if filters.AgentID != nil {
+		argCount++
+		query += fmt.Sprintf(" AND id = $%d", argCount)
+		args = append(args, filters.AgentID)
+	}
+
 	if filters.Search != "" {
 		argCount++
 		query += fmt.Sprintf(" AND (name ILIKE $%d OR email ILIKE $%d)", argCount, argCount)

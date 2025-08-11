@@ -8,6 +8,7 @@ import (
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 // TicketHandler handles ticket-related endpoints
@@ -40,13 +41,13 @@ func (h *TicketHandler) CreateTicket(c *gin.Context) {
 	}
 
 	tenantID := middleware.GetTenantID(c)
-	projectID := c.Param("project_id")
-	agentID := middleware.GetUserID(c)
-
-	if tenantID == "" || projectID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
+	projectIDStr := c.Param("project_id")
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id"})
 		return
 	}
+	agentID := middleware.GetAgentID(c)
 
 	ticket, err := h.ticketService.CreateTicket(c.Request.Context(), tenantID, projectID, agentID, req)
 	if err != nil {
@@ -73,14 +74,12 @@ func (h *TicketHandler) UpdateTicket(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := c.Param("project_id")
 	ticketID := c.Param("ticket_id")
-	agentID := middleware.GetUserID(c)
+	agentID := middleware.GetAgentID(c)
 
-	if tenantID == "" || projectID == "" || ticketID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
+	projectUUID, _ := uuid.Parse(projectID)
+	ticketUUID, _ := uuid.Parse(ticketID)
 
-	ticket, err := h.ticketService.UpdateTicket(c.Request.Context(), tenantID, projectID, ticketID, agentID, req)
+	ticket, err := h.ticketService.UpdateTicket(c.Request.Context(), tenantID, projectUUID, ticketUUID, agentID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -94,14 +93,12 @@ func (h *TicketHandler) GetTicket(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := c.Param("project_id")
 	ticketID := c.Param("ticket_id")
-	agentID := middleware.GetUserID(c)
+	agentID := middleware.GetAgentID(c)
 
-	if tenantID == "" || projectID == "" || ticketID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
+	projectUUID, _ := uuid.Parse(projectID)
+	ticketUUID, _ := uuid.Parse(ticketID)
 
-	ticket, err := h.ticketService.GetTicket(c.Request.Context(), tenantID, projectID, ticketID, agentID)
+	ticket, err := h.ticketService.GetTicket(c.Request.Context(), tenantID, projectUUID, ticketUUID, agentID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -114,22 +111,19 @@ func (h *TicketHandler) GetTicket(c *gin.Context) {
 func (h *TicketHandler) ListTickets(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := c.Param("project_id")
-	agentID := middleware.GetUserID(c)
+	agentID := middleware.GetAgentID(c)
 
-	if tenantID == "" || projectID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
+	projectUUID, _ := uuid.Parse(projectID)
 
 	// Parse query parameters
 	req := service.ListTicketsRequest{
-		Status:      c.QueryArray("status"),
-		Priority:    c.QueryArray("priority"),
-		Tags:        c.QueryArray("tags"),
-		Search:      c.Query("search"),
-		Source:      c.QueryArray("source"),
-		Type:        c.QueryArray("type"),
-		Cursor:      c.Query("cursor"),
+		Status:   c.QueryArray("status"),
+		Priority: c.QueryArray("priority"),
+		Tags:     c.QueryArray("tags"),
+		Search:   c.Query("search"),
+		Source:   c.QueryArray("source"),
+		Type:     c.QueryArray("type"),
+		Cursor:   c.Query("cursor"),
 	}
 
 	if assigneeID := c.Query("assignee_id"); assigneeID != "" {
@@ -146,7 +140,7 @@ func (h *TicketHandler) ListTickets(c *gin.Context) {
 		}
 	}
 
-	tickets, nextCursor, err := h.ticketService.ListTickets(c.Request.Context(), tenantID, projectID, agentID, req)
+	tickets, nextCursor, err := h.ticketService.ListTickets(c.Request.Context(), tenantID, projectUUID, agentID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -179,14 +173,12 @@ func (h *TicketHandler) AddMessage(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := c.Param("project_id")
 	ticketID := c.Param("ticket_id")
-	agentID := middleware.GetUserID(c)
+	agentID := middleware.GetAgentID(c)
 
-	if tenantID == "" || projectID == "" || ticketID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
+	projectUUID, _ := uuid.Parse(projectID)
+	ticketUUID, _ := uuid.Parse(ticketID)
 
-	message, err := h.ticketService.AddMessage(c.Request.Context(), tenantID, projectID, ticketID, agentID, req)
+	message, err := h.ticketService.AddMessage(c.Request.Context(), tenantID, projectUUID, ticketUUID, agentID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -200,12 +192,7 @@ func (h *TicketHandler) GetTicketMessages(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := c.Param("project_id")
 	ticketID := c.Param("ticket_id")
-	agentID := middleware.GetUserID(c)
-
-	if tenantID == "" || projectID == "" || ticketID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
+	agentID := middleware.GetAgentID(c)
 
 	// Parse query parameters
 	includePrivate := c.Query("include_private") == "true"
@@ -218,7 +205,10 @@ func (h *TicketHandler) GetTicketMessages(c *gin.Context) {
 		}
 	}
 
-	messages, nextCursor, err := h.messageService.GetTicketMessages(c.Request.Context(), tenantID, projectID, ticketID, agentID, includePrivate, cursor, limit)
+	projectUUID, _ := uuid.Parse(projectID)
+	ticketUUID, _ := uuid.Parse(ticketID)
+
+	messages, nextCursor, err := h.messageService.GetTicketMessages(c.Request.Context(), tenantID, projectUUID, ticketUUID, agentID, includePrivate, cursor, limit)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -252,14 +242,11 @@ func (h *TicketHandler) UpdateMessage(c *gin.Context) {
 	projectID := c.Param("project_id")
 	ticketID := c.Param("ticket_id")
 	messageID := c.Param("message_id")
-	agentID := middleware.GetUserID(c)
-
-	if tenantID == "" || projectID == "" || ticketID == "" || messageID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
-
-	message, err := h.messageService.UpdateMessage(c.Request.Context(), tenantID, projectID, ticketID, messageID, agentID, req)
+	agentID := middleware.GetAgentID(c)
+	projectUUID, _ := uuid.Parse(projectID)
+	ticketUUID, _ := uuid.Parse(ticketID)
+	messageUUID, _ := uuid.Parse(messageID)
+	message, err := h.messageService.UpdateMessage(c.Request.Context(), tenantID, projectUUID, ticketUUID, messageUUID, agentID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -274,14 +261,13 @@ func (h *TicketHandler) DeleteMessage(c *gin.Context) {
 	projectID := c.Param("project_id")
 	ticketID := c.Param("ticket_id")
 	messageID := c.Param("message_id")
-	agentID := middleware.GetUserID(c)
+	agentID := middleware.GetAgentID(c)
 
-	if tenantID == "" || projectID == "" || ticketID == "" || messageID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
+	projectUUID, _ := uuid.Parse(projectID)
+	ticketUUID, _ := uuid.Parse(ticketID)
+	messageUUID, _ := uuid.Parse(messageID)
 
-	err := h.messageService.DeleteMessage(c.Request.Context(), tenantID, projectID, ticketID, messageID, agentID)
+	err := h.messageService.DeleteMessage(c.Request.Context(), tenantID, projectUUID, ticketUUID, messageUUID, agentID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

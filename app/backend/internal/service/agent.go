@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/bareuptime/tms/internal/db"
 	"github.com/bareuptime/tms/internal/models"
@@ -38,20 +39,10 @@ type CreateAgentRequest struct {
 }
 
 // CreateAgent creates a new agent
-func (s *AgentService) CreateAgent(ctx context.Context, tenantID, creatorAgentID string, req CreateAgentRequest) (*db.Agent, error) {
-	// Check permissions - only admins can create agents
-	hasPermission, err := s.rbacService.CheckPermission(ctx, creatorAgentID, tenantID, "", rbac.PermAgentWrite)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, fmt.Errorf("insufficient permissions")
-	}
-
-	tenantUUID, _ := uuid.Parse(tenantID)
+func (s *AgentService) CreateAgent(ctx context.Context, tenantID, creatorAgentID uuid.UUID, req CreateAgentRequest) (*db.Agent, error) {
 
 	// Check if agent already exists
-	existing, err := s.agentRepo.GetByEmail(ctx, tenantUUID, req.Email)
+	existing, err := s.agentRepo.GetByEmail(ctx, tenantID, req.Email)
 	if err == nil && existing != nil {
 		return nil, fmt.Errorf("agent with email %s already exists", req.Email)
 	}
@@ -66,7 +57,7 @@ func (s *AgentService) CreateAgent(ctx context.Context, tenantID, creatorAgentID
 	hashedPasswordStr := string(hashedPassword)
 	agent := &db.Agent{
 		ID:           uuid.New(),
-		TenantID:     tenantUUID,
+		TenantID:     tenantID,
 		Email:        req.Email,
 		Name:         req.Name,
 		PasswordHash: &hashedPasswordStr,
@@ -79,7 +70,7 @@ func (s *AgentService) CreateAgent(ctx context.Context, tenantID, creatorAgentID
 	}
 
 	// Assign default role - this would be done through RBAC service
-	err = s.rbacService.AssignRole(ctx, agent.ID.String(), tenantID, "", req.Role)
+	err = s.rbacService.AssignRole(ctx, agent.ID, tenantID, uuid.Nil, req.Role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to assign role: %w", err)
 	}
@@ -95,25 +86,12 @@ type UpdateAgentRequest struct {
 }
 
 // UpdateAgent updates an existing agent
-func (s *AgentService) UpdateAgent(ctx context.Context, tenantID, agentID, updaterAgentID string, req UpdateAgentRequest) (*db.Agent, error) {
-	// Check permissions - agents can update themselves, admins can update any agent
-	if agentID != updaterAgentID {
-		hasPermission, err := s.rbacService.CheckPermission(ctx, updaterAgentID, tenantID, "", rbac.PermAgentWrite)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check permission: %w", err)
-		}
-		if !hasPermission {
-			return nil, fmt.Errorf("insufficient permissions")
-		}
-	}
-
-	tenantUUID, _ := uuid.Parse(tenantID)
-	agentUUID, _ := uuid.Parse(agentID)
+func (s *AgentService) UpdateAgent(ctx context.Context, tenantID, agentID, updaterAgentID uuid.UUID, req UpdateAgentRequest) (*db.Agent, int, error) {
 
 	// Get existing agent
-	agent, err := s.agentRepo.GetByID(ctx, tenantUUID, agentUUID)
+	agent, err := s.agentRepo.GetByID(ctx, tenantID, agentID)
 	if err != nil {
-		return nil, fmt.Errorf("agent not found: %w", err)
+		return nil, http.StatusNotFound, fmt.Errorf("agent not found: %w", err)
 	}
 
 	// Update fields if provided
@@ -123,13 +101,8 @@ func (s *AgentService) UpdateAgent(ctx context.Context, tenantID, agentID, updat
 	if req.IsActive != nil {
 		// Only admins can deactivate agents
 		if !*req.IsActive && agentID != updaterAgentID {
-			hasPermission, err := s.rbacService.CheckPermission(ctx, updaterAgentID, tenantID, "", rbac.PermAgentWrite)
-			if err != nil {
-				return nil, fmt.Errorf("failed to check permission: %w", err)
-			}
-			if !hasPermission {
-				return nil, fmt.Errorf("insufficient permissions to deactivate agent")
-			}
+			return nil, http.StatusForbidden, fmt.Errorf("insufficient permissions to deactivate agent")
+
 		}
 		if *req.IsActive {
 			agent.Status = "active"
@@ -140,7 +113,7 @@ func (s *AgentService) UpdateAgent(ctx context.Context, tenantID, agentID, updat
 	if req.Password != nil {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			return nil, fmt.Errorf("failed to hash password: %w", err)
+			return nil, http.StatusInternalServerError, fmt.Errorf("failed to hash password: %w", err)
 		}
 		hashedPasswordStr := string(hashedPassword)
 		agent.PasswordHash = &hashedPasswordStr
@@ -148,29 +121,16 @@ func (s *AgentService) UpdateAgent(ctx context.Context, tenantID, agentID, updat
 
 	err = s.agentRepo.Update(ctx, agent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update agent: %w", err)
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to update agent: %w", err)
 	}
 
-	return agent, nil
+	return agent, http.StatusAccepted, nil
 }
 
 // GetAgent retrieves an agent by ID
-func (s *AgentService) GetAgent(ctx context.Context, tenantID, agentID, requestorAgentID string) (*db.Agent, error) {
-	// Agents can view themselves, admins can view any agent
-	if agentID != requestorAgentID {
-		hasPermission, err := s.rbacService.CheckPermission(ctx, requestorAgentID, tenantID, "", rbac.PermAgentRead)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check permission: %w", err)
-		}
-		if !hasPermission {
-			return nil, fmt.Errorf("insufficient permissions")
-		}
-	}
+func (s *AgentService) GetAgent(ctx context.Context, tenantID, requestorAgentID uuid.UUID) (*db.Agent, error) {
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	agentUUID, _ := uuid.Parse(agentID)
-
-	agent, err := s.agentRepo.GetByID(ctx, tenantUUID, agentUUID)
+	agent, err := s.agentRepo.GetByID(ctx, tenantID, requestorAgentID)
 	if err != nil {
 		return nil, fmt.Errorf("agent not found: %w", err)
 	}
@@ -188,22 +148,13 @@ type ListAgentsRequest struct {
 }
 
 // ListAgents retrieves a list of agents
-func (s *AgentService) ListAgents(ctx context.Context, tenantID, requestorAgentID string, req ListAgentsRequest) ([]*db.Agent, string, error) {
-	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, requestorAgentID, tenantID, "", rbac.PermAgentRead)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, "", fmt.Errorf("insufficient permissions")
-	}
-
-	tenantUUID, _ := uuid.Parse(tenantID)
+func (s *AgentService) ListAgents(ctx context.Context, tenantID, requestorAgentID uuid.UUID, req ListAgentsRequest) ([]*db.Agent, string, error) {
 
 	filters := repo.AgentFilters{
 		Email:    req.Email,
 		IsActive: req.IsActive,
 		Search:   req.Search,
+		AgentID:  &requestorAgentID,
 	}
 
 	pagination := repo.PaginationParams{
@@ -211,7 +162,7 @@ func (s *AgentService) ListAgents(ctx context.Context, tenantID, requestorAgentI
 		Limit:  req.Limit,
 	}
 
-	agents, nextCursor, err := s.agentRepo.List(ctx, tenantUUID, filters, pagination)
+	agents, nextCursor, err := s.agentRepo.List(ctx, tenantID, filters, pagination)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -226,20 +177,16 @@ type AssignRoleRequest struct {
 }
 
 // AssignRole assigns a role to an agent
-func (s *AgentService) AssignRole(ctx context.Context, tenantID, agentID, assignerAgentID string, req AssignRoleRequest) error {
+func (s *AgentService) AssignRole(ctx context.Context, tenantID, agentID, assignerAgentID uuid.UUID, req AssignRoleRequest) error {
 
-	// Verify agent exists
-	tenantUUID, _ := uuid.Parse(tenantID)
-	agentUUID, _ := uuid.Parse(agentID)
-
-	_, err := s.agentRepo.GetByID(ctx, tenantUUID, agentUUID)
+	_, err := s.agentRepo.GetByID(ctx, tenantID, agentID)
 	if err != nil {
 		return fmt.Errorf("agent not found: %w", err)
 	}
 
-	projectID := ""
+	projectID := uuid.Nil
 	if req.ProjectID != nil {
-		projectID = *req.ProjectID
+		projectID, _ = uuid.Parse(*req.ProjectID)
 	}
 
 	err = s.rbacService.AssignRole(ctx, agentID, tenantID, projectID, req.Role)
@@ -257,22 +204,13 @@ type RemoveRoleRequest struct {
 }
 
 // RemoveRole removes a role from an agent
-func (s *AgentService) RemoveRole(ctx context.Context, tenantID, agentID, removerAgentID string, req RemoveRoleRequest) error {
-	// Check permissions - only admins can remove roles
-	hasPermission, err := s.rbacService.CheckPermission(ctx, removerAgentID, tenantID, "", rbac.PermAgentWrite)
-	if err != nil {
-		return fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return fmt.Errorf("insufficient permissions")
-	}
-
-	projectID := ""
+func (s *AgentService) RemoveRole(ctx context.Context, tenantID, agentID uuid.UUID, req RemoveRoleRequest) error {
+	projectID := uuid.Nil
 	if req.ProjectID != nil {
-		projectID = *req.ProjectID
+		projectID, _ = uuid.Parse(*req.ProjectID)
 	}
 
-	err = s.rbacService.RemoveRole(ctx, agentID, tenantID, projectID, req.Role)
+	err := s.rbacService.RemoveRole(ctx, agentID, tenantID, projectID, req.Role)
 	if err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}
@@ -281,18 +219,8 @@ func (s *AgentService) RemoveRole(ctx context.Context, tenantID, agentID, remove
 }
 
 // GetAgentRoles retrieves roles for an agent
-func (s *AgentService) GetAgentRoles(ctx context.Context, tenantID, agentID, requestorAgentID string) ([]*db.RoleBinding, error) {
+func (s *AgentService) GetAgentRoles(ctx context.Context, tenantID, agentID uuid.UUID) ([]*db.RoleBinding, error) {
 	// Agents can view their own roles, admins can view any agent's roles
-	if agentID != requestorAgentID {
-		hasPermission, err := s.rbacService.CheckPermission(ctx, requestorAgentID, tenantID, "", rbac.PermAgentRead)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check permission: %w", err)
-		}
-		if !hasPermission {
-			return nil, fmt.Errorf("insufficient permissions")
-		}
-	}
-
 	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agentID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role bindings: %w", err)
@@ -323,12 +251,12 @@ func (s *AgentService) DeleteAgent(ctx context.Context, tenantID, agentID, delet
 
 // AssignToProjectRequest represents a project assignment request
 type AssignToProjectRequest struct {
-	ProjectID string          `json:"project_id" validate:"required"`
+	ProjectID uuid.UUID       `json:"project_id" validate:"required"`
 	Role      models.RoleType `json:"role" validate:"required"`
 }
 
 // AssignToProject assigns an agent to a project with a specific role
-func (s *AgentService) AssignToProject(ctx context.Context, tenantID, agentID, assignerAgentID string, req AssignToProjectRequest) error {
+func (s *AgentService) AssignToProject(ctx context.Context, tenantID, agentID uuid.UUID, req AssignToProjectRequest) error {
 
 	// Assign the role for the specific project
 	err := s.rbacService.AssignRole(ctx, agentID, tenantID, req.ProjectID, req.Role)
@@ -340,15 +268,7 @@ func (s *AgentService) AssignToProject(ctx context.Context, tenantID, agentID, a
 }
 
 // RemoveFromProject removes an agent from a project
-func (s *AgentService) RemoveFromProject(ctx context.Context, tenantID, agentID, projectID, removerAgentID string) error {
-	// Check permissions - only admins can remove agents from projects
-	hasPermission, err := s.rbacService.CheckPermission(ctx, removerAgentID, tenantID, "", rbac.PermAgentWrite)
-	if err != nil {
-		return fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return fmt.Errorf("insufficient permissions")
-	}
+func (s *AgentService) RemoveFromProject(ctx context.Context, tenantID, agentID, projectID uuid.UUID) error {
 
 	// Get the agent's current role in this project first
 	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agentID, tenantID)
@@ -356,15 +276,10 @@ func (s *AgentService) RemoveFromProject(ctx context.Context, tenantID, agentID,
 		return fmt.Errorf("failed to get role bindings: %w", err)
 	}
 
-	projectUUID, err := uuid.Parse(projectID)
-	if err != nil {
-		return fmt.Errorf("invalid project ID: %w", err)
-	}
-
 	// Find the role for this specific project
 	var roleToRemove models.RoleType
 	for _, binding := range roleBindings {
-		if binding.ProjectID != nil && *binding.ProjectID == projectUUID {
+		if binding.ProjectID != nil && *binding.ProjectID == projectID {
 			roleToRemove = binding.Role
 			break
 		}
@@ -391,34 +306,18 @@ type AgentProject struct {
 }
 
 // GetAgentProjects retrieves all projects an agent is assigned to
-func (s *AgentService) GetAgentProjects(ctx context.Context, tenantID, agentID, requestorAgentID string) ([]*AgentProject, error) {
-	// Agents can view their own projects, admins can view any agent's projects
-	if agentID != requestorAgentID {
-		hasPermission, err := s.rbacService.CheckPermission(ctx, requestorAgentID, tenantID, "", rbac.PermAgentRead)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check permission: %w", err)
-		}
-		if !hasPermission {
-			return nil, fmt.Errorf("insufficient permissions")
-		}
-	}
-
+func (s *AgentService) GetAgentProjects(ctx context.Context, tenantID, agentID uuid.UUID) ([]*AgentProject, error) {
 	// Get the agent's role bindings
 	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agentID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role bindings: %w", err)
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid tenant ID: %w", err)
-	}
-
 	// Get project details for each role binding
 	var projects []*AgentProject
 	for _, binding := range roleBindings {
 		if binding.ProjectID != nil {
-			project, err := s.projectRepo.GetByID(ctx, tenantUUID, *binding.ProjectID)
+			project, err := s.projectRepo.GetByID(ctx, tenantID, *binding.ProjectID)
 			if err != nil {
 				// Log error but continue - project might have been deleted
 				log.Printf("Failed to get project %s: %v", binding.ProjectID.String(), err)

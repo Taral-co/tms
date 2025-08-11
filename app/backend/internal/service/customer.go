@@ -32,20 +32,11 @@ type CreateCustomerRequest struct {
 }
 
 // CreateCustomer creates a new customer
-func (s *CustomerService) CreateCustomer(ctx context.Context, tenantID, agentID string, req CreateCustomerRequest) (*db.Customer, error) {
+func (s *CustomerService) CreateCustomer(ctx context.Context, tenantID, agentID uuid.UUID, req CreateCustomerRequest) (*db.Customer, error) {
 	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, "", rbac.PermCustomerWrite)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, fmt.Errorf("insufficient permissions")
-	}
-
-	tenantUUID, _ := uuid.Parse(tenantID)
 
 	// Check if customer already exists
-	existing, err := s.customerRepo.GetByEmail(ctx, tenantUUID, req.Email)
+	existing, err := s.customerRepo.GetByEmail(ctx, tenantID, req.Email)
 	if err == nil && existing != nil {
 		return nil, fmt.Errorf("customer with email %s already exists", req.Email)
 	}
@@ -53,7 +44,7 @@ func (s *CustomerService) CreateCustomer(ctx context.Context, tenantID, agentID 
 	// Create customer
 	customer := &db.Customer{
 		ID:       uuid.New(),
-		TenantID: tenantUUID,
+		TenantID: tenantID,
 		Email:    req.Email,
 		Name:     req.Name,
 		Metadata: req.Metadata,
@@ -74,24 +65,11 @@ type UpdateCustomerRequest struct {
 }
 
 // UpdateCustomer updates an existing customer
-func (s *CustomerService) UpdateCustomer(ctx context.Context, tenantID, customerID, agentID string, req UpdateCustomerRequest) (*db.Customer, error) {
+func (s *CustomerService) UpdateCustomer(ctx context.Context, tenantID, customerID, agentID uuid.UUID, req UpdateCustomerRequest) (*db.Customer, error) {
 	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, "", rbac.PermCustomerWrite)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, fmt.Errorf("insufficient permissions")
-	}
-
-	tenantUUID, _ := uuid.Parse(tenantID)
-	customerUUID, err := uuid.Parse(customerID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid customer ID")
-	}
 
 	// Get existing customer
-	customer, err := s.customerRepo.GetByID(ctx, tenantUUID, customerUUID)
+	customer, err := s.customerRepo.GetByID(ctx, tenantID, customerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
@@ -113,9 +91,9 @@ func (s *CustomerService) UpdateCustomer(ctx context.Context, tenantID, customer
 }
 
 // GetCustomer retrieves a customer by ID
-func (s *CustomerService) GetCustomer(ctx context.Context, tenantID, customerID, agentID string) (*db.Customer, error) {
+func (s *CustomerService) GetCustomer(ctx context.Context, tenantID, customerID, agentID uuid.UUID) (*db.Customer, error) {
 	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, "", rbac.PermCustomerRead)
+	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, uuid.Nil, rbac.PermCustomerRead)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check permission: %w", err)
 	}
@@ -123,13 +101,7 @@ func (s *CustomerService) GetCustomer(ctx context.Context, tenantID, customerID,
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	customerUUID, err := uuid.Parse(customerID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid customer ID")
-	}
-
-	customer, err := s.customerRepo.GetByID(ctx, tenantUUID, customerUUID)
+	customer, err := s.customerRepo.GetByID(ctx, tenantID, customerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
@@ -138,9 +110,9 @@ func (s *CustomerService) GetCustomer(ctx context.Context, tenantID, customerID,
 }
 
 // GetCustomerByEmail retrieves a customer by email
-func (s *CustomerService) GetCustomerByEmail(ctx context.Context, tenantID, email, agentID string) (*db.Customer, error) {
+func (s *CustomerService) GetCustomerByEmail(ctx context.Context, tenantID, agentID uuid.UUID, email string) (*db.Customer, error) {
 	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, "", rbac.PermCustomerRead)
+	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, uuid.Nil, rbac.PermCustomerRead)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check permission: %w", err)
 	}
@@ -148,9 +120,7 @@ func (s *CustomerService) GetCustomerByEmail(ctx context.Context, tenantID, emai
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-
-	customer, err := s.customerRepo.GetByEmail(ctx, tenantUUID, email)
+	customer, err := s.customerRepo.GetByEmail(ctx, tenantID, email)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
@@ -160,24 +130,22 @@ func (s *CustomerService) GetCustomerByEmail(ctx context.Context, tenantID, emai
 
 // ListCustomersRequest represents a customer list request
 type ListCustomersRequest struct {
-	Email  string            `json:"email,omitempty"`
-	Search string            `json:"search,omitempty"`
-	Cursor string            `json:"cursor,omitempty"`
-	Limit  int               `json:"limit,omitempty"`
+	Email  string `json:"email,omitempty"`
+	Search string `json:"search,omitempty"`
+	Cursor string `json:"cursor,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
 }
 
 // ListCustomers retrieves a list of customers
-func (s *CustomerService) ListCustomers(ctx context.Context, tenantID, agentID string, req ListCustomersRequest) ([]*db.Customer, string, error) {
+func (s *CustomerService) ListCustomers(ctx context.Context, tenantID, agentID uuid.UUID, req ListCustomersRequest) ([]*db.Customer, string, error) {
 	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, "", rbac.PermCustomerRead)
+	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, uuid.Nil, rbac.PermCustomerRead)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to check permission: %w", err)
 	}
 	if !hasPermission {
 		return nil, "", fmt.Errorf("insufficient permissions")
 	}
-
-	tenantUUID, _ := uuid.Parse(tenantID)
 
 	filters := repo.CustomerFilters{
 		Email:  req.Email,
@@ -189,7 +157,7 @@ func (s *CustomerService) ListCustomers(ctx context.Context, tenantID, agentID s
 		Limit:  req.Limit,
 	}
 
-	customers, nextCursor, err := s.customerRepo.List(ctx, tenantUUID, filters, pagination)
+	customers, nextCursor, err := s.customerRepo.List(ctx, tenantID, filters, pagination)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to list customers: %w", err)
 	}

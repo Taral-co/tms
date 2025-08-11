@@ -130,18 +130,8 @@ func NewService(database *sql.DB) *Service {
 }
 
 // CheckPermission checks if an agent has a specific permission
-func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projectID string, permission Permission) (bool, error) {
+func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projectID uuid.UUID, permission Permission) (bool, error) {
 	log.Printf("CheckPermission called: agentID=%s, tenantID=%s, projectID=%s, permission=%s", agentID, tenantID, projectID, permission)
-
-	_, err := uuid.Parse(agentID)
-	if err != nil {
-		return false, fmt.Errorf("invalid agent ID: %w", err)
-	}
-
-	_, err = uuid.Parse(tenantID)
-	if err != nil {
-		return false, fmt.Errorf("invalid tenant ID: %w", err)
-	}
 
 	// Get agent's role bindings
 	roleBindings, err := s.GetAgentRoleBindings(ctx, agentID, tenantID)
@@ -169,33 +159,11 @@ func (s *Service) CheckPermission(ctx context.Context, agentID, tenantID, projec
 		}
 
 		// If projectID is specified, check project-specific roles
-		if projectID != "" {
-			projectUUID, err := uuid.Parse(projectID)
-			if err != nil {
-				continue
-			}
-			if binding.ProjectID != nil && *binding.ProjectID == projectUUID {
-				log.Printf("Checking project-specific role: %s", binding.Role)
-				if s.hasPermission(binding.Role, permission) {
-					log.Printf("Permission granted via project-specific role: %s", binding.Role)
-					return true, nil
-				}
-			}
-		} else {
-			// For tenant-level permissions, check both tenant-level roles and tenant_admin project roles
-			if binding.ProjectID == nil {
-				log.Printf("Checking tenant-level role: %s", binding.Role)
-				if s.hasPermission(binding.Role, permission) {
-					log.Printf("Permission granted via tenant-level role: %s", binding.Role)
-					return true, nil
-				}
-			} else if binding.Role == models.RoleTenantAdmin {
-				// tenant_admin project roles also grant tenant-level permissions
-				log.Printf("Checking tenant_admin project role for tenant-level permission")
-				if s.hasPermission(binding.Role, permission) {
-					log.Printf("Permission granted via tenant_admin project role")
-					return true, nil
-				}
+		if binding.ProjectID != nil && *binding.ProjectID == projectID {
+			log.Printf("Checking project-specific role: %s", binding.Role)
+			if s.hasPermission(binding.Role, permission) {
+				log.Printf("Permission granted via project-specific role: %s", binding.Role)
+				return true, nil
 			}
 		}
 	}
@@ -229,17 +197,23 @@ func (s *Service) hasPermission(roleName models.RoleType, permission Permission)
 }
 
 // GetAgentRoleBindings retrieves all role bindings for an agent
-func (s *Service) GetAgentRoleBindings(ctx context.Context, agentID, tenantID string) ([]*db.RoleBinding, error) {
-	agentUUID, _ := uuid.Parse(agentID)
-	tenantUUID, _ := uuid.Parse(tenantID)
+func (s *Service) GetAgentRoleBindings(ctx context.Context, agentID, tenantID uuid.UUID) ([]*db.RoleBinding, error) {
 
+	var rows *sql.Rows
+	var err error
 	query := `
 		SELECT agent_id, tenant_id, project_id, role, created_at, updated_at
 		FROM agent_project_roles
-		WHERE agent_id = $1 AND tenant_id = $2
+		WHERE tenant_id = $1
 	`
 
-	rows, err := s.db.QueryContext(ctx, query, agentUUID, tenantUUID)
+	if agentID != uuid.Nil {
+		query += " AND agent_id = $2"
+		rows, err = s.db.QueryContext(ctx, query, tenantID, agentID)
+	} else {
+		rows, err = s.db.QueryContext(ctx, query, tenantID)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query role bindings: %w", err)
 	}
@@ -266,14 +240,7 @@ func (s *Service) GetAgentRoleBindings(ctx context.Context, agentID, tenantID st
 }
 
 // AssignRole assigns a role to an agent
-func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID string, role models.RoleType) error {
-	agentUUID, _ := uuid.Parse(agentID)
-	tenantUUID, _ := uuid.Parse(tenantID)
-
-	projectUUID, err := uuid.Parse(projectID)
-	if err != nil {
-		return fmt.Errorf("invalid project ID: %w", err)
-	}
+func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID uuid.UUID, role models.RoleType) error {
 
 	// Validate role exists
 	if _, exists := roleMap[role]; !exists {
@@ -287,7 +254,7 @@ func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID s
 		DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
 	`
 
-	_, err = s.db.ExecContext(ctx, query, agentUUID, tenantUUID, projectUUID, role)
+	_, err := s.db.ExecContext(ctx, query, agentID, tenantID, projectID, role)
 	if err != nil {
 		return fmt.Errorf("failed to assign role: %w", err)
 	}
@@ -296,17 +263,11 @@ func (s *Service) AssignRole(ctx context.Context, agentID, tenantID, projectID s
 }
 
 // RemoveRole removes a role from an agent
-func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID string, role models.RoleType) error {
-	agentUUID, _ := uuid.Parse(agentID)
-	tenantUUID, _ := uuid.Parse(tenantID)
+func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID uuid.UUID, role models.RoleType) error {
 
 	var projectUUID *uuid.UUID
-	if projectID != "" {
-		parsed, err := uuid.Parse(projectID)
-		if err != nil {
-			return fmt.Errorf("invalid project ID: %w", err)
-		}
-		projectUUID = &parsed
+	if projectID != uuid.Nil {
+		projectUUID = &projectID
 	}
 
 	query := `
@@ -316,7 +277,7 @@ func (s *Service) RemoveRole(ctx context.Context, agentID, tenantID, projectID s
 		      AND role = $4
 	`
 
-	_, err := s.db.ExecContext(ctx, query, agentUUID, tenantUUID, projectUUID, role)
+	_, err := s.db.ExecContext(ctx, query, agentID, tenantID, projectUUID, role)
 	if err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}

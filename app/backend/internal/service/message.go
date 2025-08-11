@@ -31,7 +31,7 @@ func NewMessageService(
 }
 
 // GetTicketMessages retrieves messages for a ticket
-func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projectID, ticketID, agentID string, includePrivate bool, cursor string, limit int) ([]*db.TicketMessage, string, error) {
+func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID, includePrivate bool, cursor string, limit int) ([]*db.TicketMessage, string, error) {
 	// Check base permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
 	if err != nil {
@@ -52,12 +52,8 @@ func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projec
 		}
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-	ticketUUID, _ := uuid.Parse(ticketID)
-
 	// Verify ticket exists
-	_, err = s.ticketRepo.GetByID(ctx, tenantUUID, projectUUID, ticketUUID)
+	_, err = s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, "", fmt.Errorf("ticket not found: %w", err)
 	}
@@ -67,7 +63,7 @@ func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projec
 		Limit:  limit,
 	}
 
-	messages, nextCursor, err := s.messageRepo.GetByTicketID(ctx, tenantUUID, projectUUID, ticketUUID, includePrivate, pagination)
+	messages, nextCursor, err := s.messageRepo.GetByTicketID(ctx, tenantID, projectID, ticketID, includePrivate, pagination)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get messages: %w", err)
 	}
@@ -82,7 +78,7 @@ type UpdateMessageRequest struct {
 }
 
 // UpdateMessage updates an existing message
-func (s *MessageService) UpdateMessage(ctx context.Context, tenantID, projectID, ticketID, messageID, agentID string, req UpdateMessageRequest) (*db.TicketMessage, error) {
+func (s *MessageService) UpdateMessage(ctx context.Context, tenantID, projectID, ticketID, messageID, agentID uuid.UUID, req UpdateMessageRequest) (*db.TicketMessage, error) {
 	// Check base permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketWrite)
 	if err != nil {
@@ -92,23 +88,14 @@ func (s *MessageService) UpdateMessage(ctx context.Context, tenantID, projectID,
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-	ticketUUID, _ := uuid.Parse(ticketID)
-	messageUUID, err := uuid.Parse(messageID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid message ID")
-	}
-
 	// Get existing message
-	message, err := s.messageRepo.GetByID(ctx, tenantUUID, projectUUID, ticketUUID, messageUUID)
+	message, err := s.messageRepo.GetByID(ctx, tenantID, projectID, ticketID, messageID)
 	if err != nil {
 		return nil, fmt.Errorf("message not found: %w", err)
 	}
 
 	// Check if agent can edit this message (only authors can edit their own messages)
-	agentUUID, _ := uuid.Parse(agentID)
-	if message.AuthorType != "agent" || message.AuthorID == nil || *message.AuthorID != agentUUID {
+	if message.AuthorType != "agent" || message.AuthorID == nil || *message.AuthorID != agentID {
 		return nil, fmt.Errorf("you can only edit your own messages")
 	}
 
@@ -140,7 +127,7 @@ func (s *MessageService) UpdateMessage(ctx context.Context, tenantID, projectID,
 }
 
 // DeleteMessage deletes a message
-func (s *MessageService) DeleteMessage(ctx context.Context, tenantID, projectID, ticketID, messageID, agentID string) error {
+func (s *MessageService) DeleteMessage(ctx context.Context, tenantID, projectID, ticketID, messageID, agentID uuid.UUID) error {
 	// Check base permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketWrite)
 	if err != nil {
@@ -150,23 +137,14 @@ func (s *MessageService) DeleteMessage(ctx context.Context, tenantID, projectID,
 		return fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-	ticketUUID, _ := uuid.Parse(ticketID)
-	messageUUID, err := uuid.Parse(messageID)
-	if err != nil {
-		return fmt.Errorf("invalid message ID")
-	}
-
 	// Get existing message
-	message, err := s.messageRepo.GetByID(ctx, tenantUUID, projectUUID, ticketUUID, messageUUID)
+	message, err := s.messageRepo.GetByID(ctx, tenantID, projectID, ticketID, messageID)
 	if err != nil {
 		return fmt.Errorf("message not found: %w", err)
 	}
 
 	// Check if agent can delete this message (only authors can delete their own messages, or admins)
-	agentUUID, _ := uuid.Parse(agentID)
-	if message.AuthorType == "agent" && message.AuthorID != nil && *message.AuthorID == agentUUID {
+	if message.AuthorType == "agent" && message.AuthorID != nil && *message.AuthorID == agentID {
 		// Agent can delete their own message
 	} else {
 		// Check if agent has admin permissions
@@ -179,7 +157,7 @@ func (s *MessageService) DeleteMessage(ctx context.Context, tenantID, projectID,
 		}
 	}
 
-	err = s.messageRepo.Delete(ctx, tenantUUID, projectUUID, ticketUUID, messageUUID)
+	err = s.messageRepo.Delete(ctx, tenantID, projectID, ticketID, messageID)
 	if err != nil {
 		return fmt.Errorf("failed to delete message: %w", err)
 	}
@@ -188,7 +166,9 @@ func (s *MessageService) DeleteMessage(ctx context.Context, tenantID, projectID,
 }
 
 // GetMessage retrieves a specific message
-func (s *MessageService) GetMessage(ctx context.Context, tenantID, projectID, ticketID, messageID, agentID string) (*db.TicketMessage, error) {
+func (s *MessageService) GetMessage(ctx context.Context, tenantID, projectID, ticketID, messageID, agentID uuid.UUID) (*db.TicketMessage, error) {
+	// Parse string IDs to UUIDs
+
 	// Check base permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
 	if err != nil {
@@ -198,15 +178,7 @@ func (s *MessageService) GetMessage(ctx context.Context, tenantID, projectID, ti
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	tenantUUID, _ := uuid.Parse(tenantID)
-	projectUUID, _ := uuid.Parse(projectID)
-	ticketUUID, _ := uuid.Parse(ticketID)
-	messageUUID, err := uuid.Parse(messageID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid message ID")
-	}
-
-	message, err := s.messageRepo.GetByID(ctx, tenantUUID, projectUUID, ticketUUID, messageUUID)
+	message, err := s.messageRepo.GetByID(ctx, tenantID, projectID, ticketID, messageID)
 	if err != nil {
 		return nil, fmt.Errorf("message not found: %w", err)
 	}

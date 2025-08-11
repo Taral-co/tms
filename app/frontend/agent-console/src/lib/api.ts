@@ -366,6 +366,7 @@ class APIClient {
 
   // Project endpoints
   async getProjects(): Promise<Project[]> {
+    console.log("beullani")
     const response: AxiosResponse<Project[]> = await this.client.get('/projects')
     return response.data
   }

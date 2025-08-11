@@ -8,6 +8,7 @@ import (
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 // AuthHandler handles authentication endpoints
@@ -163,7 +164,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 // GenerateMagicLinkRequest represents a magic link generation request
 type GenerateMagicLinkRequest struct {
-	TicketID string `json:"ticket_id" validate:"required,uuid"`
+	TicketID uuid.UUID `json:"ticket_id" validate:"required,uuid"`
 }
 
 // GenerateMagicLinkResponse represents a magic link generation response
@@ -187,14 +188,12 @@ func (h *AuthHandler) GenerateMagicLink(c *gin.Context) {
 
 	tenantID := middleware.GetTenantID(c)
 	projectID := c.Param("project_id")
-	agentID := middleware.GetUserID(c)
+	agentID := middleware.GetAgentID(c)
 
-	if tenantID == "" || projectID == "" || agentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required parameters"})
-		return
-	}
+	req.TicketID = uuid.MustParse(req.TicketID.String())
+	projectUUID := uuid.MustParse(projectID)
 
-	magicLink, err := h.publicService.GenerateMagicLinkToken(tenantID, projectID, req.TicketID, agentID)
+	magicLink, err := h.publicService.GenerateMagicLinkToken(tenantID, projectUUID, req.TicketID, agentID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

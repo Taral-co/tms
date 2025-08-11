@@ -229,16 +229,6 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			api.DELETE("/api-keys/:key_id", apiKeyHandler.DeleteApiKey)
 		}
 
-		// Settings endpoints
-		{
-			api.GET("/settings/email", settingsHandler.GetEmailSettings)
-			api.PUT("/settings/email", settingsHandler.UpdateEmailSettings)
-			api.GET("/settings/branding", settingsHandler.GetBrandingSettings)
-			api.PUT("/settings/branding", settingsHandler.UpdateBrandingSettings)
-			api.GET("/settings/automation", settingsHandler.GetAutomationSettings)
-			api.PUT("/settings/automation", settingsHandler.UpdateAutomationSettings)
-		}
-
 		// Project-scoped endpoints
 		projects := api.Group("/projects/:project_id")
 		{
@@ -258,6 +248,16 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 
 				// Magic links
 				tickets.POST("/:ticket_id/magic-link", authHandler.GenerateMagicLink)
+			}
+
+			// Settings endpoints
+			{
+				api.GET("/settings/email", settingsHandler.GetEmailSettings)
+				api.PUT("/settings/email", settingsHandler.UpdateEmailSettings)
+				api.GET("/settings/branding", settingsHandler.GetBrandingSettings)
+				api.PUT("/settings/branding", settingsHandler.UpdateBrandingSettings)
+				api.GET("/settings/automation", settingsHandler.GetAutomationSettings)
+				api.PUT("/settings/automation", settingsHandler.UpdateAutomationSettings)
 			}
 
 			// Integrations - using the available methods

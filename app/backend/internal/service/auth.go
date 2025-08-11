@@ -83,7 +83,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 	}
 
 	// Get role bindings
-	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agent.ID.String(), agent.TenantID.String())
+	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agent.ID, agent.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role bindings: %w", err)
 	}
@@ -158,7 +158,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, req RefreshTokenRequest)
 	}
 
 	// Get role bindings
-	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agent.ID.String(), agent.TenantID.String())
+	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agent.ID, agent.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role bindings: %w", err)
 	}
@@ -264,7 +264,7 @@ func (s *AuthService) ConsumeMagicLink(ctx context.Context, req ConsumeMagicLink
 	}
 
 	// Get role bindings
-	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agent.ID.String(), agent.TenantID.String())
+	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agent.ID, agent.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role bindings: %w", err)
 	}

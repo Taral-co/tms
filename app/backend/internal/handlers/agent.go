@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type AgentHandler struct {
@@ -21,20 +23,9 @@ func NewAgentHandler(agentService *service.AgentService) *AgentHandler {
 
 // ListAgents handles GET /agents
 func (h *AgentHandler) ListAgents(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
-
-	// Get requestor agent ID from JWT claims
-	agentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
-		return
-	}
-
-	requestorAgentID, ok := agentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
-		return
-	}
+	tenantID := middleware.GetTenantID(c)
+	agentID := middleware.GetAgentID(c)
+	isTenantAdmin := middleware.IsTenantAdmin(c)
 
 	// Parse query parameters
 	limitStr := c.DefaultQuery("limit", "50")
@@ -43,13 +34,17 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 		limit = 50
 	}
 
+	if !isTenantAdmin {
+		agentID = uuid.Nil
+	}
+
 	req := service.ListAgentsRequest{
 		Search: c.Query("search"),
 		Cursor: c.Query("cursor"),
 		Limit:  limit,
 	}
 
-	agents, nextCursor, err := h.agentService.ListAgents(c.Request.Context(), tenantIDStr, requestorAgentID, req)
+	agents, nextCursor, err := h.agentService.ListAgents(c.Request.Context(), tenantID, agentID, req)
 	if err != nil {
 		log.Printf("Failed to list agents: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agents"})
@@ -95,18 +90,11 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 
 // CreateAgent handles POST /agents
 func (h *AgentHandler) CreateAgent(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
-
-	// Get creator agent ID from JWT claims
-	agentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
-		return
-	}
-
-	creatorAgentID, ok := agentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+	tenantID := middleware.GetTenantID(c)
+	creatorAgentID := middleware.GetAgentID(c)
+	isTenantAdmin := middleware.IsTenantAdmin(c)
+	if !isTenantAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 		return
 	}
 
@@ -122,7 +110,7 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		return
 	}
 
-	agent, err := h.agentService.CreateAgent(c.Request.Context(), tenantIDStr, creatorAgentID, req)
+	agent, err := h.agentService.CreateAgent(c.Request.Context(), tenantID, creatorAgentID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create agent"})
 		return
@@ -133,23 +121,23 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 
 // GetAgent handles GET /agents/:agent_id
 func (h *AgentHandler) GetAgent(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
-	agentIDStr := c.Param("agent_id")
+	tenantID := middleware.GetTenantID(c)
+	paramAgentIDStr := c.Param("agent_id")
+	jwtAgentID := middleware.GetAgentID(c)
+	isTenantAdmin := middleware.IsTenantAdmin(c)
 
-	// Get requestor agent ID from JWT claims
-	requestorAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+	paramAgentID, err := uuid.Parse(paramAgentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
 		return
 	}
 
-	requestorAgentID, ok := requestorAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+	if !isTenantAdmin && paramAgentID != jwtAgentID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 		return
 	}
 
-	agent, err := h.agentService.GetAgent(c.Request.Context(), tenantIDStr, agentIDStr, requestorAgentID)
+	agent, err := h.agentService.GetAgent(c.Request.Context(), tenantID, paramAgentID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
 		return
@@ -160,19 +148,18 @@ func (h *AgentHandler) GetAgent(c *gin.Context) {
 
 // UpdateAgent handles PATCH /agents/:agent_id
 func (h *AgentHandler) UpdateAgent(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
-	agentIDStr := c.Param("agent_id")
-
-	// Get updater agent ID from JWT claims
-	updaterAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+	tenantID := middleware.GetTenantID(c)
+	paramsAgentIDStr := c.Param("agent_id")
+	isTenantAdmin := middleware.IsTenantAdmin(c)
+	paramsAgentID, err := uuid.Parse(paramsAgentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
 		return
 	}
+	requestAgentID := middleware.GetAgentID(c)
 
-	updaterAgentID, ok := updaterAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+	if !isTenantAdmin && paramsAgentID != requestAgentID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 		return
 	}
 
@@ -182,9 +169,9 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 
-	agent, err := h.agentService.UpdateAgent(c.Request.Context(), tenantIDStr, agentIDStr, updaterAgentID, req)
+	agent, statusCode, err := h.agentService.UpdateAgent(c.Request.Context(), tenantID, requestAgentID, paramsAgentID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update agent"})
+		c.JSON(statusCode, gin.H{"error": "Failed to update agent"})
 		return
 	}
 
@@ -193,21 +180,21 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 
 // AssignRole handles POST /agents/:agent_id/roles
 func (h *AgentHandler) AssignRole(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
+	tenantID := middleware.GetTenantID(c)
+	isTenantAdmin := middleware.IsTenantAdmin(c)
+
+	if !isTenantAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
+	}
+
 	agentIDStr := c.Param("agent_id")
-
-	// Get assigner agent ID from JWT claims
-	assignerAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+	agentID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
 		return
 	}
-
-	assignerAgentID, ok := assignerAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
-		return
-	}
+	assignerAgentID := middleware.GetAgentID(c)
 
 	var req service.AssignRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -215,7 +202,7 @@ func (h *AgentHandler) AssignRole(c *gin.Context) {
 		return
 	}
 
-	err := h.agentService.AssignRole(c.Request.Context(), tenantIDStr, agentIDStr, assignerAgentID, req)
+	err = h.agentService.AssignRole(c.Request.Context(), tenantID, agentID, assignerAgentID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign role"})
 		return
@@ -226,19 +213,13 @@ func (h *AgentHandler) AssignRole(c *gin.Context) {
 
 // RemoveRole handles DELETE /agents/:agent_id/roles
 func (h *AgentHandler) RemoveRole(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
+
+	tenantID := middleware.GetTenantID(c)
 	agentIDStr := c.Param("agent_id")
 
-	// Get remover agent ID from JWT claims
-	removerAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
-		return
-	}
-
-	removerAgentID, ok := removerAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+	agentID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
 		return
 	}
 
@@ -248,7 +229,7 @@ func (h *AgentHandler) RemoveRole(c *gin.Context) {
 		return
 	}
 
-	err := h.agentService.RemoveRole(c.Request.Context(), tenantIDStr, agentIDStr, removerAgentID, req)
+	err = h.agentService.RemoveRole(c.Request.Context(), tenantID, agentID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove role"})
 		return
@@ -259,23 +240,21 @@ func (h *AgentHandler) RemoveRole(c *gin.Context) {
 
 // GetAgentRoles handles GET /agents/:agent_id/roles
 func (h *AgentHandler) GetAgentRoles(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
+	tenantID := middleware.GetTenantID(c)
 	agentIDStr := c.Param("agent_id")
+	isTenantAdmin := middleware.IsTenantAdmin(c)
 
-	// Get requestor agent ID from JWT claims
-	requestorAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+	agentID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
 		return
 	}
 
-	requestorAgentID, ok := requestorAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
-		return
+	if isTenantAdmin {
+		agentID = uuid.Nil
 	}
 
-	roles, err := h.agentService.GetAgentRoles(c.Request.Context(), tenantIDStr, agentIDStr, requestorAgentID)
+	roles, err := h.agentService.GetAgentRoles(c.Request.Context(), tenantID, agentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get agent roles"})
 		return
@@ -286,23 +265,20 @@ func (h *AgentHandler) GetAgentRoles(c *gin.Context) {
 
 // AssignToProject handles POST /agents/:agent_id/projects/:project_id
 func (h *AgentHandler) AssignToProject(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
+	tenantID := middleware.GetTenantID(c)
 	agentIDStr := c.Param("agent_id")
 	projectIDStr := c.Param("project_id")
 
-	// Get assigner agent ID from JWT claims
-	assignerAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+	agentID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
 		return
 	}
-
-	assignerAgentID, ok := assignerAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID format"})
 		return
 	}
-
 	var req service.AssignToProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
@@ -310,9 +286,9 @@ func (h *AgentHandler) AssignToProject(c *gin.Context) {
 	}
 
 	// Set the project ID from URL parameter
-	req.ProjectID = projectIDStr
+	req.ProjectID = projectID
 
-	err := h.agentService.AssignToProject(c.Request.Context(), tenantIDStr, agentIDStr, assignerAgentID, req)
+	err = h.agentService.AssignToProject(c.Request.Context(), tenantID, agentID, req)
 	if err != nil {
 		log.Printf("Failed to assign agent to project: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign agent to project"})
@@ -324,24 +300,23 @@ func (h *AgentHandler) AssignToProject(c *gin.Context) {
 
 // RemoveFromProject handles DELETE /agents/:agent_id/projects/:project_id
 func (h *AgentHandler) RemoveFromProject(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
+	tenantID := middleware.GetTenantID(c)
 	agentIDStr := c.Param("agent_id")
 	projectIDStr := c.Param("project_id")
 
 	// Get remover agent ID from JWT claims
-	removerAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
+	agentID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
+		return
+	}
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID format"})
 		return
 	}
 
-	removerAgentID, ok := removerAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
-		return
-	}
-
-	err := h.agentService.RemoveFromProject(c.Request.Context(), tenantIDStr, agentIDStr, projectIDStr, removerAgentID)
+	err = h.agentService.RemoveFromProject(c.Request.Context(), tenantID, agentID, projectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove agent from project"})
 		return
@@ -352,24 +327,23 @@ func (h *AgentHandler) RemoveFromProject(c *gin.Context) {
 
 // GetAgentProjects handles GET /agents/:agent_id/projects
 func (h *AgentHandler) GetAgentProjects(c *gin.Context) {
-	tenantIDStr := c.Param("tenant_id")
+	tenantID := middleware.GetTenantID(c)
 	agentIDStr := c.Param("agent_id")
-
-	// Get requestor agent ID from JWT claims
-	requestorAgentIDInterface, exists := c.Get("agent_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent ID not found in token"})
-		return
-	}
-
-	requestorAgentID, ok := requestorAgentIDInterface.(string)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid agent ID format"})
-		return
-	}
-
-	projects, err := h.agentService.GetAgentProjects(c.Request.Context(), tenantIDStr, agentIDStr, requestorAgentID)
+	agentID, err := uuid.Parse(agentIDStr)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent ID format"})
+		return
+	}
+
+	isTenantAdmin := middleware.IsTenantAdmin(c)
+
+	if isTenantAdmin {
+		agentID = uuid.Nil
+	}
+	projects, err := h.agentService.GetAgentProjects(c.Request.Context(), tenantID, agentID)
+	if err != nil {
+		// Log the error for debugging purposes
+		log.Printf("Failed to get agent projects: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get agent projects"})
 		return
 	}

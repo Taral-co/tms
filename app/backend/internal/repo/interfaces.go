@@ -24,6 +24,7 @@ type AgentFilters struct {
 	Email    string
 	IsActive *bool
 	Search   string
+	AgentID  *uuid.UUID
 }
 
 // CustomerFilters represents filters for customer queries

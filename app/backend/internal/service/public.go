@@ -165,21 +165,10 @@ func (s *PublicService) AddMessageByMagicLink(ctx context.Context, magicToken st
 }
 
 // GenerateMagicLinkToken generates a magic link token for a ticket
-func (s *PublicService) GenerateMagicLinkToken(tenantID, projectID, ticketID, customerID string) (string, error) {
-	tenantUUID, _ := uuid.Parse(tenantID)
-
-	projectUUID, err := uuid.Parse(projectID)
-	if err != nil {
-		return "", fmt.Errorf("invalid project ID: %w", err)
-	}
-
-	ticketUUID, err := uuid.Parse(ticketID)
-	if err != nil {
-		return "", fmt.Errorf("invalid ticket ID: %w", err)
-	}
+func (s *PublicService) GenerateMagicLinkToken(tenantID, projectID, ticketID, customerID uuid.UUID) (string, error) {
 
 	// For public ticket access, we don't need to include customer ID in the token
 	// The customer ownership is verified when the ticket is accessed
 	scope := []string{"read", "write"}
-	return s.jwtAuth.GeneratePublicToken(tenantUUID, projectUUID, ticketUUID, scope)
+	return s.jwtAuth.GeneratePublicToken(tenantID, projectID, ticketID, scope)
 }
