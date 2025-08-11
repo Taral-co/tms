@@ -283,3 +283,103 @@ func TenantAdminMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// ProjectAdminMiddleware ensures only project admins can access the endpoint
+func ProjectAdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := GetClaims(c)
+		if claims == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No valid claims found"})
+			c.Abort()
+			return
+		}
+
+		// Get project_id from URL parameter
+		projectID := c.Param("project_id")
+		if projectID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "project_id parameter is required"})
+			c.Abort()
+			return
+		}
+
+		// Validate project ID format
+		if _, err := uuid.Parse(projectID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id format"})
+			c.Abort()
+			return
+		}
+
+		// Check if user is tenant admin (tenant admins have access to all projects)
+		if claims.IsTenantAdmin {
+			c.Next()
+			return
+		}
+
+		// Check if project exists in role bindings
+		roles, projectExists := claims.RoleBindings[projectID]
+		if !projectExists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied: no access to this project"})
+			c.Abort()
+			return
+		}
+
+		// Check if user has project_admin role for this project
+		hasProjectAdminRole := false
+		for _, role := range roles {
+			if role == "project_admin" {
+				hasProjectAdminRole = true
+				break
+			}
+		}
+
+		if !hasProjectAdminRole {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied: project_admin role required"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func ProjectAccessMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := GetClaims(c)
+		if claims == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No valid claims found"})
+			c.Abort()
+			return
+		}
+
+		// Get project_id from URL parameter
+		projectID := c.Param("project_id")
+		if projectID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "project_id parameter is required"})
+			c.Abort()
+			return
+		}
+
+		// Validate project ID format
+		if _, err := uuid.Parse(projectID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id format"})
+			c.Abort()
+			return
+		}
+
+		// Check if user is tenant admin (tenant admins have access to all projects)
+		if claims.IsTenantAdmin {
+			c.Next()
+			return
+		}
+
+		// Check if project exists in role bindings
+		_, projectExists := claims.RoleBindings[projectID]
+		if !projectExists {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied: no access to this project"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}

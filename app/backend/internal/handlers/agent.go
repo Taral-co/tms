@@ -34,7 +34,7 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 		limit = 50
 	}
 
-	if !isTenantAdmin {
+	if isTenantAdmin {
 		agentID = uuid.Nil
 	}
 
@@ -336,9 +336,13 @@ func (h *AgentHandler) GetAgentProjects(c *gin.Context) {
 	}
 
 	isTenantAdmin := middleware.IsTenantAdmin(c)
+	requestAgent := middleware.GetAgentID(c)
 
-	if isTenantAdmin {
-		agentID = uuid.Nil
+	if !isTenantAdmin {
+		if agentID != requestAgent {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			return
+		}
 	}
 	projects, err := h.agentService.GetAgentProjects(c.Request.Context(), tenantID, agentID)
 	if err != nil {

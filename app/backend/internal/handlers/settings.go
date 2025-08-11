@@ -62,8 +62,14 @@ type AutomationSettings struct {
 // GetEmailSettings retrieves email settings for a tenant
 func (h *SettingsHandler) GetEmailSettings(c *gin.Context) {
 	tenantUUID := middleware.GetTenantID(c)
+	projectIDStr, _ := c.Params.Get("project_id")
+	projectUUID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
 
-	settings, err := h.settingsRepo.GetSetting(context.Background(), tenantUUID, "email_settings")
+	settings, err := h.settingsRepo.GetSetting(context.Background(), tenantUUID, projectUUID, "email_settings")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve email settings"})
 		return
@@ -79,15 +85,11 @@ func (h *SettingsHandler) GetEmailSettings(c *gin.Context) {
 
 // UpdateEmailSettings updates email settings for a tenant
 func (h *SettingsHandler) UpdateEmailSettings(c *gin.Context) {
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID not found"})
-		return
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID.(string))
+	tenantID := middleware.GetTenantID(c)
+	projectIDStr, _ := c.Params.Get("project_id")
+	projectUUID, err := uuid.Parse(projectIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
 
@@ -102,7 +104,7 @@ func (h *SettingsHandler) UpdateEmailSettings(c *gin.Context) {
 	var settingsMap map[string]interface{}
 	json.Unmarshal(settingsJSON, &settingsMap)
 
-	err = h.settingsRepo.UpdateSetting(context.Background(), tenantUUID, "email_settings", settingsMap)
+	err = h.settingsRepo.UpdateSetting(context.Background(), tenantID, projectUUID, "email_settings", settingsMap)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update email settings"})
 		return
@@ -113,19 +115,15 @@ func (h *SettingsHandler) UpdateEmailSettings(c *gin.Context) {
 
 // GetBrandingSettings retrieves branding settings for a tenant
 func (h *SettingsHandler) GetBrandingSettings(c *gin.Context) {
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID not found"})
-		return
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID.(string))
+	tenantID := middleware.GetTenantID(c)
+	projectIDStr, _ := c.Params.Get("project_id")
+	projectUUID, err := uuid.Parse(projectIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
 
-	settings, err := h.settingsRepo.GetSetting(context.Background(), tenantUUID, "branding_settings")
+	settings, err := h.settingsRepo.GetSetting(context.Background(), tenantID, projectUUID, "branding_settings")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve branding settings"})
 		return
@@ -141,15 +139,11 @@ func (h *SettingsHandler) GetBrandingSettings(c *gin.Context) {
 
 // UpdateBrandingSettings updates branding settings for a tenant
 func (h *SettingsHandler) UpdateBrandingSettings(c *gin.Context) {
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID not found"})
-		return
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID.(string))
+	tenantID := middleware.GetTenantID(c)
+	projectIDStr, _ := c.Params.Get("project_id")
+	projectUUID, err := uuid.Parse(projectIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
 
@@ -164,7 +158,7 @@ func (h *SettingsHandler) UpdateBrandingSettings(c *gin.Context) {
 	var settingsMap map[string]interface{}
 	json.Unmarshal(settingsJSON, &settingsMap)
 
-	err = h.settingsRepo.UpdateSetting(context.Background(), tenantUUID, "branding_settings", settingsMap)
+	err = h.settingsRepo.UpdateSetting(context.Background(), tenantID, projectUUID, "branding_settings", settingsMap)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update branding settings"})
 		return
@@ -175,19 +169,15 @@ func (h *SettingsHandler) UpdateBrandingSettings(c *gin.Context) {
 
 // GetAutomationSettings retrieves automation settings for a tenant
 func (h *SettingsHandler) GetAutomationSettings(c *gin.Context) {
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID not found"})
-		return
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID.(string))
+	tenantID := middleware.GetTenantID(c)
+	projectIDStr, _ := c.Params.Get("project_id")
+	projectUUID, err := uuid.Parse(projectIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
 
-	settings, err := h.settingsRepo.GetSetting(context.Background(), tenantUUID, "automation_settings")
+	settings, err := h.settingsRepo.GetSetting(context.Background(), tenantID, projectUUID, "automation_settings")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve automation settings"})
 		return
@@ -203,15 +193,11 @@ func (h *SettingsHandler) GetAutomationSettings(c *gin.Context) {
 
 // UpdateAutomationSettings updates automation settings for a tenant
 func (h *SettingsHandler) UpdateAutomationSettings(c *gin.Context) {
-	tenantID, exists := c.Get("tenant_id")
-	if !exists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID not found"})
-		return
-	}
-
-	tenantUUID, err := uuid.Parse(tenantID.(string))
+	tenantID := middleware.GetTenantID(c)
+	projectIDStr, _ := c.Params.Get("project_id")
+	projectUUID, err := uuid.Parse(projectIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
 
@@ -226,7 +212,7 @@ func (h *SettingsHandler) UpdateAutomationSettings(c *gin.Context) {
 	var settingsMap map[string]interface{}
 	json.Unmarshal(settingsJSON, &settingsMap)
 
-	err = h.settingsRepo.UpdateSetting(context.Background(), tenantUUID, "automation_settings", settingsMap)
+	err = h.settingsRepo.UpdateSetting(context.Background(), tenantID, projectUUID, "automation_settings", settingsMap)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update automation settings"})
 		return

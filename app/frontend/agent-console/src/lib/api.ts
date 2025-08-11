@@ -220,8 +220,9 @@ class APIClient {
         // Project-scoped endpoints: /tenants/{tenant_id}/projects/{project_id}/* (tickets, integrations, email)
         else if (projectId && (
           config.url.startsWith('/tickets') || 
+          config.url.startsWith('/integrations') ||
           config.url.startsWith('/integrations') || 
-          config.url.startsWith('/email') ||
+          config.url.startsWith('/settings') ||
           config.url.startsWith('/analytics')
         ) && !config.url.includes('/tenants/')) {
           config.url = `/tenants/${tenantId}/projects/${projectId}${config.url}`

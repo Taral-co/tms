@@ -2,23 +2,25 @@
 -- +goose StatementBegin
 
 -- Create settings table for tenant-level configuration
-CREATE TABLE IF NOT EXISTS tenant_settings (
+CREATE TABLE IF NOT EXISTS tenant_project_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     setting_key VARCHAR(100) NOT NULL,
     setting_value JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(tenant_id, setting_key)
+    UNIQUE(tenant_id, project_id, setting_key)
 );
 
 -- Create index for faster lookups (only if it doesn't exist)
-CREATE INDEX IF NOT EXISTS idx_tenant_settings_tenant_key ON tenant_settings(tenant_id, setting_key);
+CREATE INDEX IF NOT EXISTS idx_tenant_project_settings_tenant_key ON tenant_project_settings(tenant_id, project_id, setting_key);
 
 -- Insert default settings for existing tenants
-INSERT INTO tenant_settings (tenant_id, setting_key, setting_value)
+INSERT INTO tenant_project_settings (tenant_id, project_id, setting_key, setting_value)
 SELECT 
     t.id as tenant_id,
+    p.id as project_id,
     'email_settings' as setting_key,
     jsonb_build_object(
         'smtp_host', '',
@@ -32,11 +34,13 @@ SELECT
         'enable_email_to_ticket', false
     ) as setting_value
 FROM tenants t
-ON CONFLICT (tenant_id, setting_key) DO NOTHING;
+JOIN projects p ON p.tenant_id = t.id
+ON CONFLICT (tenant_id, project_id, setting_key) DO NOTHING;
 
-INSERT INTO tenant_settings (tenant_id, setting_key, setting_value)
+INSERT INTO tenant_project_settings (tenant_id, project_id, setting_key, setting_value)
 SELECT 
     t.id as tenant_id,
+    p.id as project_id,
     'branding_settings' as setting_key,
     jsonb_build_object(
         'company_name', 'Your Company',
@@ -51,11 +55,13 @@ SELECT
         'enable_custom_branding', false
     ) as setting_value
 FROM tenants t
-ON CONFLICT (tenant_id, setting_key) DO NOTHING;
+JOIN projects p ON p.tenant_id = t.id
+ON CONFLICT (tenant_id, project_id, setting_key) DO NOTHING;
 
-INSERT INTO tenant_settings (tenant_id, setting_key, setting_value)
+INSERT INTO tenant_project_settings (tenant_id, project_id, setting_key, setting_value)
 SELECT 
     t.id as tenant_id,
+    p.id as project_id,
     'automation_settings' as setting_key,
     jsonb_build_object(
         'enable_auto_assignment', false,
@@ -67,14 +73,15 @@ SELECT
         'auto_reply_template', 'Thank you for contacting our support team. We have received your ticket and will respond within 24 hours.'
     ) as setting_value
 FROM tenants t
-ON CONFLICT (tenant_id, setting_key) DO NOTHING;
+JOIN projects p ON p.tenant_id = t.id
+ON CONFLICT (tenant_id, project_id, setting_key) DO NOTHING;
 
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 
-DROP INDEX IF EXISTS idx_tenant_settings_tenant_key;
-DROP TABLE IF EXISTS tenant_settings;
+DROP INDEX IF EXISTS idx_tenant_project_settings_tenant_key;
+DROP TABLE IF EXISTS tenant_project_settings;
 
 -- +goose StatementEnd

@@ -154,7 +154,7 @@ func (r *agentRepository) List(ctx context.Context, tenantID uuid.UUID, filters 
 		args = append(args, status)
 	}
 
-	if filters.AgentID != nil {
+	if filters.AgentID != uuid.Nil {
 		argCount++
 		query += fmt.Sprintf(" AND id = $%d", argCount)
 		args = append(args, filters.AgentID)

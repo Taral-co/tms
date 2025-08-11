@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { 
   Settings, 
   Users, 
@@ -10,12 +10,9 @@ import {
   Plus,
   Trash2,
   Edit,
-  Eye,
-  EyeOff,
   Copy,
   Check,
-  X,
-  Save
+  X
 } from 'lucide-react'
 import { apiClient, Project, Agent, EmailSettings, BrandingSettings, AutomationSettings } from '../lib/api'
 
@@ -38,7 +35,6 @@ interface AgentProject {
 }
 
 export function SettingsPage() {
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<SettingsTab>((searchParams.get('tab') as SettingsTab) || 'projects')
   const [loading, setLoading] = useState(false)
@@ -109,10 +105,7 @@ export function SettingsPage() {
   const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null)
 
   // Project assignment states
-  const [showProjectAssignment, setShowProjectAssignment] = useState(false)
-  const [selectedAgentForAssignment, setSelectedAgentForAssignment] = useState<Agent | null>(null)
   const [agentProjects, setAgentProjects] = useState<Record<string, AgentProject[]>>({})
-  const [availableRoles] = useState(['agent', 'supervisor', 'project_admin'])
 
   const tabs = [
     { id: 'projects' as SettingsTab, name: 'Projects', icon: Settings },
@@ -279,18 +272,6 @@ export function SettingsPage() {
   }
 
   // Project handlers
-  const handleEditProject = async (projectId: string, updates: { key: string; name: string; status: string }) => {
-    try {
-      setLoading(true)
-      const updatedProject = await apiClient.updateProject(projectId, updates)
-      setProjects(prev => prev.map(p => p.id === projectId ? updatedProject : p))
-    } catch (err) {
-      setError('Failed to update project')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleDeleteProject = async (projectId: string) => {
     if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return
     
@@ -306,18 +287,6 @@ export function SettingsPage() {
   }
 
   // Agent handlers  
-  const handleEditAgent = async (agentId: string, updates: Partial<Agent>) => {
-    try {
-      setLoading(true)
-      const updatedAgent = await apiClient.updateAgent(agentId, updates)
-      setAgents(prev => prev.map(a => a.id === agentId ? updatedAgent : a))
-    } catch (err) {
-      setError('Failed to update agent')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleDeleteAgent = async (agentId: string) => {
     if (!confirm('Are you sure you want to delete this agent? This action cannot be undone.')) return
     
@@ -371,18 +340,6 @@ export function SettingsPage() {
       setApiKeys(prev => prev.filter(k => k.id !== keyId))
     } catch (err) {
       setError('Failed to delete API key')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleEditApiKey = async (keyId: string, updates: Partial<ApiKey>) => {
-    try {
-      setLoading(true)
-      const updatedKey = await apiClient.updateApiKey(keyId, updates)
-      setApiKeys(prev => prev.map(k => k.id === keyId ? updatedKey : k))
-    } catch (err) {
-      setError('Failed to update API key')
     } finally {
       setLoading(false)
     }
@@ -627,226 +584,252 @@ export function SettingsPage() {
   )
 
   const renderRolesTab = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium text-foreground">Roles & Users</h3>
-          <p className="text-sm text-muted-foreground">Manage team members and their permissions</p>
+    <div className="space-y-6 h-full flex flex-col">
+      <div className="flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium text-foreground">Roles & Users</h3>
+            <p className="text-sm text-muted-foreground">Manage team members and their permissions</p>
+          </div>
+          <button
+            onClick={() => setShowCreateAgent(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus-visible-ring"
+            aria-label="Add new user"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            <span>Add User</span>
+          </button>
         </div>
-        <button
-          onClick={() => setShowCreateAgent(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add User</span>
-        </button>
+
+        {showCreateAgent && (
+          <div className="border rounded-lg p-4 bg-card mt-6" role="dialog" aria-labelledby="add-user-title">
+            <h4 id="add-user-title" className="font-medium mb-4">Add New User</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="new-agent-name" className="block text-sm font-medium mb-1">Full Name</label>
+                <input
+                  id="new-agent-name"
+                  type="text"
+                  value={newAgentName}
+                  onChange={(e) => setNewAgentName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="new-agent-email" className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  id="new-agent-email"
+                  type="email"
+                  value={newAgentEmail}
+                  onChange={(e) => setNewAgentEmail(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                  placeholder="john@company.com"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="new-agent-password" className="block text-sm font-medium mb-1">Password</label>
+                <input
+                  id="new-agent-password"
+                  type="password"
+                  value={newAgentPassword}
+                  onChange={(e) => setNewAgentPassword(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="new-agent-role" className="block text-sm font-medium mb-1">Role</label>
+                <select
+                  id="new-agent-role"
+                  value={newAgentRole}
+                  onChange={(e) => setNewAgentRole(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                  required
+                >
+                  <option value="agent">Agent</option>
+                  <option value="admin">Admin</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-4">
+              <button
+                onClick={handleCreateAgent}
+                disabled={loading || !newAgentName.trim() || !newAgentEmail.trim() || !newAgentPassword.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 focus-visible-ring"
+              >
+                {loading ? 'Creating...' : 'Add User'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateAgent(false)
+                  setNewAgentName('')
+                  setNewAgentEmail('')
+                  setNewAgentPassword('')
+                  setNewAgentRole('agent')
+                }}
+                className="px-4 py-2 border rounded-md hover:bg-accent focus-visible-ring"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {showCreateAgent && (
-        <div className="border rounded-lg p-4 bg-card">
-          <h4 className="font-medium mb-4">Add New User</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Full Name</label>
-              <input
-                type="text"
-                value={newAgentName}
-                onChange={(e) => setNewAgentName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="John Doe"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                type="email"
-                value={newAgentEmail}
-                onChange={(e) => setNewAgentEmail(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="john@company.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Password</label>
-              <input
-                type="password"
-                value={newAgentPassword}
-                onChange={(e) => setNewAgentPassword(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="••••••••"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Role</label>
-              <select
-                value={newAgentRole}
-                onChange={(e) => setNewAgentRole(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
-              >
-                <option value="agent">Agent</option>
-                <option value="admin">Admin</option>
-                <option value="viewer">Viewer</option>
-              </select>
+      {/* Users Table - Scrollable */}
+      <div className="flex-1 min-h-0 border rounded-lg bg-card overflow-hidden">
+        <div className="h-full flex flex-col">
+          {/* Table Header */}
+          <div className="flex-shrink-0 border-b border-border bg-muted/50">
+            <div className="grid grid-cols-12 gap-4 px-6 py-3">
+              <div className="col-span-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">User</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</span>
+              </div>
+              <div className="col-span-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Projects</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-right">Actions</span>
+              </div>
             </div>
           </div>
-          <div className="flex space-x-3 mt-4">
-            <button
-              onClick={handleCreateAgent}
-              disabled={loading || !newAgentName.trim() || !newAgentEmail.trim() || !newAgentPassword.trim()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? 'Creating...' : 'Add User'}
-            </button>
-            <button
-              onClick={() => {
-                setShowCreateAgent(false)
-                setNewAgentName('')
-                setNewAgentEmail('')
-                setNewAgentPassword('')
-                setNewAgentRole('agent')
-              }}
-              className="px-4 py-2 border rounded-md hover:bg-accent"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                User
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Role
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Projects
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Last Active
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-background divide-y divide-border">
+          {/* Table Body - Scrollable */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
             {agents.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
-                  No users found. Add your first team member to get started.
-                </td>
-              </tr>
+              <div className="flex items-center justify-center h-full min-h-[200px]">
+                <div className="text-center">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
+                  <p className="text-muted-foreground">No users found. Add your first team member to get started.</p>
+                </div>
+              </div>
             ) : (
-              agents.map((agent) => (
-                <tr key={agent.id} className="hover:bg-muted/50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="font-medium text-foreground">{agent.name}</div>
-                      <div className="text-sm text-muted-foreground">{agent.email}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-foreground">
-                      {agent.roles?.map(role => role.role).join(', ') || 'No roles'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-2">
-                      {agentProjects[agent.id]?.length > 0 ? (
-                        <>
-                          {agentProjects[agent.id].map((project) => (
-                            <div key={project.id} className="flex items-center justify-between bg-muted/30 rounded px-2 py-1">
-                              <span className="text-xs font-medium">{project.name}</span>
-                              <div className="flex items-center space-x-1">
-                                <span className="text-xs text-muted-foreground">{project.role}</span>
-                                <button
-                                  onClick={() => handleRemoveProject(agent.id, project.id)}
-                                  className="text-destructive hover:text-destructive/80 ml-1"
-                                  title="Remove from project"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No projects assigned</span>
-                      )}
-                      <div className="flex items-center space-x-1">
-                        <select
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleAssignProject(agent.id, e.target.value)
-                              e.target.value = ''
-                            }
-                          }}
-                          className="text-xs px-2 py-1 border rounded bg-[var(--card)] text-[var(--card-fg)]"
-                          defaultValue=""
-                        >
-                          <option value="">Assign to project...</option>
-                          {projects
-                            .filter(p => !agentProjects[agent.id]?.some(ap => ap.id === p.id))
-                            .map(project => (
-                              <option key={project.id} value={project.id}>
-                                {project.name}
-                              </option>
-                            ))
-                          }
-                        </select>
+              <div className="divide-y divide-border">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 transition-colors">
+                    {/* User Info */}
+                    <div className="col-span-3">
+                      <div>
+                        <div className="font-medium text-foreground">{agent.name}</div>
+                        <div className="text-sm text-muted-foreground">{agent.email}</div>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      agent.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {agent.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                    {new Date(agent.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <button 
-                      onClick={() => setEditingAgent(agent)}
-                      className="text-primary hover:text-primary/80 mr-3"
-                      title="Edit Agent"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteAgent(agent.id)}
-                      className="text-destructive hover:text-destructive/80"
-                      title="Delete Agent"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))
+
+                    {/* Role */}
+                    <div className="col-span-2 flex items-center">
+                      <div className="text-sm text-foreground">
+                        {agent.roles?.map(role => role.role).join(', ') || 'No roles'}
+                      </div>
+                    </div>
+
+                    {/* Projects */}
+                    <div className="col-span-3">
+                      <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
+                        {agentProjects[agent.id]?.length > 0 ? (
+                          <>
+                            {agentProjects[agent.id].map((project) => (
+                              <div key={project.id} className="flex items-center justify-between bg-muted/30 rounded px-2 py-1">
+                                <span className="text-xs font-medium truncate">{project.name}</span>
+                                <div className="flex items-center space-x-1 flex-shrink-0">
+                                  <span className="text-xs text-muted-foreground">{project.role}</span>
+                                  <button
+                                    onClick={() => handleRemoveProject(agent.id, project.id)}
+                                    className="text-destructive hover:text-destructive/80 ml-1 focus-visible-ring rounded"
+                                    title="Remove from project"
+                                    aria-label={`Remove ${agent.name} from ${project.name}`}
+                                  >
+                                    <X className="h-3 w-3" aria-hidden="true" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No projects assigned</span>
+                        )}
+                        <div className="flex items-center space-x-1">
+                          <select
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleAssignProject(agent.id, e.target.value)
+                                e.target.value = ''
+                              }
+                            }}
+                            className="text-xs px-2 py-1 border rounded bg-[var(--card)] text-[var(--card-fg)] focus-visible-ring"
+                            defaultValue=""
+                            aria-label={`Assign ${agent.name} to project`}
+                          >
+                            <option value="">Assign to project...</option>
+                            {projects
+                              .filter(p => !agentProjects[agent.id]?.some(ap => ap.id === p.id))
+                              .map(project => (
+                                <option key={project.id} value={project.id}>
+                                  {project.name}
+                                </option>
+                              ))
+                            }
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div className="col-span-2 flex items-center">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        agent.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {agent.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="col-span-2 flex items-center justify-end space-x-2">
+                      <button 
+                        onClick={() => setEditingAgent(agent)}
+                        className="text-primary hover:text-primary/80 p-1 rounded focus-visible-ring"
+                        title="Edit Agent"
+                        aria-label={`Edit ${agent.name}`}
+                      >
+                        <Edit className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteAgent(agent.id)}
+                        className="text-destructive hover:text-destructive/80 p-1 rounded focus-visible-ring"
+                        title="Delete Agent"
+                        aria-label={`Delete ${agent.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
 
       {/* Edit Agent Modal */}
       {editingAgent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium mb-4">Edit Agent</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-labelledby="edit-agent-title" aria-modal="true">
+          <div className="bg-card rounded-lg p-6 w-full max-w-md shadow-xl">
+            <h3 id="edit-agent-title" className="text-lg font-medium mb-4">Edit Agent</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
+                <label htmlFor="edit-agent-name" className="block text-sm font-medium mb-1">Name</label>
                 <input
+                  id="edit-agent-name"
                   type="text"
                   value={editingAgent.name}
                   onChange={(e) => setEditingAgent(prev => prev ? { ...prev, name: e.target.value } : null)}
@@ -854,8 +837,9 @@ export function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <label htmlFor="edit-agent-email" className="block text-sm font-medium mb-1">Email</label>
                 <input
+                  id="edit-agent-email"
                   type="email"
                   value={editingAgent.email}
                   onChange={(e) => setEditingAgent(prev => prev ? { ...prev, email: e.target.value } : null)}
@@ -865,12 +849,12 @@ export function SettingsPage() {
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  id="agent-active"
+                  id="edit-agent-active"
                   checked={editingAgent.is_active}
                   onChange={(e) => setEditingAgent(prev => prev ? { ...prev, is_active: e.target.checked } : null)}
-                  className="rounded"
+                  className="rounded focus-visible-ring"
                 />
-                <label htmlFor="agent-active" className="text-sm">Active</label>
+                <label htmlFor="edit-agent-active" className="text-sm">Active</label>
               </div>
             </div>
             <div className="flex space-x-3 mt-6">
@@ -894,73 +878,13 @@ export function SettingsPage() {
                   }
                 }}
                 disabled={loading}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 focus-visible-ring"
               >
                 {loading ? 'Saving...' : 'Save Changes'}
               </button>
               <button
                 onClick={() => setEditingAgent(null)}
-                className="px-4 py-2 border rounded-md hover:bg-accent"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit API Key Modal */}
-      {editingApiKey && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background border rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium mb-4">Edit API Key</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input
-                  type="text"
-                  value={editingApiKey.name}
-                  onChange={(e) => setEditingApiKey({ ...editingApiKey, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <select
-                  value={editingApiKey.is_active ? 'active' : 'inactive'}
-                  onChange={(e) => setEditingApiKey({ ...editingApiKey, is_active: e.target.value === 'active' })}
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={async () => {
-                  try {
-                    setLoading(true)
-                    const updatedKey = await apiClient.updateApiKey(editingApiKey.id, {
-                      name: editingApiKey.name,
-                      is_active: editingApiKey.is_active
-                    })
-                    setApiKeys(prev => prev.map(k => k.id === editingApiKey.id ? updatedKey : k))
-                    setEditingApiKey(null)
-                  } catch (err) {
-                    setError('Failed to update API key')
-                  } finally {
-                    setLoading(false)
-                  }
-                }}
-                disabled={loading}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                onClick={() => setEditingApiKey(null)}
-                className="px-4 py-2 border rounded-md hover:bg-accent"
+                className="px-4 py-2 border rounded-md hover:bg-accent focus-visible-ring"
               >
                 Cancel
               </button>
@@ -1520,6 +1444,69 @@ export function SettingsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Edit API Key Modal */}
+      {editingApiKey && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-labelledby="edit-api-key-title" aria-modal="true">
+          <div className="bg-card rounded-lg p-6 w-full max-w-md shadow-xl">
+            <h3 id="edit-api-key-title" className="text-lg font-medium mb-4">Edit API Key</h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="edit-api-key-name" className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  id="edit-api-key-name"
+                  type="text"
+                  value={editingApiKey.name}
+                  onChange={(e) => setEditingApiKey({ ...editingApiKey, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-api-key-status" className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  id="edit-api-key-status"
+                  value={editingApiKey.is_active ? 'active' : 'inactive'}
+                  onChange={(e) => setEditingApiKey({ ...editingApiKey, is_active: e.target.value === 'active' })}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true)
+                    const updatedKey = await apiClient.updateApiKey(editingApiKey.id, {
+                      name: editingApiKey.name,
+                      is_active: editingApiKey.is_active
+                    })
+                    setApiKeys(prev => prev.map(k => k.id === editingApiKey.id ? updatedKey : k))
+                    setEditingApiKey(null)
+                    setSuccessMessage('API key updated successfully')
+                  } catch (err) {
+                    setError('Failed to update API key')
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+                disabled={loading}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 focus-visible-ring"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => setEditingApiKey(null)}
+                className="px-4 py-2 border rounded-md hover:bg-accent focus-visible-ring"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -1543,41 +1530,46 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 px-6 md:px-12">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground">Configure your account and system preferences</p>
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex-shrink-0 px-6 md:px-12 py-6 border-b border-border">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <p className="text-muted-foreground">Configure your account and system preferences</p>
+        </div>
+
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mt-4">
+            <p className="text-destructive text-sm">{error}</p>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+            <p className="text-green-800 text-sm">{successMessage}</p>
+          </div>
+        )}
       </div>
 
-      {error && (
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-          <p className="text-destructive text-sm">{error}</p>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-green-800 text-sm">{successMessage}</p>
-        </div>
-      )}
-
-      <div className="flex space-x-8">
+      {/* Content Area */}
+      <div className="flex-1 flex min-h-0">
         {/* Sidebar Navigation */}
-        <div className="w-64 flex-shrink-0">
-          <nav className="space-y-1">
+        <div className="w-64 flex-shrink-0 border-r border-border bg-card/50">
+          <nav className="p-4 space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-md transition-colors ${
+                  className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-md transition-colors focus-visible-ring ${
                     activeTab === tab.id
                       ? 'bg-primary/10 text-primary border-l-2 border-primary'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
+                  aria-current={activeTab === tab.id ? 'page' : undefined}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   <span className="text-sm font-medium">{tab.name}</span>
                 </button>
               )
@@ -1586,14 +1578,18 @@ export function SettingsPage() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full overflow-y-auto custom-scrollbar">
+            <div className="p-6 md:p-12">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" role="status" aria-label="Loading"></div>
+                </div>
+              ) : (
+                renderTabContent()
+              )}
             </div>
-          ) : (
-            renderTabContent()
-          )}
+          </div>
         </div>
       </div>
     </div>

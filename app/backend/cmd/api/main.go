@@ -251,13 +251,14 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			}
 
 			// Settings endpoints
+			settings := projects.Group("/settings")
 			{
-				api.GET("/settings/email", settingsHandler.GetEmailSettings)
-				api.PUT("/settings/email", settingsHandler.UpdateEmailSettings)
-				api.GET("/settings/branding", settingsHandler.GetBrandingSettings)
-				api.PUT("/settings/branding", settingsHandler.UpdateBrandingSettings)
-				api.GET("/settings/automation", settingsHandler.GetAutomationSettings)
-				api.PUT("/settings/automation", settingsHandler.UpdateAutomationSettings)
+				settings.GET("/email", middleware.ProjectAdminMiddleware(), settingsHandler.GetEmailSettings)
+				settings.PUT("/email", middleware.ProjectAdminMiddleware(), settingsHandler.UpdateEmailSettings)
+				settings.GET("/branding", middleware.ProjectAdminMiddleware(), settingsHandler.GetBrandingSettings)
+				settings.PUT("/branding", middleware.ProjectAdminMiddleware(), settingsHandler.UpdateBrandingSettings)
+				settings.GET("/automation", middleware.ProjectAdminMiddleware(), settingsHandler.GetAutomationSettings)
+				settings.PUT("/automation", middleware.ProjectAdminMiddleware(), settingsHandler.UpdateAutomationSettings)
 			}
 
 			// Integrations - using the available methods

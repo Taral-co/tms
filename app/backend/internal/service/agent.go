@@ -154,7 +154,7 @@ func (s *AgentService) ListAgents(ctx context.Context, tenantID, requestorAgentI
 		Email:    req.Email,
 		IsActive: req.IsActive,
 		Search:   req.Search,
-		AgentID:  &requestorAgentID,
+		AgentID:  requestorAgentID,
 	}
 
 	pagination := repo.PaginationParams{
