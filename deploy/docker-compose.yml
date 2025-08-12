@@ -80,6 +80,38 @@ services:
     networks:
       - tms-network
 
+  # Guerrilla Mail Server for Email-to-Ticket Processing
+  guerrilla-mail:
+    build:
+      context: ../app/email-server
+      dockerfile: Dockerfile
+    container_name: tms-guerrilla-mail
+    ports:
+      - "25:25"     # SMTP port for receiving emails
+      - "587:25"    # Alternative submission port
+    environment:
+      - MAIL_DOMAIN=${MAIL_DOMAIN:-yourmailserver.com}
+      - TICKET_API_URL=http://backend:8080/v1/public/email-to-ticket
+      - LISTEN_INTERFACE=0.0.0.0:25
+      - MAX_MESSAGE_SIZE=${MAX_MESSAGE_SIZE:-1048576}
+    networks:
+      - tms-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "25"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
   # Backend API
   backend:
     build:
