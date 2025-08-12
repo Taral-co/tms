@@ -318,7 +318,7 @@ export function TicketDetailPage() {
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder={replyType === 'public' ? 'Write a reply to the customer...' : 'Add an internal note...'}
-                  className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring min-h-[100px] resize-none"
+                  className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring min-h-[100px] resize-none bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
                   disabled={sending}
                 />
                 
