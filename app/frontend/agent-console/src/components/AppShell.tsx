@@ -152,7 +152,7 @@ export function AppShell({ children }: AppShellProps) {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col">
         {/* Top bar */}
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
           {/* Search */}
@@ -215,7 +215,7 @@ export function AppShell({ children }: AppShellProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-auto">
           {children}
         </main>
       </div>

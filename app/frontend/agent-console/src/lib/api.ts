@@ -215,6 +215,66 @@ export interface ConvertToTicketRequest {
   priority: string
 }
 
+export interface EmailConnector {
+  id: string
+  project_id: string
+  name: string
+  type: 'inbound_imap' | 'outbound_smtp'
+  from_address: string
+  reply_to_address: string
+  imap_host?: string
+  imap_port?: number
+  imap_username?: string
+  smtp_host: string
+  smtp_port: number
+  smtp_username: string
+  is_validated: boolean
+  validation_status: 'pending' | 'validating' | 'validated' | 'failed'
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailMailbox {
+  id: string
+  project_id: string
+  address: string
+  inbound_connector_id: string
+  allow_new_ticket: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailConnectorRequest {
+  name: string
+  type: 'inbound_imap' | 'outbound_smtp'
+  from_address: string
+  reply_to_address: string
+  imap_host?: string
+  imap_port?: number
+  imap_username?: string
+  imap_password?: string
+  smtp_host: string
+  smtp_port: number
+  smtp_username: string
+  smtp_password: string
+}
+
+export interface EmailMailboxRequest {
+  address: string
+  inbound_connector_id: string
+  allow_new_ticket: boolean
+}
+
+export interface ValidateConnectorRequest {
+  email: string
+}
+
+export interface VerifyOTPRequest {
+  email: string
+  otp: string
+}
+
 export interface ApiKey {
   id: string
   name: string
@@ -779,6 +839,56 @@ class APIClient {
   async updateAutomationSettings(data: AutomationSettings): Promise<AutomationSettings> {
     const response = await this.client.put('/settings/automation', data)
     return response.data
+  }
+
+  // Email Connector endpoints
+  async getEmailConnectors(): Promise<{ connectors: EmailConnector[] }> {
+    const response: AxiosResponse<{ connectors: EmailConnector[] }> = await this.client.get('/email/connectors')
+    return response.data
+  }
+
+  async createEmailConnector(data: EmailConnectorRequest): Promise<EmailConnector> {
+    const response: AxiosResponse<EmailConnector> = await this.client.post('/email/connectors', data)
+    return response.data
+  }
+
+  async updateEmailConnector(id: string, data: EmailConnectorRequest): Promise<EmailConnector> {
+    const response: AxiosResponse<EmailConnector> = await this.client.put(`/email/connectors/${id}`, data)
+    return response.data
+  }
+
+  async deleteEmailConnector(id: string): Promise<void> {
+    await this.client.delete(`/email/connectors/${id}`)
+  }
+
+  async validateEmailConnector(id: string, data: ValidateConnectorRequest): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.client.post(`/email/connectors/${id}/validate`, data)
+    return response.data
+  }
+
+  async verifyEmailConnectorOTP(id: string, data: VerifyOTPRequest): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await this.client.post(`/email/connectors/${id}/verify-otp`, data)
+    return response.data
+  }
+
+  // Email Mailbox endpoints
+  async getEmailMailboxes(): Promise<{ mailboxes: EmailMailbox[] }> {
+    const response: AxiosResponse<{ mailboxes: EmailMailbox[] }> = await this.client.get('/email/mailboxes')
+    return response.data
+  }
+
+  async createEmailMailbox(data: EmailMailboxRequest): Promise<EmailMailbox> {
+    const response: AxiosResponse<EmailMailbox> = await this.client.post('/email/mailboxes', data)
+    return response.data
+  }
+
+  async updateEmailMailbox(id: string, data: EmailMailboxRequest): Promise<EmailMailbox> {
+    const response: AxiosResponse<EmailMailbox> = await this.client.put(`/email/mailboxes/${id}`, data)
+    return response.data
+  }
+
+  async deleteEmailMailbox(id: string): Promise<void> {
+    await this.client.delete(`/email/mailboxes/${id}`)
   }
 }
 

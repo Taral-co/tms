@@ -332,6 +332,8 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				email.PATCH("/connectors/:connector_id", emailHandler.UpdateConnector)
 				email.DELETE("/connectors/:connector_id", emailHandler.DeleteConnector)
 				email.POST("/connectors/:connector_id/test", emailHandler.TestConnector)
+				email.POST("/connectors/:connector_id/validate", emailHandler.ValidateConnector)
+				email.POST("/connectors/:connector_id/verify-otp", emailHandler.VerifyConnectorOTP)
 
 				// Email mailboxes
 				email.GET("/mailboxes", emailHandler.ListMailboxes)

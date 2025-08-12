@@ -78,6 +78,7 @@ func runMigrations(database *db.DB) error {
 		"migrations/011_tenant_settings.sql",
 		"migrations/012_enhanced_integrations.sql",
 		"migrations/013_email_inbox_system.sql",
+		"migrations/014_project_scoped_email_system.sql",
 	}
 
 	for _, migration := range migrations {
@@ -85,7 +86,7 @@ func runMigrations(database *db.DB) error {
 		var count int
 		migrationName := strings.TrimPrefix(migration, "migrations/")
 		migrationName = strings.TrimSuffix(migrationName, ".sql")
-		
+
 		err := database.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = $1", migrationName).Scan(&count)
 		if err != nil {
 			return fmt.Errorf("failed to check migration status for %s: %w", migrationName, err)

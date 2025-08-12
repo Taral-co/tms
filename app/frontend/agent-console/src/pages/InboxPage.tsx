@@ -1,13 +1,16 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
-import { Search, Filter, MoreHorizontal, Archive, Star, Trash2, RefreshCw, TicketCheck } from 'lucide-react'
-import { apiClient, EmailInbox, EmailFilter, ConvertToTicketRequest } from '../lib/api'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { RefreshCw, TicketCheck, Plus, Settings, CheckCircle, AlertCircle, Clock, Mail } from 'lucide-react'
+import { apiClient, EmailConnector, EmailMailbox } from '../lib/api'
 
 // Temporary simplified UI components since @tms/shared may have build issues
-const Button = ({ children, variant = 'default', size = 'default', className = '', ...props }: any) => (
+const Button = ({ children, variant = 'default', size = 'default', className = '', disabled = false, ...props }: any) => (
   <button 
+    disabled={disabled}
     className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
       variant === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
       variant === 'ghost' ? 'hover:bg-accent hover:text-accent-foreground' :
+      variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
       'bg-primary text-primary-foreground hover:bg-primary/90'
     } ${
       size === 'sm' ? 'h-9 px-3 rounded-md' : 'h-10 py-2 px-4'
@@ -18,12 +21,8 @@ const Button = ({ children, variant = 'default', size = 'default', className = '
   </button>
 )
 
-const Input = ({ className = '', ...props }: any) => (
-  <input
-    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-    {...props}
-  />
-)
+// Custom input component since @tms/shared is not working
+// Removed unused Input component since we no longer need modals
 
 const Badge = ({ children, variant = 'default', className = '' }: any) => (
   <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
@@ -38,326 +37,256 @@ const Badge = ({ children, variant = 'default', className = '' }: any) => (
   </span>
 )
 
+const Card = ({ children, className = '' }: any) => (
+  <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}>
+    {children}
+  </div>
+)
+
+const CardHeader = ({ children, className = '' }: any) => (
+  <div className={`flex flex-col space-y-1.5 p-6 ${className}`}>
+    {children}
+  </div>
+)
+
+const CardTitle = ({ children, className = '' }: any) => (
+  <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`}>
+    {children}
+  </h3>
+)
+
+const CardContent = ({ children, className = '' }: any) => (
+  <div className={`p-6 pt-0 ${className}`}>
+    {children}
+  </div>
+)
+
 export function InboxPage() {
-  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterRead, setFilterRead] = useState<string>('all') // 'all', 'read', 'unread'
-  const [emails, setEmails] = useState<EmailInbox[]>([])
+  const navigate = useNavigate()
+  const [connectors, setConnectors] = useState<EmailConnector[]>([])
+  const [mailboxes, setMailboxes] = useState<EmailMailbox[]>([])
   const [loading, setLoading] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [total, setTotal] = useState(0)
   
-  // These would normally come from app context/router - no longer needed since API client handles it
-  // const tenantId = 'tenant-1' // TODO: Get from context
-  // const projectId = 'project-1' // TODO: Get from context
+  // Load connectors and mailboxes on mount
+  useEffect(() => {
+    loadData()
+  }, [])
 
-  const filteredEmails = useMemo(() => {
-    return emails.filter(email => {
-      const matchesSearch = email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           email.from_address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           (email.from_name && email.from_name.toLowerCase().includes(searchQuery.toLowerCase()))
-      const matchesFilter = filterRead === 'all' || 
-                           (filterRead === 'read' && email.is_read) ||
-                           (filterRead === 'unread' && !email.is_read)
-      return matchesSearch && matchesFilter
-    })
-  }, [emails, searchQuery, filterRead])
-
-  const loadEmails = useCallback(async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const filter: EmailFilter = {
-        search: searchQuery || undefined,
-        is_read: filterRead === 'all' ? undefined : filterRead === 'read',
-        limit: 50
-      }
-      const result = await apiClient.getEmailInbox(filter)
-      setEmails(result.emails)
-      setTotal(result.total)
+      const [connectorsResponse, mailboxesResponse] = await Promise.all([
+        apiClient.getEmailConnectors(),
+        apiClient.getEmailMailboxes()
+      ])
+      setConnectors(connectorsResponse.connectors || [])
+      setMailboxes(mailboxesResponse.mailboxes || [])
     } catch (error) {
-      console.error('Failed to load emails:', error)
-      // In a real app, you'd show a toast/notification
+      console.error('Failed to load email data:', error)
     } finally {
       setLoading(false)
     }
-  }, [searchQuery, filterRead])
+  }
 
-  const handleSyncEmails = useCallback(async () => {
-    setSyncing(true)
-    try {
-      await apiClient.syncEmails()
-      await loadEmails() // Reload emails after sync
-    } catch (error) {
-      console.error('Failed to sync emails:', error)
-    } finally {
-      setSyncing(false)
+  const handleCreateConnector = () => {
+    console.log('handleCreateConnector clicked - navigating to /inbox/add')
+    navigate('/inbox/add')
+  }
+
+  const handleEditConnector = (_connector: EmailConnector) => {
+    // For now, navigate to add page. Later we can add edit functionality
+    navigate('/inbox/add')
+  }
+
+  const handleCreateMailbox = () => {
+    if (connectors.filter(c => c.is_validated).length === 0) {
+      alert('Please add and validate at least one email connector first.')
+      return
     }
-  }, [loadEmails])
+    // TODO: Create a separate mailbox page
+    alert('Mailbox creation will be implemented')
+  }
 
-  const handleConvertToTicket = useCallback(async (emailId: string) => {
-    try {
-      await apiClient.convertEmailToTicket(emailId, {
-        type: 'support',
-        priority: 'normal'
-      })
-      await loadEmails() // Reload to update the converted status
-    } catch (error) {
-      console.error('Failed to convert email to ticket:', error)
+  const getValidationStatusBadge = (connector: EmailConnector) => {
+    switch (connector.validation_status) {
+      case 'validated':
+        return <Badge variant="success" className="flex items-center gap-1">
+          <CheckCircle className="w-3 h-3" />
+          Validated
+        </Badge>
+      case 'validating':
+        return <Badge variant="warning" className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          Validating
+        </Badge>
+      case 'failed':
+        return <Badge variant="destructive" className="flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          Failed
+        </Badge>
+      default:
+        return <Badge variant="outline" className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          Pending
+        </Badge>
     }
-  }, [loadEmails])
+  }
 
-  const handleMarkAsRead = useCallback(async (emailId: string) => {
-    try {
-      await apiClient.markEmailAsRead(emailId)
-      await loadEmails() // Reload to update read status
-    } catch (error) {
-      console.error('Failed to mark email as read:', error)
-    }
-  }, [loadEmails])
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>Loading email configuration...</p>
+        </div>
+      </div>
+    )
+  }
 
-  useEffect(() => {
-    loadEmails()
-  }, [loadEmails])
-
-  const handleSelectEmail = useCallback((emailId: string) => {
-    setSelectedEmails(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(emailId)) {
-        newSet.delete(emailId)
-      } else {
-        newSet.add(emailId)
-      }
-      return newSet
-    })
-  }, [])
-
-  const handleSelectAll = useCallback(() => {
-    if (selectedEmails.size === filteredEmails.length) {
-      setSelectedEmails(new Set())
-    } else {
-      setSelectedEmails(new Set(filteredEmails.map(email => email.id)))
-    }
-  }, [selectedEmails.size, filteredEmails])
-
-  return (
-    <div className="flex flex-col h-full bg-background">
+  // Show empty state if no connectors
+  if (connectors.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <Mail className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-2xl font-semibold mb-2">No Email Inbox Attached</h2>
+          <p className="text-muted-foreground mb-6">
+            Connect your email accounts to start receiving and managing customer emails as tickets.
+          </p>
+          <Button onClick={handleCreateConnector} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Attach Email Box
+          </Button>
+        </div>
+      </div>
+    )
+  }  return (
+    <div className="h-full max-h-screen p-6 space-y-6 overflow-y-auto">
       {/* Header */}
-      <div className="border-b bg-background px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Email Inbox</h1>
-            {total > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {total} email{total > 1 ? 's' : ''} total
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleSyncEmails}
-              disabled={syncing}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync Emails'}
-            </Button>
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Filters
-            </Button>
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Email Inbox</h1>
+          <p className="text-muted-foreground">
+            Manage email connectors and mailboxes for your project
+          </p>
         </div>
-        
-        {/* Search and filters */}
-        <div className="flex items-center gap-4 mt-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search emails..."
-              value={searchQuery}
-              onChange={(e: any) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant={filterRead === 'all' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setFilterRead('all')}
-            >
-              All
-            </Button>
-            <Button 
-              variant={filterRead === 'unread' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setFilterRead('unread')}
-            >
-              Unread
-            </Button>
-            <Button 
-              variant={filterRead === 'read' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setFilterRead('read')}
-            >
-              Read
-            </Button>
-          </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={loadData} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={handleCreateConnector}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Connector
+          </Button>
         </div>
       </div>
 
-      {/* Bulk actions */}
-      {selectedEmails.size > 0 && (
-        <div className="border-b bg-muted/50 px-6 py-3">
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              {selectedEmails.size} email{selectedEmails.size > 1 ? 's' : ''} selected
-            </span>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Archive className="w-4 h-4 mr-2" />
-                Archive
-              </Button>
-              <Button variant="outline" size="sm">
-                <Star className="w-4 h-4 mr-2" />
-                Star
-              </Button>
-              <Button variant="outline" size="sm">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
+      {/* Email Connectors */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Email Connectors
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {connectors.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No email connectors configured.</p>
             </div>
-          </div>
-        </div>
-      )}
+          ) : (
+            <div className="space-y-4">
+              {connectors.map((connector) => (
+                <div
+                  key={connector.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Mail className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{connector.name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {connector.type.replace('_', ' ').toUpperCase()} • {connector.from_address || 'No address'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getValidationStatusBadge(connector)}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditConnector(connector)}
+                    >
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Emails table */}
-      <div className="flex-1 overflow-auto">
-        <div className="relative w-full overflow-auto">
-          <table className="w-full caption-bottom text-sm">
-            <thead className="[&_tr]:border-b">
-              <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 w-12">
-                  <input
-                    type="checkbox"
-                    checked={selectedEmails.size === filteredEmails.length && filteredEmails.length > 0}
-                    onChange={handleSelectAll}
-                    className="rounded border-input"
-                  />
-                </th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">From</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Subject</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Mailbox</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Type</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Status</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Received</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 w-12">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="[&_tr:last-child]:border-0">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                    Loading emails...
-                  </td>
-                </tr>
-              ) : filteredEmails.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                    No emails found.
-                  </td>
-                </tr>
-              ) : (
-                filteredEmails.map((email) => (
-                  <tr 
-                    key={email.id}
-                    className={`border-b transition-colors hover:bg-muted/50 cursor-pointer ${!email.is_read ? 'font-medium' : ''} ${selectedEmails.has(email.id) ? 'bg-muted/50' : ''}`}
-                  >
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      <input
-                        type="checkbox"
-                        checked={selectedEmails.has(email.id)}
-                        onChange={() => handleSelectEmail(email.id)}
-                        className="rounded border-input"
-                      />
-                    </td>
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      <div className="space-y-1">
-                        <div className="font-medium text-foreground flex items-center gap-2">
-                          {!email.is_read && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
-                          {email.from_name || email.from_address}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {email.from_address}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      <div className="space-y-1">
-                        <div className="font-medium text-foreground">{email.subject}</div>
-                        {email.snippet && (
-                          <div className="text-sm text-muted-foreground line-clamp-1">
-                            {email.snippet}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">{email.mailbox_address}</td>
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      <div className="flex items-center gap-2">
-                        {email.is_reply && <Badge variant="secondary">Reply</Badge>}
-                        {email.has_attachments && <Badge variant="outline">📎 {email.attachment_count}</Badge>}
-                      </div>
-                    </td>
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      {email.is_converted_to_ticket ? (
-                        <Badge variant="success">
-                          <TicketCheck className="w-3 h-3 mr-1" />
-                          Ticket Created
-                        </Badge>
-                      ) : (
-                        <Badge variant={email.is_read ? 'outline' : 'secondary'}>
-                          {email.is_read ? 'Read' : 'Unread'}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
-                      {new Date(email.received_at).toLocaleDateString()}
-                    </td>
-                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      <div className="flex items-center gap-1">
-                        {!email.is_converted_to_ticket && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleConvertToTicket(email.id)}
-                            title="Convert to Ticket"
-                          >
-                            <TicketCheck className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {!email.is_read && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleMarkAsRead(email.id)}
-                            title="Mark as Read"
-                          >
-                            📖
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Email Mailboxes */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <TicketCheck className="w-5 h-5" />
+              Email Mailboxes
+            </CardTitle>
+            <Button
+              onClick={handleCreateMailbox}
+              disabled={connectors.filter(c => c.is_validated).length === 0}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Mailbox
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {mailboxes.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                No email mailboxes configured. Add a mailbox to start receiving emails.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {mailboxes.map((mailbox) => (
+                <div
+                  key={mailbox.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Mail className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{mailbox.address}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {mailbox.allow_new_ticket ? 'Creates new tickets' : 'Existing tickets only'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="success">Active</Badge>
+                    <Button variant="outline" size="sm">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add some bottom padding to ensure scrolling works */}
+      <div className="h-20"></div>
     </div>
   )
 }

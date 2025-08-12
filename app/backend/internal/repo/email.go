@@ -23,7 +23,7 @@ func NewEmailRepo(db *sqlx.DB) *EmailRepo {
 func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.EmailConnector) error {
 	query := `
 		INSERT INTO email_connectors (
-			id, tenant_id, type, name, is_active,
+			id, tenant_id, project_id, type, name, is_active, is_validated, validation_status,
 			imap_host, imap_port, imap_use_tls, imap_username, imap_password_enc, imap_folder, imap_seen_strategy,
 			smtp_host, smtp_port, smtp_use_tls, smtp_username, smtp_password_enc,
 			oauth_provider, oauth_account_email, oauth_token_ref,
@@ -31,7 +31,7 @@ func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.Email
 			dkim_selector, dkim_public_key, dkim_private_key_enc, return_path_domain,
 			provider_webhook_secret, last_health, created_at, updated_at
 		) VALUES (
-			:id, :tenant_id, :type, :name, :is_active,
+			:id, :tenant_id, :project_id, :type, :name, :is_active, :is_validated, :validation_status,
 			:imap_host, :imap_port, :imap_use_tls, :imap_username, :imap_password_enc, :imap_folder, :imap_seen_strategy,
 			:smtp_host, :smtp_port, :smtp_use_tls, :smtp_username, :smtp_password_enc,
 			:oauth_provider, :oauth_account_email, :oauth_token_ref,
@@ -61,15 +61,15 @@ func (r *EmailRepo) GetConnector(ctx context.Context, tenantID, connectorID uuid
 // ListConnectors retrieves all email connectors for a tenant
 func (r *EmailRepo) ListConnectors(ctx context.Context, tenantID uuid.UUID, connectorType *models.EmailConnectorType) ([]*models.EmailConnector, error) {
 	var connectors []*models.EmailConnector
-	
+
 	query := `SELECT * FROM email_connectors WHERE tenant_id = $1`
 	args := []interface{}{tenantID}
-	
+
 	if connectorType != nil {
 		query += ` AND type = $2`
 		args = append(args, *connectorType)
 	}
-	
+
 	query += ` ORDER BY created_at DESC`
 
 	err := r.db.SelectContext(ctx, &connectors, query, args...)
@@ -80,7 +80,9 @@ func (r *EmailRepo) ListConnectors(ctx context.Context, tenantID uuid.UUID, conn
 func (r *EmailRepo) UpdateConnector(ctx context.Context, connector *models.EmailConnector) error {
 	query := `
 		UPDATE email_connectors SET
-			name = :name, is_active = :is_active,
+			name = :name, is_active = :is_active, is_validated = :is_validated,
+			validation_status = :validation_status, validation_error = :validation_error,
+			last_validation_at = :last_validation_at,
 			imap_host = :imap_host, imap_port = :imap_port, imap_use_tls = :imap_use_tls, 
 			imap_username = :imap_username, imap_password_enc = :imap_password_enc, 
 			imap_folder = :imap_folder, imap_seen_strategy = :imap_seen_strategy,
@@ -108,10 +110,10 @@ func (r *EmailRepo) DeleteConnector(ctx context.Context, tenantID, connectorID u
 func (r *EmailRepo) CreateMailbox(ctx context.Context, mailbox *models.EmailMailbox) error {
 	query := `
 		INSERT INTO email_mailboxes (
-			id, tenant_id, address, inbound_connector_id, default_project_id,
+			id, tenant_id, project_id, address, inbound_connector_id, default_project_id,
 			routing_rules, allow_new_ticket, created_at, updated_at
 		) VALUES (
-			:id, :tenant_id, :address, :inbound_connector_id, :default_project_id,
+			:id, :tenant_id, :project_id, :address, :inbound_connector_id, :default_project_id,
 			:routing_rules, :allow_new_ticket, :created_at, :updated_at
 		)`
 
@@ -136,7 +138,7 @@ func (r *EmailRepo) GetMailbox(ctx context.Context, tenantID uuid.UUID, address 
 // ListMailboxes retrieves all mailboxes for a tenant
 func (r *EmailRepo) ListMailboxes(ctx context.Context, tenantID uuid.UUID) ([]*models.EmailMailbox, error) {
 	var mailboxes []*models.EmailMailbox
-	
+
 	query := `SELECT * FROM email_mailboxes WHERE tenant_id = $1 ORDER BY created_at DESC`
 	err := r.db.SelectContext(ctx, &mailboxes, query, tenantID)
 	return mailboxes, err
@@ -286,7 +288,50 @@ func (r *EmailRepo) AddEmailSuppression(ctx context.Context, suppression *models
 func (r *EmailRepo) IsEmailSuppressed(ctx context.Context, tenantID uuid.UUID, address string) (bool, error) {
 	var count int
 	query := `SELECT COUNT(*) FROM email_suppressions WHERE tenant_id = $1 AND address = $2`
-	
+
 	err := r.db.GetContext(ctx, &count, query, tenantID, address)
 	return count > 0, err
+}
+
+// ListMailboxesByProject lists all email mailboxes for a tenant and project
+func (r *EmailRepo) ListMailboxesByProject(ctx context.Context, tenantID, projectID uuid.UUID) ([]*models.EmailMailbox, error) {
+	var mailboxes []*models.EmailMailbox
+	query := `
+		SELECT id, tenant_id, project_id, address, inbound_connector_id, default_project_id,
+			   routing_rules, allow_new_ticket, created_at, updated_at
+		FROM email_mailboxes 
+		WHERE tenant_id = $1 AND (project_id = $2 OR project_id IS NULL)
+		ORDER BY created_at DESC`
+
+	err := r.db.SelectContext(ctx, &mailboxes, query, tenantID, projectID)
+	return mailboxes, err
+}
+
+// ListConnectorsByProject lists all email connectors for a tenant and project
+func (r *EmailRepo) ListConnectorsByProject(ctx context.Context, tenantID, projectID uuid.UUID, connectorType *models.EmailConnectorType) ([]*models.EmailConnector, error) {
+	var connectors []*models.EmailConnector
+
+	query := `
+		SELECT id, tenant_id, project_id, type, name, is_active, is_validated, validation_status,
+			   validation_error, last_validation_at,
+			   imap_host, imap_port, imap_use_tls, imap_username, imap_folder, imap_seen_strategy,
+			   smtp_host, smtp_port, smtp_use_tls, smtp_username,
+			   oauth_provider, oauth_account_email, oauth_token_ref,
+			   from_name, from_address, reply_to_address,
+			   dkim_selector, dkim_public_key, return_path_domain,
+			   provider_webhook_secret, last_health, created_at, updated_at
+		FROM email_connectors 
+		WHERE tenant_id = $1 AND project_id = $2`
+
+	args := []interface{}{tenantID, projectID}
+
+	if connectorType != nil {
+		query += ` AND type = $3`
+		args = append(args, *connectorType)
+	}
+
+	query += ` ORDER BY created_at DESC`
+
+	err := r.db.SelectContext(ctx, &connectors, query, args...)
+	return connectors, err
 }

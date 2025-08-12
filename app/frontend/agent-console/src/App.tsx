@@ -6,6 +6,7 @@ import { AppShell } from './components/AppShell'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { InboxPage } from './pages/InboxPage'
+import { AddInboxPage } from './pages/AddInboxPage'
 import { TicketsPage } from './pages/TicketsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { TicketDetailPage } from './pages/TicketDetailPage'
@@ -54,6 +55,7 @@ function AppContent() {
             <Routes>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/inbox/add" element={<AddInboxPage />} />
               <Route path="/tickets" element={<TicketsPage />} />
               <Route path="/tickets/:id" element={<TicketDetailPage />} />
               <Route path="/settings" element={<SettingsPage />} />
