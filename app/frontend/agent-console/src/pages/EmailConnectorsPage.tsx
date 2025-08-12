@@ -1,9 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, TicketCheck, Plus, Settings, CheckCircle, AlertCircle, Clock, Mail, List } from 'lucide-react'
-import { apiClient, EmailConnector, EmailMailbox } from '../lib/api'
+import { 
+  RefreshCw, 
+  Plus, 
+  Settings, 
+  CheckCircle, 
+  AlertCircle, 
+  Clock, 
+  Mail, 
+  ArrowLeft,
+  Trash2,
+  TestTube
+} from 'lucide-react'
+import { apiClient, EmailConnector } from '../lib/api'
 
-// Temporary simplified UI components since @tms/shared may have build issues
+// UI Components (same as InboxPage for consistency)
 const Button = ({ children, variant = 'default', size = 'default', className = '', disabled = false, ...props }: any) => (
   <button 
     disabled={disabled}
@@ -21,18 +32,19 @@ const Button = ({ children, variant = 'default', size = 'default', className = '
   </button>
 )
 
-// Custom input component since @tms/shared is not working
-// Removed unused Input component since we no longer need modals
-
-const Badge = ({ children, variant = 'default', className = '' }: any) => (
-  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
-    variant === 'destructive' ? 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80' :
-    variant === 'warning' ? 'border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' :
-    variant === 'success' ? 'border-transparent bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' :
-    variant === 'secondary' ? 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80' :
-    variant === 'outline' ? 'text-foreground' :
-    'border-transparent bg-primary text-primary-foreground hover:bg-primary/80'
-  } ${className}`}>
+const Badge = ({ children, variant = 'default', className = '', onClick, ...props }: any) => (
+  <span 
+    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+      variant === 'destructive' ? 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80' :
+      variant === 'warning' ? 'border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' :
+      variant === 'success' ? 'border-transparent bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' :
+      variant === 'secondary' ? 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80' :
+      variant === 'outline' ? 'text-foreground' :
+      'border-transparent bg-primary text-primary-foreground hover:bg-primary/80'
+    } ${className}`}
+    onClick={onClick}
+    {...props}
+  >
     {children}
   </span>
 )
@@ -61,7 +73,6 @@ const CardContent = ({ children, className = '' }: any) => (
   </div>
 )
 
-// Input component
 const Input = ({ className = '', ...props }: any) => (
   <input 
     className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
@@ -69,7 +80,6 @@ const Input = ({ className = '', ...props }: any) => (
   />
 )
 
-// Modal component
 const Modal = ({ open, onClose, children }: any) => {
   if (!open) return null
   
@@ -83,10 +93,9 @@ const Modal = ({ open, onClose, children }: any) => {
   )
 }
 
-export function InboxPage() {
+export function EmailConnectorsPage() {
   const navigate = useNavigate()
   const [connectors, setConnectors] = useState<EmailConnector[]>([])
-  const [mailboxes, setMailboxes] = useState<EmailMailbox[]>([])
   const [loading, setLoading] = useState(false)
   const [showValidateModal, setShowValidateModal] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
@@ -95,34 +104,21 @@ export function InboxPage() {
   const [otpCode, setOtpCode] = useState('')
   const [validationLoading, setValidationLoading] = useState(false)
   
-  // Load connectors and mailboxes on mount
+  // Load connectors on mount
   useEffect(() => {
-    loadData()
+    loadConnectors()
   }, [])
 
-  const loadData = async () => {
+  const loadConnectors = async () => {
     setLoading(true)
     try {
-      const [connectorsResponse, mailboxesResponse] = await Promise.all([
-        apiClient.getEmailConnectors(),
-        apiClient.getEmailMailboxes()
-      ])
-      setConnectors(connectorsResponse.connectors || [])
-      setMailboxes(mailboxesResponse.mailboxes || [])
+      const response = await apiClient.getEmailConnectors()
+      setConnectors(response.connectors || [])
     } catch (error) {
-      console.error('Failed to load email data:', error)
+      console.error('Failed to load email connectors:', error)
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleCreateConnector = () => {
-    console.log('handleCreateConnector clicked - navigating to /inbox/add')
-    navigate('/inbox/add')
-  }
-
-  const handleListConnectors = () => {
-    navigate('/inbox/connectors')
   }
 
   const handleValidateConnector = (connector: EmailConnector) => {
@@ -142,8 +138,7 @@ export function InboxPage() {
       console.log('Validation started:', response)
       setShowValidateModal(false)
       setShowVerifyModal(true)
-      // Refresh data to show updated status
-      loadData()
+      loadConnectors()
     } catch (error) {
       console.error('Failed to start validation:', error)
       alert('Failed to start validation')
@@ -164,8 +159,7 @@ export function InboxPage() {
       console.log('OTP verified:', response)
       setShowVerifyModal(false)
       setOtpCode('')
-      // Refresh data to show updated status
-      loadData()
+      loadConnectors()
       alert('Email connector validated successfully!')
     } catch (error) {
       console.error('Failed to verify OTP:', error)
@@ -175,18 +169,24 @@ export function InboxPage() {
     }
   }
 
-  const handleEditConnector = (connector: EmailConnector) => {
-    navigate(`/inbox/add?edit=${connector.id}`)
+  const handleTestConnector = async (_connector: EmailConnector) => {
+    // TODO: Implement test connector functionality
+    alert('Test connector functionality will be implemented')
   }
 
-  const handleCreateMailbox = () => {
-    const validatedConnectors = connectors.filter(c => c.is_validated && c.validation_status === 'validated')
-    if (validatedConnectors.length === 0) {
-      alert('Please add and validate at least one email connector first. Domain validation is required before creating email inboxes.')
+  const handleDeleteConnector = async (connector: EmailConnector) => {
+    if (!confirm(`Are you sure you want to delete the "${connector.name}" connector? This action cannot be undone.`)) {
       return
     }
-    // TODO: Create a separate mailbox page
-    alert('Mailbox creation will be implemented')
+
+    try {
+      await apiClient.deleteEmailConnector(connector.id)
+      alert('Connector deleted successfully')
+      loadConnectors()
+    } catch (error) {
+      console.error('Failed to delete connector:', error)
+      alert('Failed to delete connector')
+    }
   }
 
   const getValidationStatusBadge = (connector: EmailConnector) => {
@@ -216,7 +216,7 @@ export function InboxPage() {
           onClick={isClickable ? handleClick : undefined}
         >
           <AlertCircle className="w-3 h-3" />
-          Validation Failed - Click to Retry
+          Failed - Click to Retry
         </Badge>
       default:
         return <Badge 
@@ -225,8 +225,21 @@ export function InboxPage() {
           onClick={isClickable ? handleClick : undefined}
         >
           <Clock className="w-3 h-3" />
-          Click to Validate Domain
+          Click to Validate
         </Badge>
+    }
+  }
+
+  const getConnectorTypeDisplay = (type: string) => {
+    switch (type) {
+      case 'inbound_imap':
+        return 'Inbound IMAP'
+      case 'outbound_smtp':
+        return 'Outbound SMTP'
+      case 'outbound_provider':
+        return 'Outbound Provider'
+      default:
+        return type.replace('_', ' ').toUpperCase()
     }
   }
 
@@ -235,114 +248,139 @@ export function InboxPage() {
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading email configuration...</p>
+          <p>Loading email connectors...</p>
         </div>
       </div>
     )
   }
 
-  // Show empty state if no connectors
-  if (connectors.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <Mail className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-semibold mb-2">No Email Inbox Attached</h2>
-          <p className="text-muted-foreground mb-6">
-            Connect your email accounts to start receiving and managing customer emails as tickets.
-          </p>
-          <Button onClick={handleCreateConnector} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Attach Email Box
-          </Button>
-        </div>
-      </div>
-    )
-  }  return (
+  return (
     <div className="h-full max-h-screen p-6 space-y-6 overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Email Inbox</h1>
-          <p className="text-muted-foreground">
-            Manage email connectors and mailboxes for your project
-          </p>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => navigate('/inbox')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Inbox
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Email Connectors</h1>
+            <p className="text-muted-foreground">
+              Manage email connectors and their validation status
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={loadData} disabled={loading}>
+          <Button variant="outline" onClick={loadConnectors} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" onClick={handleListConnectors}>
-            <List className="w-4 h-4 mr-2" />
-            List Email Connectors
-          </Button>
-          <Button onClick={handleCreateConnector}>
+          <Button onClick={() => navigate('/inbox/add')}>
             <Plus className="w-4 h-4 mr-2" />
             Add Connector
           </Button>
         </div>
       </div>
 
-      {/* Email Mailboxes */}
+      {/* Connectors List */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TicketCheck className="w-5 h-5" />
-              Email Mailboxes
-            </CardTitle>
-            <Button
-              onClick={handleCreateMailbox}
-              disabled={connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0}
-              title={connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0 ? 'Domain validation required: Please validate at least one email connector first' : 'Create new email mailbox'}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Mailbox
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            All Email Connectors ({connectors.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {mailboxes.length === 0 ? (
-            <div className="text-center py-8">
-              {connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0 ? (
-                <>
-                  <p className="text-muted-foreground mb-2">
-                    No email mailboxes configured.
-                  </p>
-                  <p className="text-sm text-amber-600 dark:text-amber-400">
-                    <strong> <a href='' onClick={handleListConnectors} className='text-amber-600 dark:text-amber-400 underline'>Domain validation required:</a></strong> Please validate at least one email connector before creating mailboxes.
-                  </p>
-                </>
-              ) : (
-                <p className="text-muted-foreground">
-                  No email mailboxes configured. Add a mailbox to start receiving emails.
-                </p>
-              )}
+          {connectors.length === 0 ? (
+            <div className="text-center py-12">
+              <Mail className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">No Email Connectors</h3>
+              <p className="text-muted-foreground mb-4">
+                Create your first email connector to start managing email communications.
+              </p>
+              <Button onClick={() => navigate('/inbox/add')}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add First Connector
+              </Button>
             </div>
           ) : (
             <div className="space-y-4">
-              {mailboxes.map((mailbox) => (
+              {connectors.map((connector) => (
                 <div
-                  key={mailbox.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                  key={connector.id}
+                  className="p-6 border rounded-lg hover:bg-muted/30 transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Mail className="w-5 h-5 text-primary" />
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Mail className="w-6 h-6 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-lg font-semibold">{connector.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {getConnectorTypeDisplay(connector.type)}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm">
+                          {connector.from_address && (
+                            <span>From: {connector.from_address}</span>
+                          )}
+                          {connector.smtp_host && (
+                            <span>SMTP: {connector.smtp_host}:{connector.smtp_port}</span>
+                          )}
+                          {connector.imap_host && (
+                            <span>IMAP: {connector.imap_host}:{connector.imap_port}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          {getValidationStatusBadge(connector)}
+                          <Badge variant="success">Active</Badge>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-medium">{mailbox.address}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {mailbox.allow_new_ticket ? 'Creates new tickets' : 'Existing tickets only'}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTestConnector(connector)}
+                        title="Test connection"
+                      >
+                        <TestTube className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/inbox/add?edit=${connector.id}`)}
+                        title="Edit connector"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteConnector(connector)}
+                        title="Delete connector"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="success">Active</Badge>
-                    <Button variant="outline" size="sm">
-                      <Settings className="w-4 h-4" />
-                    </Button>
+                  
+                  {/* Additional details */}
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Created:</span>
+                        <div>{new Date(connector.created_at).toLocaleDateString()}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Last Updated:</span>
+                        <div>{new Date(connector.updated_at).toLocaleDateString()}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Validated:</span>
+                        <div>{connector.is_validated ? 'Yes' : 'No'}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -351,14 +389,11 @@ export function InboxPage() {
         </CardContent>
       </Card>
 
-      {/* Add some bottom padding to ensure scrolling works */}
-      <div className="h-20"></div>
-
       {/* Validation Modal */}
       <Modal open={showValidateModal} onClose={() => setShowValidateModal(false)}>
         <h2 className="text-xl font-semibold mb-4">Validate Email Domain</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          We'll send a verification code to validate your email ownership.
+          We'll send a verification code to validate your email ownership for "{selectedConnector?.name}".
         </p>
         <div className="space-y-4">
           <div>
@@ -393,7 +428,7 @@ export function InboxPage() {
       <Modal open={showVerifyModal} onClose={() => setShowVerifyModal(false)}>
         <h2 className="text-xl font-semibold mb-4">Enter Verification Code</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Please enter the 6-digit verification code sent to your email.
+          Please enter the 6-digit verification code sent to your email address.
         </p>
         <div className="space-y-4">
           <div>

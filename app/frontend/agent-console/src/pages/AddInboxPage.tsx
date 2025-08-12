@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, Server, Forward, AlertTriangle, Copy, ExternalLink, ChevronRight, ChevronLeft } from 'lucide-react'
 import { apiClient } from '../lib/api'
 
@@ -7,7 +7,10 @@ import { apiClient } from '../lib/api'
 const Button = ({ children, variant = 'default', size = 'default', className = '', disabled = false, ...props }: any) => (
   <button 
     disabled={disabled}
-    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
+    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors             <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">{isEditing ? 'Ready to Update' : 'Ready to Create'}</h4>
+            <p className="text-green-800 dark:text-green-200">
+              Your email connector is configured and ready to be {isEditing ? 'updated' : 'created'}. {!isEditing && 'After creation, we\'ll send a validation email to verify email ownership.'}
+            </p>s-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
       variant === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
       variant === 'ghost' ? 'hover:bg-accent hover:text-accent-foreground' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
@@ -42,8 +45,13 @@ const CardContent = ({ children, className = '' }: any) => (
 
 export function AddInboxPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const editId = searchParams.get('edit')
+  const isEditing = !!editId
+  
   const [currentStep, setCurrentStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [createdConnectorId, setCreatedConnectorId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
@@ -60,6 +68,42 @@ export function AddInboxPage() {
     smtp_username: '',
     smtp_password: ''
   })
+
+  // Load connector data for editing
+  useEffect(() => {
+    if (editId) {
+      setLoading(true)
+      apiClient.getEmailConnector(editId)
+        .then(connector => {
+          setFormData({
+            name: connector.name,
+            type: connector.type === 'outbound_smtp' ? 'email_forwarder' : connector.type,
+            from_address: connector.from_address || '',
+            reply_to_address: connector.reply_to_address || '',
+            imap_host: connector.imap_host || '',
+            imap_port: connector.imap_port || 993,
+            imap_username: connector.imap_username || '',
+            imap_password: '', // Don't populate password for security
+            smtp_host: connector.smtp_host || '',
+            smtp_port: connector.smtp_port || 587,
+            smtp_username: connector.smtp_username || '',
+            smtp_password: '' // Don't populate password for security
+          })
+          setCreatedConnectorId(connector.id)
+          // If connector is already validated, skip to last step
+          if (connector.is_validated && connector.validation_status === 'validated') {
+            setCurrentStep(5)
+          }
+        })
+        .catch(error => {
+          console.error('Failed to load connector:', error)
+          alert('Failed to load connector data')
+        })
+        .finally(() => {
+          setLoading(false)
+        })
+    }
+  }, [editId])
 
   const steps = [
     { number: 1, title: 'Email Configuration', description: 'Basic email settings' },
@@ -94,7 +138,16 @@ export function AddInboxPage() {
         ...formData,
         type: (formData.type === 'email_forwarder' ? 'outbound_smtp' : formData.type) as 'inbound_imap' | 'outbound_smtp'
       }
-      const response = await apiClient.createEmailConnector(apiData)
+      
+      let response
+      if (editId) {
+        // Update existing connector
+        response = await apiClient.updateEmailConnector(editId, apiData)
+      } else {
+        // Create new connector
+        response = await apiClient.createEmailConnector(apiData)
+      }
+      
       setCreatedConnectorId(response.id)
       handleNext() // Move to validation step
     } catch (error) {
@@ -563,7 +616,7 @@ export function AddInboxPage() {
       <div>
         <h3 className="text-lg font-medium mb-4">Domain Validation</h3>
         <p className="text-sm text-muted-foreground mb-6">
-          Create your email connector and validate domain ownership to ensure secure email handling.
+          {isEditing ? 'Update your email connector settings and re-validate if needed.' : 'Create your email connector and validate email ownership to ensure secure email handling.'}
         </p>
       </div>
 
@@ -572,7 +625,7 @@ export function AddInboxPage() {
           <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg">
             <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">Ready to Create</h4>
             <p className="text-sm text-green-700 dark:text-green-300">
-              Your email connector is configured and ready to be created. After creation, we'll send a validation email to verify domain ownership.
+              Your email connector is configured and ready to be created. After creation, we'll send a validation email to verify email ownership.
             </p>
           </div>
 
@@ -595,8 +648,8 @@ export function AddInboxPage() {
               <ChevronLeft className="w-4 h-4 mr-2" />
               Previous
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Creating...' : 'Create Email Connector'}
+            <Button onClick={handleSave} disabled={saving || loading}>
+              {saving ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Email Connector' : 'Create Email Connector')}
             </Button>
           </div>
         </>
@@ -606,14 +659,14 @@ export function AddInboxPage() {
             <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-600" />
             <h3 className="text-lg font-medium mb-2">Email Connector Created!</h3>
             <p className="text-muted-foreground mb-6">
-              Your email connector has been created successfully. Now let's validate your domain ownership.
+              Your email connector has been created successfully. Now let's validate your email ownership.
             </p>
           </div>
 
           <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
             <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Domain Validation</h4>
             <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-              We'll send a validation email to <strong>{formData.reply_to_address}</strong> with instructions to verify domain ownership.
+              We'll send a validation email to <strong>{formData.reply_to_address}</strong> with instructions to verify email ownership.
             </p>
             <Button onClick={handleValidate} disabled={saving} className="w-full">
               {saving ? 'Sending Validation Email...' : 'Send Validation Email'}
@@ -638,25 +691,36 @@ export function AddInboxPage() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Inbox
         </Button>
-        <h1 className="text-3xl font-bold">Add Email Connector</h1>
+        <h1 className="text-3xl font-bold">{isEditing ? 'Edit Email Connector' : 'Add Email Connector'}</h1>
         <p className="text-muted-foreground">
           Follow these steps to connect your email account and start receiving customer emails as tickets
         </p>
       </div>
 
-      {/* Step Indicator */}
-      {renderStepIndicator()}
+      {/* Loading State */}
+      {loading ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <div className="text-muted-foreground">Loading connector data...</div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Step Indicator */}
+          {renderStepIndicator()}
 
-      {/* Step Content */}
-      <Card>
-        <CardContent className="p-8">
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
-          {currentStep === 4 && renderStep4()}
-          {currentStep === 5 && renderStep5()}
-        </CardContent>
-      </Card>
+          {/* Step Content */}
+          <Card>
+            <CardContent className="p-8">
+              {currentStep === 1 && renderStep1()}
+              {currentStep === 2 && renderStep2()}
+              {currentStep === 3 && renderStep3()}
+              {currentStep === 4 && renderStep4()}
+              {currentStep === 5 && renderStep5()}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

@@ -868,6 +868,11 @@ class APIClient {
     return response.data
   }
 
+  async getEmailConnector(id: string): Promise<EmailConnector> {
+    const response: AxiosResponse<EmailConnector> = await this.client.get(`/email/connectors/${id}`)
+    return response.data
+  }
+
   async createEmailConnector(data: EmailConnectorRequest): Promise<EmailConnector> {
     const response: AxiosResponse<EmailConnector> = await this.client.post('/email/connectors', data)
     return response.data

@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/bareuptime/tms/internal/mail"
 	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/models"
+	"github.com/bareuptime/tms/internal/redis"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,13 +17,17 @@ import (
 
 // EmailHandler handles email-related HTTP requests
 type EmailHandler struct {
-	emailRepo *repo.EmailRepo
+	emailRepo    *repo.EmailRepo
+	redisService *redis.Service
+	mailService  *mail.Service
 }
 
 // NewEmailHandler creates a new email handler
-func NewEmailHandler(emailRepo *repo.EmailRepo) *EmailHandler {
+func NewEmailHandler(emailRepo *repo.EmailRepo, redisService *redis.Service, mailService *mail.Service) *EmailHandler {
 	return &EmailHandler{
-		emailRepo: emailRepo,
+		emailRepo:    emailRepo,
+		redisService: redisService,
+		mailService:  mailService,
 	}
 }
 
@@ -418,19 +425,9 @@ func (h *EmailHandler) ListMailboxes(c *gin.Context) {
 
 // ValidateConnector initiates domain validation for a connector
 func (h *EmailHandler) ValidateConnector(c *gin.Context) {
-	tenantIDStr := c.MustGet("tenant_id").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
-		return
-	}
+	tenantID := middleware.GetTenantID(c)
 
-	projectIDStr := c.Param("project_id")
-	projectID, err := uuid.Parse(projectIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID format"})
-		return
-	}
+	projectID := middleware.GetProjectID(c)
 
 	connectorIDStr := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDStr)
@@ -463,8 +460,18 @@ func (h *EmailHandler) ValidateConnector(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement validation logic with email validation service
-	// For now, just update the status
+	// Generate and store OTP
+	otpKey := fmt.Sprintf("email_validation:%s:%s", tenantID.String(), connectorID.String())
+
+	// Store OTP in Redis with 10 minute expiration
+	otp, err := h.redisService.GenerateAndStoreOTP(c.Request.Context(), otpKey, 10*time.Minute)
+	fmt.Println("Generated OTP:", otp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate validation code"})
+		return
+	}
+
+	// Update connector status to validating
 	connector.ValidationStatus = models.ValidationStatusValidating
 	connector.UpdatedAt = time.Now()
 
@@ -473,9 +480,23 @@ func (h *EmailHandler) ValidateConnector(c *gin.Context) {
 		return
 	}
 
+	// Send validation email using the connector's SMTP settings
+	err = h.sendValidationEmail(c.Request.Context(), connector, req.Email, otp)
+	if err != nil {
+		// Log the error but don't fail the request - user can retry
+		fmt.Printf("Failed to send validation email: %v\n", err)
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "validation_started",
+			"message": "Validation initiated. Please check your email for the verification code.",
+			"warning": "Email sending failed, please try again or check your SMTP settings",
+			"otp":     otp, // Temporary - for testing when email fails
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "validation_started",
-		"message": "Validation email will be sent to " + req.Email,
+		"message": "Validation email sent to " + req.Email,
 	})
 }
 
@@ -526,9 +547,15 @@ func (h *EmailHandler) VerifyConnectorOTP(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement OTP verification with Redis
-	// For now, just mark as validated if OTP is "123456"
-	if req.OTP == "123456" {
+	// Verify OTP using Redis
+	otpKey := fmt.Sprintf("email_validation:%s:%s", tenantID.String(), connectorID.String())
+	isValid, err := h.redisService.VerifyOTP(c.Request.Context(), otpKey, req.OTP)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify OTP"})
+		return
+	}
+
+	if isValid {
 		now := time.Now()
 		connector.IsValidated = true
 		connector.ValidationStatus = models.ValidationStatusValidated
@@ -546,9 +573,118 @@ func (h *EmailHandler) VerifyConnectorOTP(c *gin.Context) {
 			"message": "Email connector has been successfully validated",
 		})
 	} else {
+		// Update connector with failed status
+		errorMsg := "Invalid or expired OTP"
+		connector.ValidationStatus = models.ValidationStatusFailed
+		connector.ValidationError = &errorMsg
+		connector.UpdatedAt = time.Now()
+		h.emailRepo.UpdateConnector(c.Request.Context(), connector)
+
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "invalid_otp",
-			"message": "Invalid OTP provided",
+			"message": "Invalid or expired OTP provided",
 		})
 	}
+}
+
+// sendValidationEmail sends a validation email using the connector's SMTP settings
+func (h *EmailHandler) sendValidationEmail(ctx context.Context, connector *models.EmailConnector, recipientEmail, otp string) error {
+	// Validate SMTP configuration
+	if connector.SMTPHost == nil || connector.SMTPPort == nil {
+		return fmt.Errorf("SMTP configuration incomplete: missing host or port")
+	}
+
+	if connector.SMTPUsername == nil || connector.SMTPPasswordEnc == nil {
+		return fmt.Errorf("SMTP authentication incomplete: missing username or password")
+	}
+
+	// Use connector's from address or fallback to a default
+	fromAddress := connector.FromAddress
+	if fromAddress == nil || *fromAddress == "" {
+		if connector.SMTPUsername != nil {
+			fromAddress = connector.SMTPUsername
+		} else {
+			return fmt.Errorf("no valid from address found")
+		}
+	}
+
+	// Ensure TLS is enabled for common secure ports
+	if connector.SMTPUseTLS == nil {
+		useTLS := true
+		// Enable TLS for common secure SMTP ports
+		if *connector.SMTPPort == 587 || *connector.SMTPPort == 465 || *connector.SMTPPort == 993 {
+			connector.SMTPUseTLS = &useTLS
+		}
+	}
+
+	// Create the validation email message
+	message := &mail.Message{
+		From:    *fromAddress,
+		To:      []string{recipientEmail},
+		Subject: "Email Connector Validation - Action Required",
+		TextBody: fmt.Sprintf(`Email Connector Validation
+
+Hello,
+
+You have requested to validate an email connector in your TMS (Ticket Management System).
+
+Your verification code is: %s
+
+Please enter this code in your application to complete the validation process.
+
+This code will expire in 10 minutes.
+
+If you did not request this validation, please ignore this email.
+
+Best regards,
+TMS Team`, otp),
+		HTMLBody: fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Email Connector Validation</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2c3e50;">Email Connector Validation</h2>
+        
+        <p>Hello,</p>
+        
+        <p>You have requested to validate an email connector in your TMS (Ticket Management System).</p>
+        
+        <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 15px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0; font-size: 14px; color: #6c757d;">Your verification code is:</p>
+            <h1 style="margin: 10px 0; font-size: 32px; color: #007bff; letter-spacing: 4px;">%s</h1>
+        </div>
+        
+        <p>Please enter this code in your application to complete the validation process.</p>
+        
+        <p style="color: #dc3545; font-weight: bold;">This code will expire in 10 minutes.</p>
+        
+        <p style="color: #6c757d; font-size: 12px;">If you did not request this validation, please ignore this email.</p>
+        
+        <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+        
+        <p style="color: #6c757d; font-size: 12px;">
+            Best regards,<br>
+            TMS Team
+        </p>
+    </div>
+</body>
+</html>`, otp),
+		Headers: map[string]string{
+			"X-Mailer":     "TMS-EmailConnector-Validator/1.0",
+			"X-Priority":   "1",
+			"Importance":   "high",
+			"Content-Type": "text/html; charset=UTF-8",
+		},
+	}
+
+	// Send the email using mail service
+	err := h.mailService.SendValidationEmail(ctx, connector, message)
+	if err != nil {
+		return fmt.Errorf("failed to send validation email via SMTP: %w", err)
+	}
+
+	return nil
 }

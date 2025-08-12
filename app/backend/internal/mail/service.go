@@ -376,3 +376,8 @@ type SendMagicLinkRequest struct {
 	FromAddress string
 	Variables   map[string]interface{}
 }
+
+// SendValidationEmail sends a validation email using the provided connector's SMTP settings
+func (s *Service) SendValidationEmail(ctx context.Context, connector *models.EmailConnector, message *Message) error {
+	return s.smtpClient.SendMessage(ctx, connector, message)
+}

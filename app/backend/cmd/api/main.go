@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/bareuptime/tms/internal/mail"
 	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/rbac"
+	"github.com/bareuptime/tms/internal/redis"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/bareuptime/tms/internal/worker"
@@ -68,6 +70,10 @@ func main() {
 	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	mailService := mail.NewService(mailLogger)
 
+	// Initialize Redis service
+	redisAddr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port)
+	redisService := redis.NewService(redisAddr, cfg.Redis.Password, cfg.Redis.DB)
+
 	// Initialize services
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
 	projectService := service.NewProjectService(projectRepo)
@@ -97,7 +103,7 @@ func main() {
 	ticketHandler := handlers.NewTicketHandler(ticketService, messageService)
 	publicHandler := handlers.NewPublicHandler(publicService)
 	integrationHandler := handlers.NewIntegrationHandler(integrationService)
-	emailHandler := handlers.NewEmailHandler(emailRepo)
+	emailHandler := handlers.NewEmailHandler(emailRepo, redisService, mailService)
 	emailInboxHandler := handlers.NewEmailInboxHandler(emailInboxService)
 	agentHandler := handlers.NewAgentHandler(agentService)
 	apiKeyHandler := handlers.NewApiKeyHandler(apiKeyRepo)

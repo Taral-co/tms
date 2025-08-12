@@ -36,19 +36,11 @@ func (c *SMTPClient) SendMessage(ctx context.Context, connector *models.EmailCon
 		return fmt.Errorf("failed to build email message: %w", err)
 	}
 
-	// Create auth if credentials provided
-	var auth smtp.Auth
-	if connector.SMTPUsername != nil && connector.SMTPPasswordEnc != nil {
-		// TODO: Decrypt password using KMS/Vault
-		password := string(connector.SMTPPasswordEnc) // This should be decrypted
-		auth = smtp.PlainAuth("", *connector.SMTPUsername, password, *connector.SMTPHost)
-	}
-
 	addr := fmt.Sprintf("%s:%d", *connector.SMTPHost, *connector.SMTPPort)
 
-	// Send email
+	// Send email with proper TLS support
 	start := time.Now()
-	err = smtp.SendMail(addr, auth, msg.From, msg.To, emailBody)
+	err = c.sendWithTLS(addr, connector, msg.From, msg.To, emailBody)
 	duration := time.Since(start)
 
 	c.logger.Info().
@@ -62,6 +54,65 @@ func (c *SMTPClient) SendMessage(ctx context.Context, connector *models.EmailCon
 		Msg("SMTP send attempt")
 
 	return err
+}
+
+// sendWithTLS sends email with proper TLS support
+func (c *SMTPClient) sendWithTLS(addr string, connector *models.EmailConnector, from string, to []string, message []byte) error {
+	// Create connection
+	client, err := smtp.Dial(addr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to SMTP server: %w", err)
+	}
+	defer client.Close()
+
+	// Start TLS if configured
+	if connector.SMTPUseTLS != nil && *connector.SMTPUseTLS {
+		tlsConfig := &tls.Config{ServerName: *connector.SMTPHost}
+		if err = client.StartTLS(tlsConfig); err != nil {
+			return fmt.Errorf("failed to start TLS: %w", err)
+		}
+	}
+
+	// Authenticate if credentials provided
+	if connector.SMTPUsername != nil && connector.SMTPPasswordEnc != nil {
+		// TODO: Decrypt password using KMS/Vault
+		password := string(connector.SMTPPasswordEnc) // This should be decrypted
+		auth := smtp.PlainAuth("", *connector.SMTPUsername, password, *connector.SMTPHost)
+		if err = client.Auth(auth); err != nil {
+			return fmt.Errorf("SMTP authentication failed: %w", err)
+		}
+	}
+
+	// Set sender
+	if err = client.Mail(from); err != nil {
+		return fmt.Errorf("failed to set sender: %w", err)
+	}
+
+	// Set recipients
+	for _, recipient := range to {
+		if err = client.Rcpt(recipient); err != nil {
+			return fmt.Errorf("failed to set recipient %s: %w", recipient, err)
+		}
+	}
+
+	// Send message data
+	writer, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("failed to get data writer: %w", err)
+	}
+
+	_, err = writer.Write(message)
+	if err != nil {
+		writer.Close()
+		return fmt.Errorf("failed to write message: %w", err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close message writer: %w", err)
+	}
+
+	return client.Quit()
 }
 
 // buildMessage builds the raw email message
