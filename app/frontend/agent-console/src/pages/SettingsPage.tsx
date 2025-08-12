@@ -758,7 +758,7 @@ export function SettingsPage() {
                         ) : (
                           <span className="text-xs text-muted-foreground">No projects assigned</span>
                         )}
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-1 w-full">
                           <select
                             onChange={(e) => {
                               if (e.target.value) {
@@ -766,7 +766,7 @@ export function SettingsPage() {
                                 e.target.value = ''
                               }
                             }}
-                            className="text-xs px-2 py-1 border rounded bg-[var(--card)] text-[var(--card-fg)] focus-visible-ring"
+                            className="text-xs px-2 py-1 border rounded bg-[var(--card)] text-[var(--card-fg)] focus-visible-ring w-full"
                             defaultValue=""
                             aria-label={`Assign ${agent.name} to project`}
                           >

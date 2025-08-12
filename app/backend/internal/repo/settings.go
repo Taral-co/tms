@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 )
@@ -18,29 +19,30 @@ func NewSettingsRepository(db *sql.DB) *SettingsRepository {
 }
 
 // GetSetting retrieves a setting by tenant ID and key
-func (r *SettingsRepository) GetSetting(ctx context.Context, tenantID, projectID uuid.UUID, settingKey string) (map[string]interface{}, error) {
+func (r *SettingsRepository) GetSetting(ctx context.Context, tenantID, projectID uuid.UUID, settingKey string) (map[string]interface{}, int, error) {
 	query := `
 		SELECT setting_value 
-		FROM project_tenant_settings 
+		FROM tenant_project_settings 
 		WHERE tenant_id = $1 AND project_id = $2 AND setting_key = $3
 	`
 
 	var settingValueJSON []byte
 	err := r.db.QueryRowContext(ctx, query, tenantID, projectID, settingKey).Scan(&settingValueJSON)
 	if err != nil {
+		fmt.Println("Error retrieving setting:", err)
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("setting not found: %s", settingKey)
+			return nil, http.StatusNoContent, fmt.Errorf("setting not found: %s", settingKey)
 		}
-		return nil, fmt.Errorf("failed to get setting: %w", err)
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to get setting: %w", err)
 	}
 
 	var settingValue map[string]interface{}
 	err = json.Unmarshal(settingValueJSON, &settingValue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal setting value: %w", err)
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to unmarshal setting value: %w", err)
 	}
 
-	return settingValue, nil
+	return settingValue, http.StatusOK, nil
 }
 
 // UpdateSetting updates or creates a setting
@@ -51,8 +53,8 @@ func (r *SettingsRepository) UpdateSetting(ctx context.Context, tenantID, projec
 	}
 
 	query := `
-		INSERT INTO project_tenant_settings (tenant_id, project_id, setting_key, setting_value, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		INSERT INTO tenant_project_settings (tenant_id, project_id, setting_key, setting_value, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW())
 		ON CONFLICT (tenant_id, project_id, setting_key)
 		DO UPDATE SET 
 			setting_value = EXCLUDED.setting_value,
@@ -61,6 +63,7 @@ func (r *SettingsRepository) UpdateSetting(ctx context.Context, tenantID, projec
 
 	_, err = r.db.ExecContext(ctx, query, tenantID, projectUUID, settingKey, settingValueJSON)
 	if err != nil {
+		fmt.Println("Error updating setting:", err)
 		return fmt.Errorf("failed to update setting: %w", err)
 	}
 
@@ -70,7 +73,7 @@ func (r *SettingsRepository) UpdateSetting(ctx context.Context, tenantID, projec
 // DeleteSetting removes a setting
 func (r *SettingsRepository) DeleteSetting(ctx context.Context, tenantID uuid.UUID, settingKey string) error {
 	query := `
-		DELETE FROM project_tenant_settings 
+		DELETE FROM tenant_project_settings 
 		WHERE tenant_id = $1 AND setting_key = $2
 	`
 
@@ -95,7 +98,7 @@ func (r *SettingsRepository) DeleteSetting(ctx context.Context, tenantID uuid.UU
 func (r *SettingsRepository) ListSettings(ctx context.Context, tenantID uuid.UUID) (map[string]map[string]interface{}, error) {
 	query := `
 		SELECT setting_key, setting_value 
-		FROM project_tenant_settings 
+		FROM tenant_project_settings 
 		WHERE tenant_id = $1
 	`
 
