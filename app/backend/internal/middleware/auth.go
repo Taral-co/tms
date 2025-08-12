@@ -114,6 +114,101 @@ func AuthMiddleware(jwtAuth *auth.Service) gin.HandlerFunc {
 	}
 }
 
+// TicketAccessMiddleware ensures agents can only access tickets they have permission for
+// Rules: tenant_admin and project_admin can access all tickets in their scope
+// Regular agents can only access tickets assigned to them
+func TicketAccessMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := GetClaims(c)
+		if claims == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No valid claims found"})
+			c.Abort()
+			return
+		}
+
+		// Get IDs from URL parameters
+		projectID := c.Param("project_id")
+		ticketID := c.Param("ticket_id")
+
+		if projectID == "" || ticketID == "" {
+			// If no ticket_id in URL, this middleware doesn't apply
+			c.Next()
+			return
+		}
+
+		// Validate UUID formats
+		if _, err := uuid.Parse(projectID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id format"})
+			c.Abort()
+			return
+		}
+
+		if _, err := uuid.Parse(ticketID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ticket_id format"})
+			c.Abort()
+			return
+		}
+
+		// If user is tenant admin, allow access to all tickets
+		if claims.IsTenantAdmin {
+			c.Next()
+			return
+		}
+
+		// Check if user has project_admin role for this project
+		roles, projectExists := claims.RoleBindings[projectID]
+		if projectExists {
+			for _, role := range roles {
+				if role == "project_admin" {
+					c.Next()
+					return
+				}
+			}
+		}
+
+		// For regular agents, we need to check if they are assigned to the ticket
+		// This will be handled at the repository level using agent_id filter
+		// Store agent_id in context for repository to use
+		c.Set("enforce_agent_assignment", true)
+
+		c.Next()
+	}
+}
+
+// TicketReassignmentMiddleware ensures only tenant_admin and project_admin can reassign tickets
+func TicketReassignmentMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := GetClaims(c)
+		if claims == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "No valid claims found"})
+			c.Abort()
+			return
+		}
+
+		// Check if this is a reassignment request by looking at the request body
+		if c.Request.Method == "PATCH" || c.Request.Method == "PUT" {
+			// We need to check if assignee_agent_id is being modified
+			// This is a simplified check - in production you might want to be more thorough
+			c.Set("allow_reassignment", claims.IsTenantAdmin)
+
+			// Check project admin role
+			projectID := c.Param("project_id")
+			if projectID != "" {
+				if roles, exists := claims.RoleBindings[projectID]; exists {
+					for _, role := range roles {
+						if role == "project_admin" {
+							c.Set("allow_reassignment", true)
+							break
+						}
+					}
+				}
+			}
+		}
+
+		c.Next()
+	}
+}
+
 // TenantMiddleware sets up tenant context for RLS
 func TenantMiddleware(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

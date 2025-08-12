@@ -71,6 +71,15 @@ func (h *TicketHandler) UpdateTicket(c *gin.Context) {
 		return
 	}
 
+	// Check if reassignment is being attempted
+	if req.AssigneeAgentID != nil {
+		allowReassignment, exists := c.Get("allow_reassignment")
+		if !exists || !allowReassignment.(bool) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to reassign tickets"})
+			return
+		}
+	}
+
 	tenantID := middleware.GetTenantID(c)
 	projectID := c.Param("project_id")
 	ticketID := c.Param("ticket_id")
@@ -274,4 +283,34 @@ func (h *TicketHandler) DeleteMessage(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+// ReassignTicket handles ticket reassignment
+func (h *TicketHandler) ReassignTicket(c *gin.Context) {
+	var req service.ReassignTicketRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed", "details": err.Error()})
+		return
+	}
+
+	tenantID := middleware.GetTenantID(c)
+	projectID := c.Param("project_id")
+	ticketID := c.Param("ticket_id")
+	agentID := middleware.GetAgentID(c)
+
+	projectUUID, _ := uuid.Parse(projectID)
+	ticketUUID, _ := uuid.Parse(ticketID)
+
+	ticket, err := h.ticketService.ReassignTicket(c.Request.Context(), tenantID, projectUUID, ticketUUID, agentID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, ticket)
 }

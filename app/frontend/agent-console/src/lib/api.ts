@@ -129,9 +129,10 @@ export interface UpdateTicketRequest {
 export interface Message {
   id: string
   ticket_id: string
-  sender_type: 'customer' | 'agent' | 'system'
-  sender_id: string
-  content: string
+  author_type: 'customer' | 'agent' | 'system'
+  author_id: string
+  body: string
+  is_private: boolean
   created_at: string
   attachments?: {
     id: string
@@ -142,9 +143,19 @@ export interface Message {
   }[]
 }
 
+export interface MessagesResponse {
+  messages: Message[]
+  next_cursor?: string
+}
+
 export interface CreateMessageRequest {
   content: string
   attachments?: File[]
+}
+
+export interface ReassignTicketRequest {
+  assignee_agent_id?: string
+  note?: string
 }
 
 export interface ApiKey {
@@ -506,29 +517,29 @@ class APIClient {
     await this.client.delete(`/tickets/${id}`)
   }
 
+  async reassignTicket(id: string, data: ReassignTicketRequest): Promise<Ticket> {
+    const response: AxiosResponse<Ticket> = await this.client.post(`/tickets/${id}/reassign`, data)
+    return response.data
+  }
+
   // Message endpoints
-  async getTicketMessages(ticketId: string): Promise<Message[]> {
-    const response: AxiosResponse<Message[]> = await this.client.get(`/tickets/${ticketId}/messages`)
+  async getTicketMessages(ticketId: string, cursor?: string, limit?: number): Promise<MessagesResponse> {
+    const params = new URLSearchParams()
+    if (cursor) params.append('cursor', cursor)
+    if (limit) params.append('limit', limit.toString())
+    
+    const response: AxiosResponse<MessagesResponse> = await this.client.get(
+      `/tickets/${ticketId}/messages?${params.toString()}`
+    )
     return response.data
   }
 
   async createMessage(ticketId: string, data: CreateMessageRequest): Promise<Message> {
-    const formData = new FormData()
-    formData.append('content', data.content)
-    
-    if (data.attachments) {
-      data.attachments.forEach((file, index) => {
-        formData.append(`attachments[${index}]`, file)
-      })
-    }
-
     const response: AxiosResponse<Message> = await this.client.post(
       `/tickets/${ticketId}/messages`,
-      formData,
       {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        body: data.content,
+        is_private: false
       }
     )
     return response.data

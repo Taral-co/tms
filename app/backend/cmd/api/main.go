@@ -168,6 +168,8 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 		publicRoutes.GET("/ticket", publicHandler.GetTicketByMagicLink)
 		publicRoutes.GET("/ticket/messages", publicHandler.GetTicketMessagesByMagicLink)
 		publicRoutes.POST("/ticket/messages", publicHandler.AddMessageByMagicLink)
+		// Testing endpoint - remove in production
+		publicRoutes.POST("/generate-magic-link", publicHandler.GenerateMagicLink)
 	}
 
 	// Auth routes (not protected by auth middleware)
@@ -246,11 +248,17 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 		{
 			// Tickets
 			tickets := projects.Group("/tickets")
+			tickets.Use(middleware.TicketAccessMiddleware())
 			{
 				tickets.GET("", ticketHandler.ListTickets)
 				tickets.POST("", ticketHandler.CreateTicket)
 				tickets.GET("/:ticket_id", ticketHandler.GetTicket)
-				tickets.PATCH("/:ticket_id", ticketHandler.UpdateTicket)
+
+				// Apply reassignment middleware for update operations
+				tickets.PATCH("/:ticket_id", middleware.TicketReassignmentMiddleware(), ticketHandler.UpdateTicket)
+
+				// Dedicated reassignment endpoint (requires admin permissions)
+				tickets.POST("/:ticket_id/reassign", middleware.ProjectAdminMiddleware(), ticketHandler.ReassignTicket)
 
 				// Ticket messages
 				tickets.GET("/:ticket_id/messages", ticketHandler.GetTicketMessages)

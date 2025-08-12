@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 // PublicHandler handles public endpoints (magic link access)
@@ -101,6 +103,60 @@ func (h *PublicHandler) AddMessageByMagicLink(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, message)
+}
+
+// GenerateMagicLink generates a magic link for testing purposes
+// This endpoint should be removed in production
+func (h *PublicHandler) GenerateMagicLink(c *gin.Context) {
+	type GenerateMagicLinkRequest struct {
+		TenantID   string `json:"tenant_id" binding:"required"`
+		ProjectID  string `json:"project_id" binding:"required"`
+		TicketID   string `json:"ticket_id" binding:"required"`
+		CustomerID string `json:"customer_id" binding:"required"`
+	}
+
+	var req GenerateMagicLinkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Parse UUIDs
+	tenantID, err := uuid.Parse(req.TenantID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
+		return
+	}
+
+	projectID, err := uuid.Parse(req.ProjectID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid project_id"})
+		return
+	}
+
+	ticketID, err := uuid.Parse(req.TicketID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ticket_id"})
+		return
+	}
+
+	customerID, err := uuid.Parse(req.CustomerID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid customer_id"})
+		return
+	}
+
+	// Generate magic link token
+	token, err := h.publicService.GenerateMagicLinkToken(tenantID, projectID, ticketID, customerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate magic link"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"magic_token": token,
+		"public_url":  fmt.Sprintf("http://localhost:8081/index.html?token=%s", token),
+	})
 }
 
 // HealthResponse represents a health check response

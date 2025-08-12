@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bareuptime/tms/internal/db"
@@ -72,15 +73,6 @@ type CreateTicketRequest struct {
 
 // CreateTicket creates a new ticket
 func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, agentID uuid.UUID, req CreateTicketRequest) (*db.Ticket, error) {
-	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketWrite)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, fmt.Errorf("insufficient permissions")
-	}
-
 	// Find or create customer
 	customer, err := s.customerRepo.GetByEmail(ctx, tenantID, req.RequesterEmail)
 	if err != nil {
@@ -157,15 +149,6 @@ type UpdateTicketRequest struct {
 
 // UpdateTicket updates an existing ticket
 func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID, req UpdateTicketRequest) (*db.Ticket, error) {
-	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketWrite)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, fmt.Errorf("insufficient permissions")
-	}
-
 	// Get existing ticket
 	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
@@ -207,15 +190,6 @@ func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, t
 
 // GetTicket retrieves a ticket by ID
 func (s *TicketService) GetTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID) (*db.Ticket, error) {
-	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, fmt.Errorf("insufficient permissions")
-	}
-
 	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
@@ -240,15 +214,6 @@ type ListTicketsRequest struct {
 
 // ListTickets retrieves a list of tickets
 func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, agentID uuid.UUID, req ListTicketsRequest) ([]*TicketWithDetails, string, error) {
-	// Check permissions
-	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to check permission: %w", err)
-	}
-	if !hasPermission {
-		return nil, "", fmt.Errorf("insufficient permissions")
-	}
-
 	// Convert filters
 	filters := repo.TicketFilters{
 		Status:   req.Status,
@@ -372,4 +337,81 @@ func (s *TicketService) AddMessage(ctx context.Context, tenantID, projectID, tic
 	}
 
 	return message, nil
+}
+
+// ReassignTicketRequest represents a ticket reassignment request
+type ReassignTicketRequest struct {
+	AssigneeAgentID *string `json:"assignee_agent_id" validate:"omitempty,uuid"`
+	Note            string  `json:"note,omitempty"`
+}
+
+// ReassignTicket reassigns a ticket to another agent (only for tenant_admin and project_admin)
+func (s *TicketService) ReassignTicket(ctx context.Context, tenantID, projectID, ticketID, requestingAgentID uuid.UUID, req ReassignTicketRequest) (*db.Ticket, error) {
+	// Get existing ticket
+	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("ticket not found: %w", err)
+	}
+
+	// Store previous assignee for audit trail
+	previousAssigneeID := ticket.AssigneeAgentID
+
+	// Update assignee
+	if req.AssigneeAgentID != nil && *req.AssigneeAgentID != "" {
+		assigneeID, err := uuid.Parse(*req.AssigneeAgentID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid assignee agent ID: %w", err)
+		}
+
+		// Verify the assignee agent exists and has access to this project
+		_, agentErr := s.agentRepo.GetByID(ctx, tenantID, assigneeID)
+		if agentErr != nil {
+			return nil, fmt.Errorf("assignee agent not found: %w", agentErr)
+		}
+
+		ticket.AssigneeAgentID = &assigneeID
+	} else {
+		// Unassign ticket
+		ticket.AssigneeAgentID = nil
+	}
+
+	err = s.ticketRepo.Update(ctx, ticket)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update ticket: %w", err)
+	}
+
+	// Add a system message about the reassignment
+	systemMessage := &db.TicketMessage{
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		ProjectID:  projectID,
+		TicketID:   ticket.ID,
+		AuthorType: "system",
+		AuthorID:   &requestingAgentID,
+		IsPrivate:  true,
+		CreatedAt:  time.Now(),
+	}
+
+	// Create appropriate message based on reassignment
+	if ticket.AssigneeAgentID != nil {
+		if previousAssigneeID != nil {
+			systemMessage.Body = fmt.Sprintf("Ticket reassigned from agent %s to agent %s", previousAssigneeID.String(), ticket.AssigneeAgentID.String())
+		} else {
+			systemMessage.Body = fmt.Sprintf("Ticket assigned to agent %s", ticket.AssigneeAgentID.String())
+		}
+	} else {
+		systemMessage.Body = "Ticket unassigned"
+	}
+
+	if req.Note != "" {
+		systemMessage.Body += fmt.Sprintf("\nNote: %s", req.Note)
+	}
+
+	err = s.messageRepo.Create(ctx, systemMessage)
+	if err != nil {
+		// Log error but don't fail the reassignment
+		log.Printf("Failed to create system message for ticket reassignment: %v", err)
+	}
+
+	return ticket, nil
 }

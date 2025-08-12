@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Search, MoreHorizontal, Clock, User, AlertCircle, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { apiClient, Ticket, CreateTicketRequest } from '../lib/api'
 
 const statusColors = {
@@ -18,6 +19,7 @@ const priorityColors = {
 }
 
 export const TicketsPage: React.FC = () => {
+  const navigate = useNavigate()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -186,7 +188,11 @@ export const TicketsPage: React.FC = () => {
         ) : (
           <div className="divide-y divide-border">
             {filteredTickets.map((ticket) => (
-              <div key={ticket.id} className="p-4 hover:bg-accent/50 transition-colors">
+              <div 
+                key={ticket.id} 
+                className="p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => navigate(`/tickets/${ticket.id}`)}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-3">
@@ -211,7 +217,13 @@ export const TicketsPage: React.FC = () => {
                       <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <button className="ml-4 p-1 hover:bg-accent rounded">
+                  <button 
+                    className="ml-4 p-1 hover:bg-accent rounded"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // TODO: Show more actions menu
+                    }}
+                  >
                     <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                   </button>
                 </div>
