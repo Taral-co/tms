@@ -61,6 +61,12 @@ export function SettingsPage() {
     smtp_username: '',
     smtp_password: '',
     smtp_encryption: 'tls',
+    imap_host: '',
+    imap_port: 993,
+    imap_username: '',
+    imap_password: '',
+    imap_encryption: 'ssl',
+    imap_folder: 'INBOX',
     from_email: '',
     from_name: '',
     enable_email_notifications: true,
@@ -958,6 +964,75 @@ export function SettingsPage() {
                 <option value="ssl">SSL</option>
                 <option value="none">None</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        {/* IMAP Configuration */}
+        <div className="border rounded-lg p-6 bg-card">
+          <h4 className="font-medium mb-4">IMAP Configuration</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">IMAP Host</label>
+              <input
+                type="text"
+                value={emailSettings.imap_host}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_host: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="imap.gmail.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">IMAP Port</label>
+              <input
+                type="number"
+                value={emailSettings.imap_port}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_port: parseInt(e.target.value) }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="993"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Username</label>
+              <input
+                type="text"
+                value={emailSettings.imap_username}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_username: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="your-email@company.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Password</label>
+              <input
+                type="password"
+                value={emailSettings.imap_password}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_password: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Encryption</label>
+              <select
+                value={emailSettings.imap_encryption}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_encryption: e.target.value as 'tls' | 'ssl' | 'none' }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
+              >
+                <option value="ssl">SSL</option>
+                <option value="tls">TLS</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Folder</label>
+              <input
+                type="text"
+                value={emailSettings.imap_folder}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_folder: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                placeholder="INBOX"
+              />
             </div>
           </div>
         </div>

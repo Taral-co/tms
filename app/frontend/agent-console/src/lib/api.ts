@@ -73,11 +73,22 @@ export interface CreateTicketRequest {
 }
 
 export interface EmailSettings {
+  // SMTP Configuration
   smtp_host: string
   smtp_port: number
   smtp_username: string
   smtp_password: string
   smtp_encryption: 'tls' | 'ssl' | 'none'
+  
+  // IMAP Configuration
+  imap_host: string
+  imap_port: number
+  imap_username: string
+  imap_password: string
+  imap_encryption: 'tls' | 'ssl' | 'none'
+  imap_folder: string
+  
+  // Email Settings
   from_email: string
   from_name: string
   enable_email_notifications: boolean

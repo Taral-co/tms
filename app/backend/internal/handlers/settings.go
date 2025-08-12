@@ -26,11 +26,22 @@ func NewSettingsHandler(settingsRepo *repo.SettingsRepository) *SettingsHandler 
 
 // EmailSettings represents email configuration
 type EmailSettings struct {
+	// SMTP Configuration
 	SMTPHost                 string `json:"smtp_host"`
 	SMTPPort                 int    `json:"smtp_port"`
 	SMTPUsername             string `json:"smtp_username"`
 	SMTPPassword             string `json:"smtp_password,omitempty"` // omit from response
 	SMTPEncryption           string `json:"smtp_encryption"`
+	
+	// IMAP Configuration
+	IMAPHost                 string `json:"imap_host"`
+	IMAPPort                 int    `json:"imap_port"`
+	IMAPUsername             string `json:"imap_username"`
+	IMAPPassword             string `json:"imap_password,omitempty"` // omit from response
+	IMAPEncryption           string `json:"imap_encryption"`
+	IMAPFolder               string `json:"imap_folder"`
+	
+	// Email Settings
 	FromEmail                string `json:"from_email"`
 	FromName                 string `json:"from_name"`
 	EnableEmailNotifications bool   `json:"enable_email_notifications"`
@@ -127,8 +138,9 @@ func (h *SettingsHandler) GetEmailSettings(c *gin.Context) {
 	var emailSettings EmailSettings
 	json.Unmarshal(settingsJSON, &emailSettings)
 
-	// Remove smtp_password from response
+	// Remove smtp_password and imap_password from response
 	emailSettings.SMTPPassword = ""
+	emailSettings.IMAPPassword = ""
 
 	c.JSON(http.StatusOK, emailSettings)
 }
@@ -149,14 +161,23 @@ func (h *SettingsHandler) UpdateEmailSettings(c *gin.Context) {
 		return
 	}
 
-	// Encrypt password if present and non-empty
+	// Encrypt passwords if present and non-empty
 	if emailSettings.SMTPPassword != "" {
 		enc, err := encrypt(emailSettings.SMTPPassword)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt password"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt SMTP password"})
 			return
 		}
 		emailSettings.SMTPPassword = enc
+	}
+
+	if emailSettings.IMAPPassword != "" {
+		enc, err := encrypt(emailSettings.IMAPPassword)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt IMAP password"})
+			return
+		}
+		emailSettings.IMAPPassword = enc
 	}
 
 	// Convert struct to map
@@ -170,8 +191,9 @@ func (h *SettingsHandler) UpdateEmailSettings(c *gin.Context) {
 		return
 	}
 
-	// Do not return password in response
+	// Do not return passwords in response
 	emailSettings.SMTPPassword = ""
+	emailSettings.IMAPPassword = ""
 	c.JSON(http.StatusOK, emailSettings)
 }
 
