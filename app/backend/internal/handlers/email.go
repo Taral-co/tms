@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/gin-gonic/gin"
@@ -55,20 +57,10 @@ type VerifyOTPRequest struct {
 
 // CreateConnector creates a new email connector
 func (h *EmailHandler) CreateConnector(c *gin.Context) {
-	tenantIDStr := c.MustGet("tenant_id").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
-		return
-	}
+	tenantID := middleware.GetTenantID(c)
 
 	// Get project ID from URL params
-	projectIDStr := c.Param("project_id")
-	projectID, err := uuid.Parse(projectIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID format"})
-		return
-	}
+	projectID := middleware.GetProjectID(c)
 
 	var req CreateConnectorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -118,6 +110,7 @@ func (h *EmailHandler) CreateConnector(c *gin.Context) {
 
 	// Save to database
 	if err := h.emailRepo.CreateConnector(c.Request.Context(), connector); err != nil {
+		fmt.Println("Failed to create connector:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create connector"})
 		return
 	}
