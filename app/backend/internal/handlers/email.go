@@ -26,22 +26,23 @@ func NewEmailHandler(emailRepo *repo.EmailRepo) *EmailHandler {
 
 // CreateConnectorRequest represents a request to create an email connector
 type CreateConnectorRequest struct {
-	Type           models.EmailConnectorType `json:"type" binding:"required"`
-	Name           string                    `json:"name" binding:"required"`
-	IMAPHost       *string                   `json:"imap_host,omitempty"`
-	IMAPPort       *int                      `json:"imap_port,omitempty"`
-	IMAPUseTLS     *bool                     `json:"imap_use_tls,omitempty"`
-	IMAPUsername   *string                   `json:"imap_username,omitempty"`
-	IMAPPassword   *string                   `json:"imap_password,omitempty"`
-	IMAPFolder     string                    `json:"imap_folder,omitempty"`
-	SMTPHost       *string                   `json:"smtp_host,omitempty"`
-	SMTPPort       *int                      `json:"smtp_port,omitempty"`
-	SMTPUseTLS     *bool                     `json:"smtp_use_tls,omitempty"`
-	SMTPUsername   *string                   `json:"smtp_username,omitempty"`
-	SMTPPassword   *string                   `json:"smtp_password,omitempty"`
-	FromName       *string                   `json:"from_name,omitempty"`
-	FromAddress    *string                   `json:"from_address,omitempty"`
-	ReplyToAddress *string                   `json:"reply_to_address,omitempty"`
+	Type             models.EmailConnectorType `json:"type" binding:"required"`
+	Name             string                    `json:"name" binding:"required"`
+	IMAPHost         *string                   `json:"imap_host,omitempty"`
+	IMAPPort         *int                      `json:"imap_port,omitempty"`
+	IMAPUseTLS       *bool                     `json:"imap_use_tls,omitempty"`
+	IMAPUsername     *string                   `json:"imap_username,omitempty"`
+	IMAPPassword     *string                   `json:"imap_password,omitempty"`
+	IMAPFolder       string                    `json:"imap_folder,omitempty"`
+	IMAPSeenStrategy *models.IMAPSeenStrategy  `json:"imap_seen_strategy,omitempty"`
+	SMTPHost         *string                   `json:"smtp_host,omitempty"`
+	SMTPPort         *int                      `json:"smtp_port,omitempty"`
+	SMTPUseTLS       *bool                     `json:"smtp_use_tls,omitempty"`
+	SMTPUsername     *string                   `json:"smtp_username,omitempty"`
+	SMTPPassword     *string                   `json:"smtp_password,omitempty"`
+	FromName         *string                   `json:"from_name,omitempty"`
+	FromAddress      *string                   `json:"from_address,omitempty"`
+	ReplyToAddress   *string                   `json:"reply_to_address,omitempty"`
 }
 
 // ValidateConnectorRequest represents a request to validate email connector
@@ -98,6 +99,13 @@ func (h *EmailHandler) CreateConnector(c *gin.Context) {
 	// Set default IMAP folder if not provided
 	if connector.IMAPFolder == "" {
 		connector.IMAPFolder = "INBOX"
+	}
+
+	// Set IMAP seen strategy - use request value or default
+	if req.IMAPSeenStrategy != nil {
+		connector.IMAPSeenStrategy = *req.IMAPSeenStrategy
+	} else {
+		connector.IMAPSeenStrategy = models.SeenStrategyMarkAfterParse
 	}
 
 	// Encrypt passwords (TODO: implement proper encryption with KMS/Vault)
@@ -228,6 +236,12 @@ func (h *EmailHandler) UpdateConnector(c *gin.Context) {
 	connector.IMAPPort = req.IMAPPort
 	connector.IMAPUseTLS = req.IMAPUseTLS
 	connector.IMAPUsername = req.IMAPUsername
+	if req.IMAPFolder != "" {
+		connector.IMAPFolder = req.IMAPFolder
+	}
+	if req.IMAPSeenStrategy != nil {
+		connector.IMAPSeenStrategy = *req.IMAPSeenStrategy
+	}
 	connector.SMTPHost = req.SMTPHost
 	connector.SMTPPort = req.SMTPPort
 	connector.SMTPUseTLS = req.SMTPUseTLS
