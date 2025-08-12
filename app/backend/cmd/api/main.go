@@ -204,6 +204,18 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			api.DELETE("/projects/:project_id", projectHandler.DeleteProject)
 		}
 
+		// Global integration endpoints (not project-scoped)
+		// {
+		// 	// Integration categories and templates
+		// 	api.GET("/integrations/categories", integrationHandler.ListIntegrationCategories)
+		// 	api.GET("/integrations/templates", integrationHandler.ListIntegrationTemplates)
+		// 	api.GET("/integrations/templates/:type", integrationHandler.GetIntegrationTemplate)
+
+		// 	// OAuth endpoints
+		// 	api.POST("/integrations/oauth/start", integrationHandler.StartOAuth)
+		// 	api.POST("/integrations/:type/oauth/callback", integrationHandler.HandleOAuthCallback)
+		// }
+
 		// Agent management endpoints
 		{
 			api.GET("/agents", agentHandler.ListAgents)
@@ -264,25 +276,35 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			// Integrations - using the available methods
 			integrations := projects.Group("/integrations")
 			{
+				// Integration categories and templates
+				integrations.GET("/categories", integrationHandler.ListIntegrationCategories)
+				integrations.GET("/templates", integrationHandler.ListIntegrationTemplates)
+				integrations.GET("/templates/:type", integrationHandler.GetIntegrationTemplate)
+
+				// OAuth endpoints
+				integrations.POST("/oauth/start", integrationHandler.StartOAuth)
+				integrations.POST("/:type/oauth/callback", integrationHandler.HandleOAuthCallback)
 				integrations.GET("", integrationHandler.ListIntegrations)
 				integrations.POST("", integrationHandler.CreateIntegration)
+				integrations.GET("/with-templates", integrationHandler.ListIntegrationsWithTemplates)
 				integrations.GET("/:integration_id", integrationHandler.GetIntegration)
 				integrations.PATCH("/:integration_id", integrationHandler.UpdateIntegration)
 				integrations.DELETE("/:integration_id", integrationHandler.DeleteIntegration)
-				integrations.POST("/:integration_id/test", integrationHandler.TestIntegration)
+				// integrations.POST("/:integration_id/test", integrationHandler.TestIntegrationConnection)
+				// integrations.GET("/:integration_id/metrics", integrationHandler.GetIntegrationMetrics)
 
 				// Integration configurations
-				integrations.POST("/:integration_id/slack", integrationHandler.CreateSlackConfiguration)
-				integrations.POST("/:integration_id/jira", integrationHandler.CreateJiraConfiguration)
-				integrations.POST("/:integration_id/calendly", integrationHandler.CreateCalendlyConfiguration)
-				integrations.POST("/:integration_id/zapier", integrationHandler.CreateZapierConfiguration)
+				// integrations.POST("/:integration_id/slack", integrationHandler.CreateSlackConfiguration)
+				// integrations.POST("/:integration_id/jira", integrationHandler.CreateJiraConfiguration)
+				// integrations.POST("/:integration_id/calendly", integrationHandler.CreateCalendlyConfiguration)
+				// integrations.POST("/:integration_id/zapier", integrationHandler.CreateZapierConfiguration)
 
 				// Webhook subscriptions
-				webhooks := integrations.Group("/:integration_id/webhooks")
-				{
-					webhooks.GET("", integrationHandler.ListWebhookSubscriptions)
-					webhooks.POST("", integrationHandler.CreateWebhookSubscription)
-				}
+				// webhooks := integrations.Group("/:integration_id/webhooks")
+				// {
+				// 	webhooks.GET("", integrationHandler.ListWebhookSubscriptions)
+				// 	webhooks.POST("", integrationHandler.CreateWebhookSubscription)
+				// }
 			}
 
 			// Email connectors and mailboxes

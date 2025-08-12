@@ -178,13 +178,58 @@ export interface AgentProject {
 export interface Integration {
   id: string
   name: string
-  type: 'email' | 'webhook' | 'api' | 'chat'
-  status: 'active' | 'inactive' | 'error'
+  type: 'slack' | 'jira' | 'calendly' | 'zapier' | 'webhook' | 'custom' | 'microsoft_teams' | 'github' | 'linear' | 'asana' | 'trello' | 'notion' | 'hubspot' | 'salesforce' | 'zendesk' | 'freshdesk' | 'intercom' | 'discord' | 'google_calendar' | 'zoom' | 'stripe' | 'shopify' | 'email' | 'api' | 'chat'
+  status: 'active' | 'inactive' | 'error' | 'configuring'
   config: Record<string, any>
+  auth_method?: 'oauth' | 'api_key' | 'none'
+  auth_data?: Record<string, any>
   tenant_id: string
   project_id: string
+  last_sync_at?: string
+  last_error?: string
   created_at: string
   updated_at: string
+}
+
+export interface IntegrationCategory {
+  id: string
+  name: string
+  display_name: string
+  description?: string
+  icon?: string
+  sort_order: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface IntegrationTemplate {
+  id: string
+  category_id: string
+  type: string
+  name: string
+  display_name: string
+  description?: string
+  logo_url?: string
+  website_url?: string
+  documentation_url?: string
+  auth_method: 'oauth' | 'api_key' | 'none'
+  config_schema: Record<string, any>
+  default_config: Record<string, any>
+  supported_events: string[]
+  is_featured: boolean
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface IntegrationCategoryWithTemplates extends IntegrationCategory {
+  templates: IntegrationTemplate[]
+}
+
+export interface IntegrationWithTemplate extends Integration {
+  template?: IntegrationTemplate
+  category?: IntegrationCategory
 }
 
 class APIClient {
@@ -512,6 +557,60 @@ class APIClient {
 
   async deleteIntegration(id: string): Promise<void> {
     await this.client.delete(`/integrations/${id}`)
+  }
+
+  // Enhanced integration endpoints
+  async getIntegrationCategories(featured?: boolean): Promise<{ categories: IntegrationCategoryWithTemplates[] }> {
+    const params = featured ? { featured: 'true' } : {}
+    const response = await this.client.get('/integrations/categories', { params })
+    return response.data
+  }
+
+  async getIntegrationTemplates(categoryId?: string, featured?: boolean): Promise<{ templates: IntegrationTemplate[] }> {
+    const params: Record<string, string> = {}
+    if (categoryId) params.category_id = categoryId
+    if (featured !== undefined) params.featured = featured.toString()
+    const response = await this.client.get('/integrations/templates', { params })
+    return response.data
+  }
+
+  async getIntegrationTemplate(type: string): Promise<IntegrationTemplate> {
+    const response: AxiosResponse<IntegrationTemplate> = await this.client.get(`/integrations/templates/${type}`)
+    return response.data
+  }
+
+  async getIntegrationsWithTemplates(type?: string, status?: string): Promise<{ integrations: IntegrationWithTemplate[] }> {
+    const params: Record<string, string> = {}
+    if (type) params.type = type
+    if (status) params.status = status
+    const response = await this.client.get('/integrations/with-templates', { params })
+    return response.data
+  }
+
+  async startOAuthFlow(integrationType: string, redirectUrl?: string): Promise<{ oauth_url: string; state: string }> {
+    const response = await this.client.post('/integrations/oauth/start', {
+      integration_type: integrationType,
+      redirect_url: redirectUrl
+    })
+    return response.data
+  }
+
+  async handleOAuthCallback(type: string, code: string, state: string): Promise<Integration> {
+    const response: AxiosResponse<Integration> = await this.client.post(`/integrations/${type}/oauth/callback`, {
+      code,
+      state
+    })
+    return response.data
+  }
+
+  async testIntegration(id: string): Promise<{ result: string; message: string }> {
+    const response = await this.client.post(`/integrations/${id}/test`)
+    return response.data
+  }
+
+  async getIntegrationMetrics(id: string): Promise<any> {
+    const response = await this.client.get(`/integrations/${id}/metrics`)
+    return response.data
   }
 
   // API Key endpoints (project-scoped)

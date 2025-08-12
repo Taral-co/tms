@@ -415,3 +415,231 @@ func (s *IntegrationService) generateWebhookSecret() string {
 	// Generate a secure random secret for webhook verification
 	return uuid.New().String()
 }
+
+// New methods for enhanced integration system
+
+// Integration Templates and Categories
+func (s *IntegrationService) ListCategoriesWithTemplates(ctx context.Context, featured *bool) ([]*models.IntegrationCategoryWithTemplates, error) {
+	return s.integrationRepo.ListCategoriesWithTemplates(ctx, featured)
+}
+
+func (s *IntegrationService) ListIntegrationTemplates(ctx context.Context, categoryID *uuid.UUID, featured *bool) ([]*models.IntegrationTemplate, error) {
+	return s.integrationRepo.ListIntegrationTemplates(ctx, categoryID, featured)
+}
+
+func (s *IntegrationService) GetIntegrationTemplateByType(ctx context.Context, integrationType models.IntegrationType) (*models.IntegrationTemplate, error) {
+	return s.integrationRepo.GetIntegrationTemplateByType(ctx, integrationType)
+}
+
+// OAuth Flow Management
+func (s *IntegrationService) StartOAuthFlow(ctx context.Context, tenantID, projectID uuid.UUID, integrationType models.IntegrationType, redirectURL *string) (string, string, error) {
+	// Generate state token for OAuth flow
+	stateToken := uuid.New().String()
+	
+	// Create OAuth flow record
+	flow := &models.OAuthFlow{
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		ProjectID:       projectID,
+		IntegrationType: integrationType,
+		StateToken:      stateToken,
+		RedirectURL:     redirectURL,
+		ExpiresAt:       time.Now().Add(15 * time.Minute), // 15 minutes expiry
+		CreatedAt:       time.Now(),
+	}
+
+	if err := s.integrationRepo.CreateOAuthFlow(ctx, flow); err != nil {
+		return "", "", fmt.Errorf("failed to create OAuth flow: %w", err)
+	}
+
+	// Generate OAuth URL based on integration type
+	oauthURL, err := s.generateOAuthURL(integrationType, stateToken, redirectURL)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate OAuth URL: %w", err)
+	}
+
+	return oauthURL, stateToken, nil
+}
+
+func (s *IntegrationService) HandleOAuthCallback(ctx context.Context, integrationType models.IntegrationType, code, state string) (*models.Integration, error) {
+	// Get OAuth flow by state token
+	flow, err := s.integrationRepo.GetOAuthFlowByState(ctx, state)
+	if err != nil {
+		return nil, fmt.Errorf("invalid or expired OAuth state: %w", err)
+	}
+
+	// Check if flow has expired
+	if time.Now().After(flow.ExpiresAt) {
+		// Clean up expired flow
+		s.integrationRepo.DeleteOAuthFlow(ctx, state)
+		return nil, fmt.Errorf("OAuth flow has expired")
+	}
+
+	// Exchange code for access token
+	authData, err := s.exchangeOAuthCode(ctx, integrationType, code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange OAuth code: %w", err)
+	}
+
+	// Get integration template for default configuration
+	template, err := s.GetIntegrationTemplateByType(ctx, integrationType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get integration template: %w", err)
+	}
+
+	// Create integration with OAuth data
+	integration := &models.Integration{
+		ID:         uuid.New(),
+		TenantID:   flow.TenantID,
+		ProjectID:  flow.ProjectID,
+		Type:       integrationType,
+		Name:       template.DisplayName,
+		Status:     models.IntegrationStatusActive,
+		Config:     template.DefaultConfig,
+		AuthMethod: models.AuthMethodOAuth,
+		AuthData:   authData,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	if err := s.integrationRepo.CreateIntegration(ctx, integration); err != nil {
+		return nil, fmt.Errorf("failed to create integration: %w", err)
+	}
+
+	// Clean up OAuth flow
+	s.integrationRepo.DeleteOAuthFlow(ctx, state)
+
+	return integration, nil
+}
+
+// Enhanced integration listing with template information
+func (s *IntegrationService) ListIntegrationsWithTemplates(ctx context.Context, tenantID, projectID uuid.UUID, integrationType *models.IntegrationType, status *models.IntegrationStatus) ([]*models.IntegrationWithTemplate, error) {
+	return s.integrationRepo.ListIntegrationsWithTemplates(ctx, tenantID, projectID, integrationType, status)
+}
+
+// Integration Metrics
+func (s *IntegrationService) GetIntegrationMetrics(ctx context.Context, tenantID, integrationID uuid.UUID) (*models.IntegrationMetrics, error) {
+	// This would typically query a metrics store or aggregate from logs
+	// For now, return a placeholder implementation
+	metrics := &models.IntegrationMetrics{
+		IntegrationID:      integrationID,
+		TotalRequests:      0,
+		SuccessfulRequests: 0,
+		FailedRequests:     0,
+		AverageLatencyMs:   0.0,
+		ErrorRate:          0.0,
+	}
+
+	// TODO: Implement actual metrics collection from webhook logs, sync logs, etc.
+	return metrics, nil
+}
+
+// OAuth helper methods
+func (s *IntegrationService) generateOAuthURL(integrationType models.IntegrationType, state string, redirectURL *string) (string, error) {
+	switch integrationType {
+	case models.IntegrationTypeSlack:
+		return s.generateSlackOAuthURL(state, redirectURL), nil
+	case models.IntegrationTypeJira:
+		return s.generateJiraOAuthURL(state, redirectURL), nil
+	case models.IntegrationTypeGitHub:
+		return s.generateGitHubOAuthURL(state, redirectURL), nil
+	case models.IntegrationTypeLinear:
+		return s.generateLinearOAuthURL(state, redirectURL), nil
+	case models.IntegrationTypeCalendly:
+		return s.generateCalendlyOAuthURL(state, redirectURL), nil
+	default:
+		return "", fmt.Errorf("OAuth not supported for integration type: %s", integrationType)
+	}
+}
+
+func (s *IntegrationService) exchangeOAuthCode(ctx context.Context, integrationType models.IntegrationType, code string) (models.JSONMap, error) {
+	switch integrationType {
+	case models.IntegrationTypeSlack:
+		return s.exchangeSlackOAuthCode(ctx, code)
+	case models.IntegrationTypeJira:
+		return s.exchangeJiraOAuthCode(ctx, code)
+	case models.IntegrationTypeGitHub:
+		return s.exchangeGitHubOAuthCode(ctx, code)
+	case models.IntegrationTypeLinear:
+		return s.exchangeLinearOAuthCode(ctx, code)
+	case models.IntegrationTypeCalendly:
+		return s.exchangeCalendlyOAuthCode(ctx, code)
+	default:
+		return nil, fmt.Errorf("OAuth not supported for integration type: %s", integrationType)
+	}
+}
+
+// Provider-specific OAuth URL generators (placeholder implementations)
+func (s *IntegrationService) generateSlackOAuthURL(state string, redirectURL *string) string {
+	// TODO: Implement actual Slack OAuth URL generation
+	return fmt.Sprintf("https://slack.com/oauth/v2/authorize?client_id=CLIENT_ID&scope=chat:write,channels:read&state=%s", state)
+}
+
+func (s *IntegrationService) generateJiraOAuthURL(state string, redirectURL *string) string {
+	// TODO: Implement actual Jira OAuth URL generation
+	return fmt.Sprintf("https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=CLIENT_ID&scope=read:jira-work&state=%s", state)
+}
+
+func (s *IntegrationService) generateGitHubOAuthURL(state string, redirectURL *string) string {
+	// TODO: Implement actual GitHub OAuth URL generation
+	return fmt.Sprintf("https://github.com/login/oauth/authorize?client_id=CLIENT_ID&scope=repo,issues&state=%s", state)
+}
+
+func (s *IntegrationService) generateLinearOAuthURL(state string, redirectURL *string) string {
+	// TODO: Implement actual Linear OAuth URL generation
+	return fmt.Sprintf("https://linear.app/oauth/authorize?client_id=CLIENT_ID&scope=read,write&state=%s", state)
+}
+
+func (s *IntegrationService) generateCalendlyOAuthURL(state string, redirectURL *string) string {
+	// TODO: Implement actual Calendly OAuth URL generation
+	return fmt.Sprintf("https://auth.calendly.com/oauth/authorize?client_id=CLIENT_ID&scope=default&state=%s", state)
+}
+
+// Provider-specific OAuth code exchange (placeholder implementations)
+func (s *IntegrationService) exchangeSlackOAuthCode(ctx context.Context, code string) (models.JSONMap, error) {
+	// TODO: Implement actual Slack OAuth token exchange
+	return models.JSONMap{
+		"access_token": "xoxb-example-token",
+		"team_id":      "T1234567890",
+		"team_name":    "Example Team",
+		"bot_user_id":  "U1234567890",
+	}, nil
+}
+
+func (s *IntegrationService) exchangeJiraOAuthCode(ctx context.Context, code string) (models.JSONMap, error) {
+	// TODO: Implement actual Jira OAuth token exchange
+	return models.JSONMap{
+		"access_token":  "example-access-token",
+		"refresh_token": "example-refresh-token",
+		"expires_in":    3600,
+		"site_url":      "https://example.atlassian.net",
+	}, nil
+}
+
+func (s *IntegrationService) exchangeGitHubOAuthCode(ctx context.Context, code string) (models.JSONMap, error) {
+	// TODO: Implement actual GitHub OAuth token exchange
+	return models.JSONMap{
+		"access_token": "gho_example-token",
+		"token_type":   "bearer",
+		"scope":        "repo,issues",
+	}, nil
+}
+
+func (s *IntegrationService) exchangeLinearOAuthCode(ctx context.Context, code string) (models.JSONMap, error) {
+	// TODO: Implement actual Linear OAuth token exchange
+	return models.JSONMap{
+		"access_token": "lin_api_example-token",
+		"token_type":   "Bearer",
+		"expires_in":   86400,
+	}, nil
+}
+
+func (s *IntegrationService) exchangeCalendlyOAuthCode(ctx context.Context, code string) (models.JSONMap, error) {
+	// TODO: Implement actual Calendly OAuth token exchange
+	return models.JSONMap{
+		"access_token":  "example-access-token",
+		"refresh_token": "example-refresh-token",
+		"expires_in":    3600,
+		"owner":         "https://api.calendly.com/users/AAAAAAAAAAAAAAAA",
+	}, nil
+}

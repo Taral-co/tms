@@ -1,4 +1,6 @@
 export { DashboardPage } from './DashboardPage'
-export { LoginPage } from './LoginPageNew'
+export { LoginPage } from './LoginPage'
 export { TicketsPage } from './TicketsPage'
 export { InboxPage } from './InboxPage'
+export { IntegrationsPage } from './IntegrationsPage'
+export { SettingsPage } from './SettingsPage'
