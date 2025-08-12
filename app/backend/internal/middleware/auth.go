@@ -319,6 +319,16 @@ func GetAgentID(c *gin.Context) uuid.UUID {
 	panic(err)
 }
 
+func GetProjectID(c *gin.Context) uuid.UUID {
+	if projectID, exists := c.Params.Get("project_id"); exists {
+		projectUUID, _ := uuid.Parse(projectID)
+		return projectUUID
+	}
+	// raise error
+	err := errors.New("project ID not found")
+	panic(err)
+}
+
 func GetEmail(c *gin.Context) uuid.UUID {
 	if email, exists := c.Get("email"); exists {
 		if id, ok := email.(string); ok {

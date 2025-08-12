@@ -62,6 +62,7 @@ func main() {
 	settingsRepo := repo.NewSettingsRepository(database.DB.DB)
 	tenantRepo := repo.NewTenantRepository(database.DB.DB)
 	emailInboxRepo := repo.NewEmailInboxRepository(database.DB.DB)
+	domainValidationRepo := repo.NewDomainValidationRepo(database.DB)
 
 	// Initialize mail service
 	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -77,6 +78,7 @@ func main() {
 	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
 	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo)
+	domainValidationService := service.NewDomainValidationService(domainValidationRepo, mailService)
 
 	// Integration services
 	webhookService := service.NewWebhookService(integrationRepo)
@@ -101,9 +103,10 @@ func main() {
 	apiKeyHandler := handlers.NewApiKeyHandler(apiKeyRepo)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
 	tenantHandler := handlers.NewTenantHandler(tenantService)
+	domainValidationHandler := handlers.NewDomainValidationHandler(domainValidationService)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler)
 
 	// Start background services
 	if cfg.Email.EnableEmailToTicket {
@@ -150,7 +153,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler, domainNameHandler *handlers.DomainNameHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -348,6 +351,15 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 					inbox.POST("/:email_id/reply", emailInboxHandler.ReplyToEmail)
 					inbox.POST("/:email_id/mark-read", emailInboxHandler.MarkAsRead)
 					inbox.POST("/sync", emailInboxHandler.SyncEmails)
+				}
+
+				// Domain validation
+				domains := email.Group("/domains")
+				{
+					domains.GET("", domainNameHandler.ListDomainNames)
+					domains.POST("", domainNameHandler.CreateDomainName)
+					domains.POST("/:domain_id/verify", domainNameHandler.VerifyDomain)
+					domains.DELETE("/:domain_id", domainNameHandler.DeleteDomainName)
 				}
 			}
 		}

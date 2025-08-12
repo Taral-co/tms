@@ -95,6 +95,22 @@ export interface EmailSettings {
   enable_email_to_ticket: boolean
 }
 
+export interface DomainValidation {
+  id: string
+  domain: string
+  validation_method: 'email_otp' | 'dns_txt' | 'file_upload'
+  validation_status: 'pending' | 'verified' | 'failed'
+  validation_token?: string
+  verification_proof?: string
+  dns_record_name?: string
+  dns_record_value?: string
+  file_name?: string
+  file_content?: string
+  verified_at?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface BrandingSettings {
   company_name: string
   logo_url: string
@@ -889,6 +905,26 @@ class APIClient {
 
   async deleteEmailMailbox(id: string): Promise<void> {
     await this.client.delete(`/email/mailboxes/${id}`)
+  }
+
+  // Domain Validation endpoints
+  async getDomainValidations(): Promise<DomainValidation[]> {
+    const response: AxiosResponse<{ domains: DomainValidation[] }> = await this.client.get(`/email/domains`)
+    return response.data.domains
+  }
+
+  async createDomainValidation(data: { domain: string; }): Promise<DomainValidation> {
+    const response: AxiosResponse<DomainValidation> = await this.client.post(`/email/domains`, data)
+    return response.data
+  }
+
+  async verifyDomainValidation(domainId: string, data: { proof: string }): Promise<{ success: boolean; message: string }> {
+    const response: AxiosResponse<{ success: boolean; message: string }> = await this.client.post(`/email/domains/${domainId}/verify`, data)
+    return response.data
+  }
+
+  async deleteDomainValidation(projectId: string, domainId: string): Promise<void> {
+    await this.client.delete(`/projects/${projectId}/email/domains/${domainId}`)
   }
 }
 

@@ -34,7 +34,6 @@ CREATE TABLE email_domain_validations (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     domain TEXT NOT NULL,
     validation_token TEXT NOT NULL,
-    validation_method TEXT NOT NULL CHECK (validation_method IN ('email_otp', 'dns_txt', 'file_upload')),
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'verified', 'failed', 'expired')),
     verified_at TIMESTAMPTZ,
     expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours',

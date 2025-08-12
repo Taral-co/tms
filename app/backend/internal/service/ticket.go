@@ -2,27 +2,26 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
-	"math/big"
 	"time"
 
 	"github.com/bareuptime/tms/internal/db"
 	"github.com/bareuptime/tms/internal/mail"
 	"github.com/bareuptime/tms/internal/rbac"
 	"github.com/bareuptime/tms/internal/repo"
+	"github.com/bareuptime/tms/internal/util"
 	"github.com/google/uuid"
 )
 
 // TicketService handles ticket operations
 type TicketService struct {
-	ticketRepo   repo.TicketRepository
-	customerRepo repo.CustomerRepository
-	agentRepo    repo.AgentRepository
-	messageRepo  repo.TicketMessageRepository
-	rbacService  *rbac.Service
-	mailService  *mail.Service
+	ticketRepo    repo.TicketRepository
+	customerRepo  repo.CustomerRepository
+	agentRepo     repo.AgentRepository
+	messageRepo   repo.TicketMessageRepository
+	rbacService   *rbac.Service
+	mailService   *mail.Service
 	publicService *PublicService
 }
 
@@ -427,10 +426,10 @@ func (s *TicketService) ReassignTicket(ctx context.Context, tenantID, projectID,
 
 // CustomerValidationResult represents the result of customer validation attempt
 type CustomerValidationResult struct {
-	Success      bool   `json:"success"`
-	Message      string `json:"message"`
+	Success        bool   `json:"success"`
+	Message        string `json:"message"`
 	SMTPConfigured bool   `json:"smtp_configured"`
-	OTPSent      bool   `json:"otp_sent,omitempty"`
+	OTPSent        bool   `json:"otp_sent,omitempty"`
 }
 
 // MagicLinkResult represents the result of magic link send attempt
@@ -471,7 +470,7 @@ func (s *TicketService) SendCustomerValidationOTP(ctx context.Context, tenantID,
 	}
 
 	// Generate 6-digit OTP
-	otp, err := generateOTP()
+	otp, err := util.GenerateOTP(6)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OTP: %w", err)
 	}
@@ -535,17 +534,4 @@ func (s *TicketService) SendMagicLinkToCustomer(ctx context.Context, tenantID, p
 	result.Message = fmt.Sprintf("Magic link sent to %s", customer.Email)
 
 	return result, nil
-}
-
-// generateOTP generates a 6-digit OTP
-func generateOTP() (string, error) {
-	max := big.NewInt(999999)
-	min := big.NewInt(100000)
-	
-	n, err := rand.Int(rand.Reader, max.Sub(max, min))
-	if err != nil {
-		return "", err
-	}
-	
-	return fmt.Sprintf("%06d", n.Add(n, min).Int64()), nil
 }

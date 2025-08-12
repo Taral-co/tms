@@ -322,20 +322,19 @@ type EmailSyncStatus struct {
 	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-// EmailDomainValidation represents domain ownership validation
-type EmailDomainValidation struct {
-	ID               uuid.UUID  `json:"id" db:"id"`
-	TenantID         uuid.UUID  `json:"tenant_id" db:"tenant_id"`
-	ProjectID        uuid.UUID  `json:"project_id" db:"project_id"`
-	Domain           string     `json:"domain" db:"domain"`
-	ValidationToken  string     `json:"validation_token" db:"validation_token"`
-	ValidationMethod string     `json:"validation_method" db:"validation_method"`
-	Status           string     `json:"status" db:"status"`
-	VerifiedAt       *time.Time `json:"verified_at,omitempty" db:"verified_at"`
-	ExpiresAt        time.Time  `json:"expires_at" db:"expires_at"`
-	Metadata         JSONMap    `json:"metadata" db:"metadata"`
-	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
+// EmailDomain represents domain ownership validation
+type EmailDomain struct {
+	ID              uuid.UUID  `json:"id" db:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id" db:"tenant_id"`
+	ProjectID       uuid.UUID  `json:"project_id" db:"project_id"`
+	Domain          string     `json:"domain" db:"domain"`
+	ValidationToken string     `json:"validation_token" db:"validation_token"`
+	Status          string     `json:"status" db:"status"`
+	VerifiedAt      *time.Time `json:"verified_at,omitempty" db:"verified_at"`
+	ExpiresAt       time.Time  `json:"expires_at" db:"expires_at"`
+	Metadata        JSONMap    `json:"metadata" db:"metadata"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // SyncStatus constants
@@ -352,13 +351,6 @@ const (
 	ValidationStatusValidating = "validating"
 	ValidationStatusValidated  = "validated"
 	ValidationStatusFailed     = "failed"
-)
-
-// ValidationMethod constants
-const (
-	ValidationMethodEmailOTP   = "email_otp"
-	ValidationMethodDNSTXT     = "dns_txt"
-	ValidationMethodFileUpload = "file_upload"
 )
 
 // DomainValidationStatus constants

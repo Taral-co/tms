@@ -32,7 +32,7 @@ func NewEmailValidationService(redisService *redis.Service, mailService MailServ
 }
 
 // ValidateDomainOwnership validates email domain ownership using OTP
-func (s *EmailValidationService) ValidateDomainOwnership(ctx context.Context, tenantID, projectID uuid.UUID, fromAddress, replyToAddress string) (*models.EmailDomainValidation, error) {
+func (s *EmailValidationService) ValidateDomainOwnership(ctx context.Context, tenantID, projectID uuid.UUID, fromAddress, replyToAddress string) (*models.EmailDomain, error) {
 	// Extract domains from addresses
 	fromDomain, err := extractDomain(fromAddress)
 	if err != nil {
@@ -76,15 +76,14 @@ func (s *EmailValidationService) ValidateDomainOwnership(ctx context.Context, te
 	}
 
 	// Create domain validation record
-	validation := &models.EmailDomainValidation{
-		ID:               uuid.New(),
-		TenantID:         tenantID,
-		ProjectID:        projectID,
-		Domain:           fromDomain,
-		ValidationToken:  otp,
-		ValidationMethod: models.ValidationMethodEmailOTP,
-		Status:           models.DomainValidationStatusPending,
-		ExpiresAt:        time.Now().Add(10 * time.Minute),
+	validation := &models.EmailDomain{
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		ProjectID:       projectID,
+		Domain:          fromDomain,
+		ValidationToken: otp,
+		Status:          models.DomainValidationStatusPending,
+		ExpiresAt:       time.Now().Add(10 * time.Minute),
 		Metadata: models.JSONMap{
 			"from_address":     fromAddress,
 			"reply_to_address": replyToAddress,

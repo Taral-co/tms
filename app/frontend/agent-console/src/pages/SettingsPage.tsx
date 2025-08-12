@@ -12,12 +12,13 @@ import {
   Edit,
   Copy,
   Check,
-  X
+  X,
+  BadgeCheck
 } from 'lucide-react'
-import { apiClient, Project, Agent, EmailSettings, BrandingSettings, AutomationSettings } from '../lib/api'
+import { apiClient, Project, Agent, BrandingSettings, AutomationSettings } from '../lib/api'
 
 // Tab types for settings navigation
-type SettingsTab = 'projects' | 'roles' | 'email' | 'branding' | 'automations' | 'api-keys'
+type SettingsTab = 'projects' | 'roles' | 'domains' | 'branding' | 'automations' | 'api-keys'
 
 interface ApiKey {
   id: string
@@ -32,6 +33,27 @@ interface AgentProject {
   id: string
   name: string
   role: string
+}
+
+interface DnsMetaData {
+  dns_record: string
+  dns_value: string
+}
+
+interface DomainValidation {
+  id: string
+  domain: string
+  status: 'pending' | 'verified' | 'failed'
+  validation_token?: string
+  metadata: DnsMetaData
+  verification_proof?: string
+  file_name?: string
+  file_content?: string
+  verified_at?: string
+  created_at: string
+  updated_at: string
+  project_id?: string
+  project_name?: string
 }
 
 export function SettingsPage() {
@@ -54,24 +76,14 @@ export function SettingsPage() {
   const [newAgentEmail, setNewAgentEmail] = useState('')
   const [newAgentPassword, setNewAgentPassword] = useState('')
   const [newAgentRole, setNewAgentRole] = useState('agent')
-  // Email settings state
-  const [emailSettings, setEmailSettings] = useState<EmailSettings>({
-    smtp_host: '',
-    smtp_port: 587,
-    smtp_username: '',
-    smtp_password: '',
-    smtp_encryption: 'tls',
-    imap_host: '',
-    imap_port: 993,
-    imap_username: '',
-    imap_password: '',
-    imap_encryption: 'ssl',
-    imap_folder: 'INBOX',
-    from_email: '',
-    from_name: '',
-    enable_email_notifications: true,
-    enable_email_to_ticket: false
-  })
+
+  // Domain validation state
+  const [domains, setDomains] = useState<DomainValidation[]>([])
+  const [showCreateDomain, setShowCreateDomain] = useState(false)
+  const [newDomainName, setNewDomainName] = useState('')
+
+  // Email settings state - REMOVED AS REQUESTED
+  // Email functionality has been moved to the inbox section
 
   // Branding state
   const [brandingSettings, setBrandingSettings] = useState<BrandingSettings>({
@@ -116,7 +128,7 @@ export function SettingsPage() {
   const tabs = [
     { id: 'projects' as SettingsTab, name: 'Projects', icon: Settings },
     { id: 'roles' as SettingsTab, name: 'Roles & Users', icon: Users },
-    { id: 'email' as SettingsTab, name: 'Email', icon: Mail },
+    { id: 'domains' as SettingsTab, name: 'Domain Validation', icon: Mail },
     { id: 'branding' as SettingsTab, name: 'Branding', icon: Palette },
     { id: 'automations' as SettingsTab, name: 'Automations', icon: Zap },
     { id: 'api-keys' as SettingsTab, name: 'API Keys', icon: Key },
@@ -159,13 +171,21 @@ export function SettingsPage() {
           }
           setAgentProjects(projectAssignments)
           break
-        case 'email':
+        case 'domains':
+          // Load projects first, then load domains from all projects
+          // const allProjects = await apiClient.getProjects()
+          // setProjects(allProjects)
+          
+          // Load domains from all projects and aggregate them
+          
           try {
-            const emailConfig = await apiClient.getEmailSettings()
-            setEmailSettings(emailConfig)
+            const projectDomains = await apiClient.getDomainValidations()
+            setDomains(projectDomains)
           } catch (err) {
-            console.log('Email settings not available, using defaults')
+            console.warn(`Failed to load domains for project`, err)
           }
+            
+          
           break
         case 'branding':
           try {
@@ -351,14 +371,92 @@ export function SettingsPage() {
     }
   }
 
-  // Email settings handlers
-  const handleSaveEmailSettings = async () => {
+  // Domain validation handlers
+  const handleCreateDomain = async () => {
+    if (!newDomainName.trim()) return
+  
+    
     try {
       setLoading(true)
-      await apiClient.updateEmailSettings(emailSettings)
-      // Show success message
-    } catch (err) {
-      setError('Failed to save email settings')
+      const newDomain = await apiClient.createDomainValidation({
+        domain: newDomainName,
+      })
+      
+      // Add project info to the new domain
+      const domainWithProject = {
+        ...newDomain,
+      }
+      
+      setDomains(prev => [...prev, domainWithProject])
+      setShowCreateDomain(false)
+      setNewDomainName('')
+      setSuccessMessage('Domain validation created successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError(`Failed to create domain validation: ${err.response?.data?.error || err.message}`)
+      setTimeout(() => setError(null), 5000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleVerifyDomain = async (domainId: string, proof: string) => {
+    // Find the domain to get its project ID
+    const domain = domains.find(d => d.id === domainId)
+    if (!domain?.project_id) {
+      setError('Domain project information not found')
+      setTimeout(() => setError(null), 5000)
+      return
+    }
+    
+    try {
+      setLoading(true)
+      await apiClient.verifyDomainValidation(domainId, { proof })
+      
+      // Reload domains from the specific project
+      const updatedDomains = await apiClient.getDomainValidations()
+      const domainsWithProject = updatedDomains.map(d => ({
+        ...d,
+        project_id: domain.project_id,
+        project_name: domain.project_name
+      }))
+      
+      // Update the domains list by replacing domains from this project
+      setDomains(prev => [
+        ...prev.filter(d => d.project_id !== domain.project_id),
+        ...domainsWithProject
+      ])
+      
+      setSuccessMessage('Domain verification submitted successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError(`Failed to verify domain: ${err.response?.data?.error || err.message}`)
+      setTimeout(() => setError(null), 5000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteDomain = async (domainId: string) => {
+    if (!confirm('Are you sure you want to delete this domain validation?')) return
+    
+    // Find the domain to get its project ID
+    const domain = domains.find(d => d.id === domainId)
+    if (!domain?.project_id) {
+      setError('Domain project information not found')
+      setTimeout(() => setError(null), 5000)
+      return
+    }
+    
+    try {
+      setLoading(true)
+      await apiClient.deleteDomainValidation(domain.project_id, domainId)
+      setDomains(prev => prev.filter(d => d.id !== domainId))
+      setSuccessMessage('Domain validation deleted successfully')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError(`Failed to delete domain: ${err.response?.data?.error || err.message}`)
+      setTimeout(() => setError(null), 5000)
     } finally {
       setLoading(false)
     }
@@ -901,246 +999,6 @@ export function SettingsPage() {
     </div>
   )
 
-  const renderEmailTab = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-foreground">Email Settings</h3>
-        <p className="text-sm text-muted-foreground">Configure email integration and notification preferences</p>
-      </div>
-
-      {/* Domain Validation Section */}
-      <div className="border rounded-lg p-6 bg-card">
-        <h4 className="font-medium mb-4 flex items-center gap-2">
-          <Mail className="w-5 h-5" />
-          Domain Validation
-        </h4>
-        <p className="text-sm text-muted-foreground mb-4">
-          Validate your email domains to enable email inbox functionality. You must have at least one validated domain before creating email inboxes.
-        </p>
-        <div className="text-center py-8">
-          <Mail className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium mb-2">Domain Validation via Email Connectors</h3>
-          <p className="text-muted-foreground mb-4">
-            Domain validation is managed through Email Connectors in the Inbox section. 
-            Create an email connector to validate domain ownership.
-          </p>
-          <button
-            onClick={() => {
-              setSearchParams({ tab: 'email' })
-              // Navigate to inbox page
-              window.location.href = '/inbox'
-            }}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Go to Email Inbox
-          </button>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        {/* SMTP Configuration */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h4 className="font-medium mb-4">SMTP Configuration</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">SMTP Host</label>
-              <input
-                type="text"
-                value={emailSettings.smtp_host}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_host: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="smtp.gmail.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">SMTP Port</label>
-              <input
-                type="number"
-                value={emailSettings.smtp_port}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_port: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="587"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Username</label>
-              <input
-                type="text"
-                value={emailSettings.smtp_username}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_username: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="your-email@company.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Password</label>
-              <input
-                type="password"
-                value={emailSettings.smtp_password}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_password: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="••••••••"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Encryption</label>
-              <select
-                value={emailSettings.smtp_encryption}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_encryption: e.target.value as 'tls' | 'ssl' | 'none' }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
-              >
-                <option value="tls">TLS</option>
-                <option value="ssl">SSL</option>
-                <option value="none">None</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* IMAP Configuration */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h4 className="font-medium mb-4">IMAP Configuration</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">IMAP Host</label>
-              <input
-                type="text"
-                value={emailSettings.imap_host}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_host: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="imap.gmail.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">IMAP Port</label>
-              <input
-                type="number"
-                value={emailSettings.imap_port}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_port: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="993"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Username</label>
-              <input
-                type="text"
-                value={emailSettings.imap_username}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_username: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="your-email@company.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Password</label>
-              <input
-                type="password"
-                value={emailSettings.imap_password}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_password: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="••••••••"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Encryption</label>
-              <select
-                value={emailSettings.imap_encryption}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_encryption: e.target.value as 'tls' | 'ssl' | 'none' }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)]"
-              >
-                <option value="ssl">SSL</option>
-                <option value="tls">TLS</option>
-                <option value="none">None</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Folder</label>
-              <input
-                type="text"
-                value={emailSettings.imap_folder}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_folder: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="INBOX"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Email Branding */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h4 className="font-medium mb-4">Email Branding</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">From Email</label>
-              <input
-                type="email"
-                value={emailSettings.from_email}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, from_email: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="support@company.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">From Name</label>
-              <input
-                type="text"
-                value={emailSettings.from_name}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, from_name: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                placeholder="Company Support"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Email Features */}
-        <div className="border rounded-lg p-6 bg-card">
-          <h4 className="font-medium mb-4">Email Features</h4>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Email Notifications</label>
-                <p className="text-xs text-muted-foreground">Send email notifications for ticket updates</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={emailSettings.enable_email_notifications}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, enable_email_notifications: e.target.checked }))}
-                className="rounded"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Email to Ticket</label>
-                <p className="text-xs text-muted-foreground">Convert incoming emails to tickets</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={emailSettings.enable_email_to_ticket}
-                onChange={(e) => setEmailSettings(prev => ({ ...prev, enable_email_to_ticket: e.target.checked }))}
-                className="rounded"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex space-x-3">
-          <button 
-            onClick={handleSaveEmailSettings}
-            disabled={loading}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-          >
-            {loading ? 'Saving...' : 'Save Email Settings'}
-          </button>
-          <button className="px-4 py-2 border rounded-md hover:bg-accent">
-            Test Connection
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderBrandingTab = () => (
     <div className="space-y-6">
       <div>
@@ -1615,14 +1473,180 @@ export function SettingsPage() {
     </div>
   )
 
+  const renderDomainsTab = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium text-foreground">Domain Validation</h3>
+          <p className="text-sm text-muted-foreground">Manage and verify domains for your organization</p>
+        </div>
+        <button
+          onClick={() => setShowCreateDomain(true)}
+          className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Domain</span>
+        </button>
+      </div>
+
+      {/* Create Domain Form */}
+      {showCreateDomain && (
+        <div className="border rounded-lg p-4 bg-card">
+          <h4 className="font-medium mb-4">Add New Domain Validation</h4>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Domain Name</label>
+              <div className="flex space-x-3">
+                <input
+                  type="text"
+                  value={newDomainName}
+                  onChange={(e) => setNewDomainName(e.target.value)}
+                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
+                  placeholder="example.com"
+                />
+                <button
+                  onClick={handleCreateDomain}
+                  disabled={loading || !newDomainName.trim()}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {loading ? 'Creating...' : 'Create Domain Validation'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCreateDomain(false)
+                    setNewDomainName('')
+                  }}
+                  className="px-4 py-2 border rounded-md hover:bg-accent"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Domains List */}
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Domain
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Created
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-background divide-y divide-border">
+            {domains.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
+                  No domain validations found. Add your first domain to get started.
+                </td>
+              </tr>
+            ) : (
+              domains.map((domain) => (
+                <tr key={domain.id} className="hover:bg-muted/50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-foreground">{domain.domain}</div>
+                    {domain.verified_at && (
+                      <div className="text-xs text-muted-foreground">
+                        Verified: {new Date(domain.verified_at).toLocaleDateString()}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      domain.status === 'verified' ? 'bg-green-100 text-green-800' : 
+                      domain.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {domain.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                    {new Date(domain.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button 
+                        onClick={() => handleDeleteDomain(domain.id)}
+                        className="text-destructive hover:text-destructive/80 p-1 rounded focus-visible-ring"
+                        title="Delete Domain"
+                        aria-label={`Delete ${domain.domain}`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Validation Instructions for Selected Domain */}
+      {domains.some(domain => domain.status === 'pending') && (
+        <div className="border rounded-lg p-4 bg-card">
+          <h4 className="font-medium mb-4">Validation Instructions</h4>
+          <div className="space-y-4">
+            {domains.filter(domain => domain.status === 'pending').map((domain) => (
+              <div key={domain.id} className="border rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <h5 className="font-medium text-foreground">{domain.domain}</h5>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    Pending Verification
+                  </span>
+                </div>
+                
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Add this TXT record to your DNS configuration:
+                    </p>
+                    <div className="flex items-stretch space-x-3">
+                      <div className="bg-muted p-3 rounded-md font-mono text-sm flex-[6]">
+                        <div><strong>Name:</strong> {domain.metadata.dns_record}</div>
+                        <div><strong>Value:</strong> {domain.metadata.dns_value}</div>
+                      </div>
+                      <div className=" p-3 rounded-md font-mono text-sm flex-[1] h-full">
+                        <button
+                          onClick={() => handleVerifyDomain(domain.id, domain.validation_token || '')}
+                          disabled={loading}
+                          className="px-4 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap h-full flex items-center justify-center"
+                        >
+                          {loading ? 'Verifying...' : 'Verify Domain'}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      DNS changes may take up to 24 hours to propagate. Click verify once the record is added.
+                    </p>
+                  </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'projects':
         return renderProjectsTab()
       case 'roles':
         return renderRolesTab()
-      case 'email':
-        return renderEmailTab()
+      case 'domains':
+        return renderDomainsTab()
       case 'branding':
         return renderBrandingTab()
       case 'automations':
