@@ -13,9 +13,8 @@ import {
   Copy,
   Check,
   X,
-  BadgeCheck
 } from 'lucide-react'
-import { apiClient, Project, Agent, BrandingSettings, AutomationSettings } from '../lib/api'
+import { apiClient, Project, Agent, BrandingSettings, AutomationSettings, DomainValidation } from '../lib/api'
 
 // Tab types for settings navigation
 type SettingsTab = 'projects' | 'roles' | 'domains' | 'branding' | 'automations' | 'api-keys'
@@ -40,21 +39,7 @@ interface DnsMetaData {
   dns_value: string
 }
 
-interface DomainValidation {
-  id: string
-  domain: string
-  status: 'pending' | 'verified' | 'failed'
-  validation_token?: string
-  metadata: DnsMetaData
-  verification_proof?: string
-  file_name?: string
-  file_content?: string
-  verified_at?: string
-  created_at: string
-  updated_at: string
-  project_id?: string
-  project_name?: string
-}
+// DomainValidation type is now imported from apiClient
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -401,30 +386,16 @@ export function SettingsPage() {
   }
 
   const handleVerifyDomain = async (domainId: string, proof: string) => {
-    // Find the domain to get its project ID
-    const domain = domains.find(d => d.id === domainId)
-    if (!domain?.project_id) {
-      setError('Domain project information not found')
-      setTimeout(() => setError(null), 5000)
-      return
-    }
-    
     try {
       setLoading(true)
       await apiClient.verifyDomainValidation(domainId, { proof })
       
       // Reload domains from the specific project
       const updatedDomains = await apiClient.getDomainValidations()
-      const domainsWithProject = updatedDomains.map(d => ({
-        ...d,
-        project_id: domain.project_id,
-        project_name: domain.project_name
-      }))
       
       // Update the domains list by replacing domains from this project
-      setDomains(prev => [
-        ...prev.filter(d => d.project_id !== domain.project_id),
-        ...domainsWithProject
+      setDomains([
+        ...updatedDomains
       ])
       
       setSuccessMessage('Domain verification submitted successfully')
@@ -438,19 +409,10 @@ export function SettingsPage() {
   }
 
   const handleDeleteDomain = async (domainId: string) => {
-    if (!confirm('Are you sure you want to delete this domain validation?')) return
-    
-    // Find the domain to get its project ID
-    const domain = domains.find(d => d.id === domainId)
-    if (!domain?.project_id) {
-      setError('Domain project information not found')
-      setTimeout(() => setError(null), 5000)
-      return
-    }
-    
+    if (!confirm('Are you sure you want to delete this domain validation?')) return    
     try {
       setLoading(true)
-      await apiClient.deleteDomainValidation(domain.project_id, domainId)
+      await apiClient.deleteDomainValidation(domainId)
       setDomains(prev => prev.filter(d => d.id !== domainId))
       setSuccessMessage('Domain validation deleted successfully')
       setTimeout(() => setSuccessMessage(null), 3000)

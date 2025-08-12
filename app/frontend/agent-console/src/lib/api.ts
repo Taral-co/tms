@@ -95,20 +95,25 @@ export interface EmailSettings {
   enable_email_to_ticket: boolean
 }
 
+export interface DnsMetaData {
+  dns_record: string
+  dns_value: string
+}
+
 export interface DomainValidation {
   id: string
   domain: string
-  validation_method: 'email_otp' | 'dns_txt' | 'file_upload'
-  validation_status: 'pending' | 'verified' | 'failed'
+  status: 'pending' | 'verified' | 'failed'
   validation_token?: string
+  metadata: DnsMetaData
   verification_proof?: string
-  dns_record_name?: string
-  dns_record_value?: string
   file_name?: string
   file_content?: string
   verified_at?: string
   created_at: string
   updated_at: string
+  project_id?: string
+  project_name?: string
 }
 
 export interface BrandingSettings {
@@ -923,8 +928,8 @@ class APIClient {
     return response.data
   }
 
-  async deleteDomainValidation(projectId: string, domainId: string): Promise<void> {
-    await this.client.delete(`/projects/${projectId}/email/domains/${domainId}`)
+  async deleteDomainValidation(domainId: string): Promise<void> {
+    await this.client.delete(`/email/domains/${domainId}`)
   }
 }
 
