@@ -52,15 +52,50 @@ func main() {
 }
 
 func runMigrations(database *db.DB) error {
+	// Create migration tracking table if it doesn't exist
+	_, err := database.Exec(`
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version VARCHAR(255) PRIMARY KEY,
+			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create migration tracking table: %w", err)
+	}
+
 	// This is a simple approach - in production you might want to use
 	// a proper migration library like golang-migrate
 	migrations := []string{
 		"migrations/001_initial_schema.sql",
 		"migrations/002_enable_rls.sql",
 		"migrations/003_seed_data.sql",
+		"migrations/004_email_subsystem.sql",
+		"migrations/005_integrations_subsystem.sql",
+		"migrations/006_advanced_features_subsystem.sql",
+		"migrations/007_add_customer_name_to_tickets.sql",
+		"migrations/008_api_keys_table.sql",
+		"migrations/010_convert_roles_to_enum.sql",
+		"migrations/011_tenant_settings.sql",
+		"migrations/012_enhanced_integrations.sql",
+		"migrations/013_email_inbox_system.sql",
 	}
 
 	for _, migration := range migrations {
+		// Check if migration has already been applied
+		var count int
+		migrationName := strings.TrimPrefix(migration, "migrations/")
+		migrationName = strings.TrimSuffix(migrationName, ".sql")
+		
+		err := database.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = $1", migrationName).Scan(&count)
+		if err != nil {
+			return fmt.Errorf("failed to check migration status for %s: %w", migrationName, err)
+		}
+
+		if count > 0 {
+			fmt.Printf("Skipping already applied migration: %s\n", migration)
+			continue
+		}
+
 		fmt.Printf("Running migration: %s\n", migration)
 		content, err := os.ReadFile(migration)
 		if err != nil {
@@ -76,6 +111,12 @@ func runMigrations(database *db.DB) error {
 		_, err = database.Exec(sql)
 		if err != nil {
 			return fmt.Errorf("failed to execute migration %s: %w", migration, err)
+		}
+
+		// Record migration as applied
+		_, err = database.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", migrationName)
+		if err != nil {
+			return fmt.Errorf("failed to record migration %s: %w", migrationName, err)
 		}
 	}
 

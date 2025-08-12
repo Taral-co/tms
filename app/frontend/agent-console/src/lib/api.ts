@@ -172,6 +172,49 @@ export interface MagicLinkResult {
   link_sent?: boolean
 }
 
+export interface EmailInbox {
+  id: string
+  message_id: string
+  from_address: string
+  from_name?: string
+  to_addresses: string[]
+  subject: string
+  snippet?: string
+  body_text?: string
+  body_html?: string
+  sent_at: string
+  received_at: string
+  is_read: boolean
+  is_reply: boolean
+  has_attachments: boolean
+  attachment_count: number
+  is_converted_to_ticket: boolean
+  ticket_id?: string
+  mailbox_address: string
+}
+
+export interface EmailInboxResponse {
+  emails: EmailInbox[]
+  total: number
+}
+
+export interface EmailFilter {
+  search?: string
+  mailbox?: string
+  is_read?: boolean
+  is_reply?: boolean
+  has_attachments?: boolean
+  from_date?: string
+  to_date?: string
+  page?: number
+  limit?: number
+}
+
+export interface ConvertToTicketRequest {
+  type: string
+  priority: string
+}
+
 export interface ApiKey {
   id: string
   name: string
@@ -302,7 +345,7 @@ class APIClient {
         else if (projectId && (
           config.url.startsWith('/tickets') || 
           config.url.startsWith('/integrations') ||
-          config.url.startsWith('/integrations') || 
+          config.url.startsWith('/email') || 
           config.url.startsWith('/settings') ||
           config.url.startsWith('/analytics')
         ) && !config.url.includes('/tenants/')) {
@@ -666,6 +709,39 @@ class APIClient {
 
   async deleteApiKey(id: string): Promise<void> {
     await this.client.delete(`/api-keys/${id}`)
+  }
+
+  // Email Inbox endpoints  
+  async getEmailInbox(filter: EmailFilter = {}): Promise<EmailInboxResponse> {
+    const params = new URLSearchParams()
+    if (filter.search) params.append('search', filter.search)
+    if (filter.mailbox) params.append('mailbox', filter.mailbox)
+    if (filter.is_read !== undefined) params.append('is_read', filter.is_read.toString())
+    if (filter.is_reply !== undefined) params.append('is_reply', filter.is_reply.toString())
+    if (filter.has_attachments !== undefined) params.append('has_attachments', filter.has_attachments.toString())
+    if (filter.from_date) params.append('from_date', filter.from_date)
+    if (filter.to_date) params.append('to_date', filter.to_date)
+    if (filter.page) params.append('page', filter.page.toString())
+    if (filter.limit) params.append('limit', filter.limit.toString())
+
+    const response: AxiosResponse<EmailInboxResponse> = await this.client.get(`/email/inbox?${params}`)
+    return response.data
+  }
+
+  async syncEmails(): Promise<void> {
+    await this.client.post('/email/inbox/sync')
+  }
+
+  async convertEmailToTicket(emailId: string, ticketData: ConvertToTicketRequest): Promise<void> {
+    await this.client.post(`/email/inbox/${emailId}/convert-to-ticket`, ticketData)
+  }
+
+  async markEmailAsRead(emailId: string): Promise<void> {
+    await this.client.post(`/email/inbox/${emailId}/mark-read`)
+  }
+
+  async replyToEmail(emailId: string, body: string): Promise<void> {
+    await this.client.post(`/email/inbox/${emailId}/reply`, { body })
   }
 
   // Analytics endpoints

@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo } from 'react'
-import { Search, Filter, MoreHorizontal, Archive, Star, Trash2 } from 'lucide-react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { Search, Filter, MoreHorizontal, Archive, Star, Trash2, RefreshCw, TicketCheck } from 'lucide-react'
+import { apiClient, EmailInbox, EmailFilter, ConvertToTicketRequest } from '../lib/api'
 
 // Temporary simplified UI components since @tms/shared may have build issues
 const Button = ({ children, variant = 'default', size = 'default', className = '', ...props }: any) => (
@@ -37,143 +38,133 @@ const Badge = ({ children, variant = 'default', className = '' }: any) => (
   </span>
 )
 
-interface Ticket {
-  id: string
-  subject: string
-  customer: string
-  status: 'open' | 'pending' | 'resolved' | 'closed'
-  priority: 'low' | 'normal' | 'high' | 'urgent'
-  assignee?: string
-  lastMessage: string
-  updatedAt: string
-  unread: boolean
-}
-
-const MOCK_TICKETS: Ticket[] = [
-  {
-    id: 'T-001',
-    subject: 'Cannot access dashboard after login',
-    customer: 'John Smith',
-    status: 'open',
-    priority: 'high',
-    assignee: 'Alice Johnson',
-    lastMessage: 'I tried clearing cache but still having issues...',
-    updatedAt: '2024-01-20T10:30:00Z',
-    unread: true
-  },
-  {
-    id: 'T-002',
-    subject: 'Feature request: Export functionality',
-    customer: 'Sarah Wilson',
-    status: 'pending',
-    priority: 'normal',
-    assignee: 'Bob Chen',
-    lastMessage: 'We will review this request with the product team',
-    updatedAt: '2024-01-20T09:15:00Z',
-    unread: false
-  },
-  {
-    id: 'T-003',
-    subject: 'Payment processing error',
-    customer: 'Mike Davis',
-    status: 'open',
-    priority: 'urgent',
-    assignee: 'Alice Johnson',
-    lastMessage: 'Transaction failed with error code 500',
-    updatedAt: '2024-01-20T08:45:00Z',
-    unread: true
-  },
-  {
-    id: 'T-004',
-    subject: 'Website loading slowly',
-    customer: 'Emma Clark',
-    status: 'resolved',
-    priority: 'normal',
-    assignee: 'Charlie Brown',
-    lastMessage: 'Issue has been resolved by optimizing database queries',
-    updatedAt: '2024-01-19T16:20:00Z',
-    unread: false
-  },
-  {
-    id: 'T-005',
-    subject: 'Mobile app crashes on startup',
-    customer: 'David Lee',
-    status: 'open',
-    priority: 'urgent',
-    assignee: 'Alice Johnson',
-    lastMessage: 'Happening consistently on iOS 17.2',
-    updatedAt: '2024-01-20T11:45:00Z',
-    unread: true
-  }
-]
-
-const getStatusVariant = (status: string) => {
-  switch (status) {
-    case 'open': return 'secondary'
-    case 'pending': return 'warning'
-    case 'resolved': return 'success'
-    case 'closed': return 'outline'
-    default: return 'default'
-  }
-}
-
-const getPriorityVariant = (priority: string) => {
-  switch (priority) {
-    case 'urgent': return 'destructive'
-    case 'high': return 'warning'
-    case 'normal': return 'secondary'
-    case 'low': return 'outline'
-    default: return 'default'
-  }
-}
-
 export function InboxPage() {
-  const [selectedTickets, setSelectedTickets] = useState<Set<string>>(new Set())
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterRead, setFilterRead] = useState<string>('all') // 'all', 'read', 'unread'
+  const [emails, setEmails] = useState<EmailInbox[]>([])
+  const [loading, setLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [total, setTotal] = useState(0)
+  
+  // These would normally come from app context/router - no longer needed since API client handles it
+  // const tenantId = 'tenant-1' // TODO: Get from context
+  // const projectId = 'project-1' // TODO: Get from context
 
-  const filteredTickets = useMemo(() => {
-    return MOCK_TICKETS.filter(ticket => {
-      const matchesSearch = ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           ticket.customer.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesFilter = filterStatus === 'all' || ticket.status === filterStatus
+  const filteredEmails = useMemo(() => {
+    return emails.filter(email => {
+      const matchesSearch = email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           email.from_address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           (email.from_name && email.from_name.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchesFilter = filterRead === 'all' || 
+                           (filterRead === 'read' && email.is_read) ||
+                           (filterRead === 'unread' && !email.is_read)
       return matchesSearch && matchesFilter
     })
-  }, [searchQuery, filterStatus])
+  }, [emails, searchQuery, filterRead])
 
-  const handleSelectTicket = useCallback((ticketId: string) => {
-    setSelectedTickets(prev => {
+  const loadEmails = useCallback(async () => {
+    setLoading(true)
+    try {
+      const filter: EmailFilter = {
+        search: searchQuery || undefined,
+        is_read: filterRead === 'all' ? undefined : filterRead === 'read',
+        limit: 50
+      }
+      const result = await apiClient.getEmailInbox(filter)
+      setEmails(result.emails)
+      setTotal(result.total)
+    } catch (error) {
+      console.error('Failed to load emails:', error)
+      // In a real app, you'd show a toast/notification
+    } finally {
+      setLoading(false)
+    }
+  }, [searchQuery, filterRead])
+
+  const handleSyncEmails = useCallback(async () => {
+    setSyncing(true)
+    try {
+      await apiClient.syncEmails()
+      await loadEmails() // Reload emails after sync
+    } catch (error) {
+      console.error('Failed to sync emails:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }, [loadEmails])
+
+  const handleConvertToTicket = useCallback(async (emailId: string) => {
+    try {
+      await apiClient.convertEmailToTicket(emailId, {
+        type: 'support',
+        priority: 'normal'
+      })
+      await loadEmails() // Reload to update the converted status
+    } catch (error) {
+      console.error('Failed to convert email to ticket:', error)
+    }
+  }, [loadEmails])
+
+  const handleMarkAsRead = useCallback(async (emailId: string) => {
+    try {
+      await apiClient.markEmailAsRead(emailId)
+      await loadEmails() // Reload to update read status
+    } catch (error) {
+      console.error('Failed to mark email as read:', error)
+    }
+  }, [loadEmails])
+
+  useEffect(() => {
+    loadEmails()
+  }, [loadEmails])
+
+  const handleSelectEmail = useCallback((emailId: string) => {
+    setSelectedEmails(prev => {
       const newSet = new Set(prev)
-      if (newSet.has(ticketId)) {
-        newSet.delete(ticketId)
+      if (newSet.has(emailId)) {
+        newSet.delete(emailId)
       } else {
-        newSet.add(ticketId)
+        newSet.add(emailId)
       }
       return newSet
     })
   }, [])
 
   const handleSelectAll = useCallback(() => {
-    if (selectedTickets.size === filteredTickets.length) {
-      setSelectedTickets(new Set())
+    if (selectedEmails.size === filteredEmails.length) {
+      setSelectedEmails(new Set())
     } else {
-      setSelectedTickets(new Set(filteredTickets.map(t => t.id)))
+      setSelectedEmails(new Set(filteredEmails.map(email => email.id)))
     }
-  }, [selectedTickets.size, filteredTickets])
+  }, [selectedEmails.size, filteredEmails])
 
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-foreground">Inbox</h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Email Inbox</h1>
+            {total > 0 && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {total} email{total > 1 ? 's' : ''} total
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSyncEmails}
+              disabled={syncing}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Emails'}
+            </Button>
             <Button variant="outline" size="sm">
               <Filter className="w-4 h-4 mr-2" />
               Filters
-            </Button>
-            <Button size="sm">
-              New Ticket
             </Button>
           </div>
         </div>
@@ -183,7 +174,7 @@ export function InboxPage() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="Search tickets..."
+              placeholder="Search emails..."
               value={searchQuery}
               onChange={(e: any) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -191,43 +182,36 @@ export function InboxPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button 
-              variant={filterStatus === 'all' ? 'default' : 'outline'} 
+              variant={filterRead === 'all' ? 'default' : 'outline'} 
               size="sm"
-              onClick={() => setFilterStatus('all')}
+              onClick={() => setFilterRead('all')}
             >
               All
             </Button>
             <Button 
-              variant={filterStatus === 'open' ? 'default' : 'outline'} 
+              variant={filterRead === 'unread' ? 'default' : 'outline'} 
               size="sm"
-              onClick={() => setFilterStatus('open')}
+              onClick={() => setFilterRead('unread')}
             >
-              Open
+              Unread
             </Button>
             <Button 
-              variant={filterStatus === 'pending' ? 'default' : 'outline'} 
+              variant={filterRead === 'read' ? 'default' : 'outline'} 
               size="sm"
-              onClick={() => setFilterStatus('pending')}
+              onClick={() => setFilterRead('read')}
             >
-              Pending
-            </Button>
-            <Button 
-              variant={filterStatus === 'resolved' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setFilterStatus('resolved')}
-            >
-              Resolved
+              Read
             </Button>
           </div>
         </div>
       </div>
 
       {/* Bulk actions */}
-      {selectedTickets.size > 0 && (
+      {selectedEmails.size > 0 && (
         <div className="border-b bg-muted/50 px-6 py-3">
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              {selectedTickets.size} ticket{selectedTickets.size > 1 ? 's' : ''} selected
+              {selectedEmails.size} email{selectedEmails.size > 1 ? 's' : ''} selected
             </span>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm">
@@ -247,7 +231,7 @@ export function InboxPage() {
         </div>
       )}
 
-      {/* Tickets table */}
+      {/* Emails table */}
       <div className="flex-1 overflow-auto">
         <div className="relative w-full overflow-auto">
           <table className="w-full caption-bottom text-sm">
@@ -256,67 +240,120 @@ export function InboxPage() {
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 w-12">
                   <input
                     type="checkbox"
-                    checked={selectedTickets.size === filteredTickets.length && filteredTickets.length > 0}
+                    checked={selectedEmails.size === filteredEmails.length && filteredEmails.length > 0}
                     onChange={handleSelectAll}
                     className="rounded border-input"
                   />
                 </th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Ticket</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Customer</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">From</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Subject</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Mailbox</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Type</th>
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Status</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Priority</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Assignee</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Last Updated</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 w-12"></th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Received</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 w-12">Actions</th>
               </tr>
             </thead>
             <tbody className="[&_tr:last-child]:border-0">
-              {filteredTickets.map((ticket) => (
-                <tr 
-                  key={ticket.id}
-                  className={`border-b transition-colors hover:bg-muted/50 cursor-pointer ${ticket.unread ? 'font-medium' : ''} ${selectedTickets.has(ticket.id) ? 'bg-muted/50' : ''}`}
-                >
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                    <input
-                      type="checkbox"
-                      checked={selectedTickets.has(ticket.id)}
-                      onChange={() => handleSelectTicket(ticket.id)}
-                      className="rounded border-input"
-                    />
-                  </td>
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                    <div className="space-y-1">
-                      <div className="font-medium text-foreground flex items-center gap-2">
-                        {ticket.unread && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
-                        {ticket.subject}
-                      </div>
-                      <div className="text-sm text-muted-foreground line-clamp-1">
-                        {ticket.lastMessage}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 font-medium">{ticket.customer}</td>
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                    <Badge variant={getStatusVariant(ticket.status)}>
-                      {ticket.status}
-                    </Badge>
-                  </td>
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                    <Badge variant={getPriorityVariant(ticket.priority)}>
-                      {ticket.priority}
-                    </Badge>
-                  </td>
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">{ticket.assignee || 'Unassigned'}</td>
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                    {new Date(ticket.updatedAt).toLocaleDateString()}
-                  </td>
-                  <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                    <Button variant="ghost" size="sm">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                    Loading emails...
                   </td>
                 </tr>
-              ))}
+              ) : filteredEmails.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                    No emails found.
+                  </td>
+                </tr>
+              ) : (
+                filteredEmails.map((email) => (
+                  <tr 
+                    key={email.id}
+                    className={`border-b transition-colors hover:bg-muted/50 cursor-pointer ${!email.is_read ? 'font-medium' : ''} ${selectedEmails.has(email.id) ? 'bg-muted/50' : ''}`}
+                  >
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmails.has(email.id)}
+                        onChange={() => handleSelectEmail(email.id)}
+                        className="rounded border-input"
+                      />
+                    </td>
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                      <div className="space-y-1">
+                        <div className="font-medium text-foreground flex items-center gap-2">
+                          {!email.is_read && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
+                          {email.from_name || email.from_address}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {email.from_address}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                      <div className="space-y-1">
+                        <div className="font-medium text-foreground">{email.subject}</div>
+                        {email.snippet && (
+                          <div className="text-sm text-muted-foreground line-clamp-1">
+                            {email.snippet}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">{email.mailbox_address}</td>
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                      <div className="flex items-center gap-2">
+                        {email.is_reply && <Badge variant="secondary">Reply</Badge>}
+                        {email.has_attachments && <Badge variant="outline">📎 {email.attachment_count}</Badge>}
+                      </div>
+                    </td>
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                      {email.is_converted_to_ticket ? (
+                        <Badge variant="success">
+                          <TicketCheck className="w-3 h-3 mr-1" />
+                          Ticket Created
+                        </Badge>
+                      ) : (
+                        <Badge variant={email.is_read ? 'outline' : 'secondary'}>
+                          {email.is_read ? 'Read' : 'Unread'}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-sm">
+                      {new Date(email.received_at).toLocaleDateString()}
+                    </td>
+                    <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                      <div className="flex items-center gap-1">
+                        {!email.is_converted_to_ticket && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleConvertToTicket(email.id)}
+                            title="Convert to Ticket"
+                          >
+                            <TicketCheck className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {!email.is_read && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleMarkAsRead(email.id)}
+                            title="Mark as Read"
+                          >
+                            📖
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

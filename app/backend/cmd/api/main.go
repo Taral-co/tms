@@ -61,6 +61,7 @@ func main() {
 	apiKeyRepo := repo.NewApiKeyRepository(database.DB)
 	settingsRepo := repo.NewSettingsRepository(database.DB.DB)
 	tenantRepo := repo.NewTenantRepository(database.DB.DB)
+	emailInboxRepo := repo.NewEmailInboxRepository(database.DB.DB)
 
 	// Initialize mail service
 	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -75,6 +76,7 @@ func main() {
 	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
 	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
+	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo)
 
 	// Integration services
 	webhookService := service.NewWebhookService(integrationRepo)
@@ -94,13 +96,14 @@ func main() {
 	publicHandler := handlers.NewPublicHandler(publicService)
 	integrationHandler := handlers.NewIntegrationHandler(integrationService)
 	emailHandler := handlers.NewEmailHandler(emailRepo)
+	emailInboxHandler := handlers.NewEmailInboxHandler(emailInboxService)
 	agentHandler := handlers.NewAgentHandler(agentService)
 	apiKeyHandler := handlers.NewApiKeyHandler(apiKeyRepo)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
 	tenantHandler := handlers.NewTenantHandler(tenantService)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler)
 
 	// Start background services
 	if cfg.Email.EnableEmailToTicket {
@@ -147,7 +150,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -333,6 +336,17 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				// Email mailboxes
 				email.GET("/mailboxes", emailHandler.ListMailboxes)
 				email.POST("/mailboxes", emailHandler.CreateMailbox)
+
+				// Email inbox
+				inbox := email.Group("/inbox")
+				{
+					inbox.GET("", emailInboxHandler.ListEmails)
+					inbox.GET("/:email_id", emailInboxHandler.GetEmail)
+					inbox.POST("/:email_id/convert-to-ticket", emailInboxHandler.ConvertToTicket)
+					inbox.POST("/:email_id/reply", emailInboxHandler.ReplyToEmail)
+					inbox.POST("/:email_id/mark-read", emailInboxHandler.MarkAsRead)
+					inbox.POST("/sync", emailInboxHandler.SyncEmails)
+				}
 			}
 		}
 	}

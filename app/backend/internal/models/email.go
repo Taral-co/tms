@@ -245,3 +245,86 @@ type RoutingRule struct {
 	Match     string    `json:"match"`
 	ProjectID uuid.UUID `json:"project_id"`
 }
+
+// EmailInbox represents an email in the inbox
+type EmailInbox struct {
+	ID               uuid.UUID      `json:"id" db:"id"`
+	TenantID         uuid.UUID      `json:"tenant_id" db:"tenant_id"`
+	ProjectID        *uuid.UUID     `json:"project_id,omitempty" db:"project_id"`
+	MessageID        string         `json:"message_id" db:"message_id"`
+	ThreadID         *string        `json:"thread_id,omitempty" db:"thread_id"`
+	UID              *int           `json:"uid,omitempty" db:"uid"`
+	MailboxAddress   string         `json:"mailbox_address" db:"mailbox_address"`
+	FromAddress      string         `json:"from_address" db:"from_address"`
+	FromName         *string        `json:"from_name,omitempty" db:"from_name"`
+	ToAddresses      pq.StringArray `json:"to_addresses" db:"to_addresses"`
+	CcAddresses      pq.StringArray `json:"cc_addresses,omitempty" db:"cc_addresses"`
+	BccAddresses     pq.StringArray `json:"bcc_addresses,omitempty" db:"bcc_addresses"`
+	ReplyToAddresses pq.StringArray `json:"reply_to_addresses,omitempty" db:"reply_to_addresses"`
+	Subject          string         `json:"subject" db:"subject"`
+	BodyText         *string        `json:"body_text,omitempty" db:"body_text"`
+	BodyHTML         *string        `json:"body_html,omitempty" db:"body_html"`
+	Snippet          *string        `json:"snippet,omitempty" db:"snippet"`
+	IsRead           bool           `json:"is_read" db:"is_read"`
+	IsReply          bool           `json:"is_reply" db:"is_reply"`
+	HasAttachments   bool           `json:"has_attachments" db:"has_attachments"`
+	AttachmentCount  int            `json:"attachment_count" db:"attachment_count"`
+	SizeBytes        *int           `json:"size_bytes,omitempty" db:"size_bytes"`
+	SentAt           *time.Time     `json:"sent_at,omitempty" db:"sent_at"`
+	ReceivedAt       time.Time      `json:"received_at" db:"received_at"`
+	SyncStatus       string         `json:"sync_status" db:"sync_status"`
+	ProcessingError  *string        `json:"processing_error,omitempty" db:"processing_error"`
+	TicketID         *uuid.UUID     `json:"ticket_id,omitempty" db:"ticket_id"`
+	IsConvertedToTicket bool        `json:"is_converted_to_ticket" db:"is_converted_to_ticket"`
+	ConnectorID      uuid.UUID      `json:"connector_id" db:"connector_id"`
+	Headers          map[string]string `json:"headers,omitempty" db:"headers"`
+	RawEmail         []byte         `json:"raw_email,omitempty" db:"raw_email"`
+	CreatedAt        time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at" db:"updated_at"`
+}
+
+// EmailAttachment represents an email attachment
+type EmailAttachment struct {
+	ID          uuid.UUID `json:"id" db:"id"`
+	EmailID     uuid.UUID `json:"email_id" db:"email_id"`
+	TenantID    uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	Filename    string    `json:"filename" db:"filename"`
+	ContentType string    `json:"content_type" db:"content_type"`
+	SizeBytes   int       `json:"size_bytes" db:"size_bytes"`
+	ContentID   *string   `json:"content_id,omitempty" db:"content_id"`
+	IsInline    bool      `json:"is_inline" db:"is_inline"`
+	StoragePath *string   `json:"storage_path,omitempty" db:"storage_path"`
+	StorageURL  *string   `json:"storage_url,omitempty" db:"storage_url"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+}
+
+// EmailSyncStatus represents sync status for a mailbox
+type EmailSyncStatus struct {
+	ID                uuid.UUID  `json:"id" db:"id"`
+	TenantID          uuid.UUID  `json:"tenant_id" db:"tenant_id"`
+	ConnectorID       uuid.UUID  `json:"connector_id" db:"connector_id"`
+	MailboxAddress    string     `json:"mailbox_address" db:"mailbox_address"`
+	LastSyncAt        *time.Time `json:"last_sync_at,omitempty" db:"last_sync_at"`
+	LastUID           int        `json:"last_uid" db:"last_uid"`
+	LastMessageDate   *time.Time `json:"last_message_date,omitempty" db:"last_message_date"`
+	SyncStatus        string     `json:"sync_status" db:"sync_status"`
+	SyncError         *string    `json:"sync_error,omitempty" db:"sync_error"`
+	EmailsSyncedCount int        `json:"emails_synced_count" db:"emails_synced_count"`
+	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// SyncStatus constants
+const (
+	SyncStatusIdle    = "idle"
+	SyncStatusSyncing = "syncing"
+	SyncStatusError   = "error"
+	SyncStatusPaused  = "paused"
+)
+
+// EmailSyncStatus constants
+const (
+	EmailSyncStatusSynced     = "synced"
+	EmailSyncStatusProcessing = "processing"
+	EmailSyncStatusError      = "error"
+)
