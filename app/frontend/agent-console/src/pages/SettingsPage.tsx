@@ -908,6 +908,36 @@ export function SettingsPage() {
         <p className="text-sm text-muted-foreground">Configure email integration and notification preferences</p>
       </div>
 
+      {/* Domain Validation Section */}
+      <div className="border rounded-lg p-6 bg-card">
+        <h4 className="font-medium mb-4 flex items-center gap-2">
+          <Mail className="w-5 h-5" />
+          Domain Validation
+        </h4>
+        <p className="text-sm text-muted-foreground mb-4">
+          Validate your email domains to enable email inbox functionality. You must have at least one validated domain before creating email inboxes.
+        </p>
+        <div className="text-center py-8">
+          <Mail className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">Domain Validation via Email Connectors</h3>
+          <p className="text-muted-foreground mb-4">
+            Domain validation is managed through Email Connectors in the Inbox section. 
+            Create an email connector to validate domain ownership.
+          </p>
+          <button
+            onClick={() => {
+              setSearchParams({ tab: 'email' })
+              // Navigate to inbox page
+              window.location.href = '/inbox'
+            }}
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Go to Email Inbox
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-6">
         {/* SMTP Configuration */}
         <div className="border rounded-lg p-6 bg-card">

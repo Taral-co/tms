@@ -99,8 +99,9 @@ export function InboxPage() {
   }
 
   const handleCreateMailbox = () => {
-    if (connectors.filter(c => c.is_validated).length === 0) {
-      alert('Please add and validate at least one email connector first.')
+    const validatedConnectors = connectors.filter(c => c.is_validated && c.validation_status === 'validated')
+    if (validatedConnectors.length === 0) {
+      alert('Please add and validate at least one email connector first. Domain validation is required before creating email inboxes.')
       return
     }
     // TODO: Create a separate mailbox page
@@ -112,22 +113,22 @@ export function InboxPage() {
       case 'validated':
         return <Badge variant="success" className="flex items-center gap-1">
           <CheckCircle className="w-3 h-3" />
-          Validated
+          Domain Verified
         </Badge>
       case 'validating':
         return <Badge variant="warning" className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
-          Validating
+          Validating Domain
         </Badge>
       case 'failed':
         return <Badge variant="destructive" className="flex items-center gap-1">
           <AlertCircle className="w-3 h-3" />
-          Failed
+          Validation Failed
         </Badge>
       default:
         return <Badge variant="outline" className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
-          Pending
+          Domain Not Validated
         </Badge>
     }
   }
@@ -189,6 +190,9 @@ export function InboxPage() {
             <Settings className="w-5 h-5" />
             Email Connectors
           </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Configure email connectors and validate domain ownership. Domain validation is required before creating email inboxes.
+          </p>
         </CardHeader>
         <CardContent>
           {connectors.length === 0 ? (
@@ -240,7 +244,8 @@ export function InboxPage() {
             </CardTitle>
             <Button
               onClick={handleCreateMailbox}
-              disabled={connectors.filter(c => c.is_validated).length === 0}
+              disabled={connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0}
+              title={connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0 ? 'Domain validation required: Please validate at least one email connector first' : 'Create new email mailbox'}
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Mailbox
@@ -250,9 +255,20 @@ export function InboxPage() {
         <CardContent>
           {mailboxes.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                No email mailboxes configured. Add a mailbox to start receiving emails.
-              </p>
+              {connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0 ? (
+                <>
+                  <p className="text-muted-foreground mb-2">
+                    No email mailboxes configured.
+                  </p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    <strong>Domain validation required:</strong> Please validate at least one email connector before creating mailboxes.
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  No email mailboxes configured. Add a mailbox to start receiving emails.
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
