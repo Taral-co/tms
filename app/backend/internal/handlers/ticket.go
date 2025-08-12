@@ -314,3 +314,57 @@ func (h *TicketHandler) ReassignTicket(c *gin.Context) {
 
 	c.JSON(http.StatusOK, ticket)
 }
+
+// ValidateCustomer handles customer validation via OTP
+func (h *TicketHandler) ValidateCustomer(c *gin.Context) {
+	tenantID := middleware.GetTenantID(c)
+	projectID := c.Param("project_id")
+	ticketID := c.Param("ticket_id")
+
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id"})
+		return
+	}
+
+	ticketUUID, err := uuid.Parse(ticketID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ticket_id"})
+		return
+	}
+
+	result, err := h.ticketService.SendCustomerValidationOTP(c.Request.Context(), tenantID, projectUUID, ticketUUID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+// SendMagicLink handles sending magic link to customer
+func (h *TicketHandler) SendMagicLink(c *gin.Context) {
+	tenantID := middleware.GetTenantID(c)
+	projectID := c.Param("project_id")
+	ticketID := c.Param("ticket_id")
+
+	projectUUID, err := uuid.Parse(projectID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id"})
+		return
+	}
+
+	ticketUUID, err := uuid.Parse(ticketID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ticket_id"})
+		return
+	}
+
+	result, err := h.ticketService.SendMagicLinkToCustomer(c.Request.Context(), tenantID, projectUUID, ticketUUID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}

@@ -72,9 +72,9 @@ func main() {
 	agentService := service.NewAgentService(agentRepo, projectRepo, rbacService)
 	tenantService := service.NewTenantService(tenantRepo, agentRepo, rbacService)
 	// customerService := service.NewCustomerService(customerRepo, rbacService) // Reserved for future use
-	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService)
 	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
 	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
+	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
 
 	// Integration services
 	webhookService := service.NewWebhookService(integrationRepo)
@@ -259,6 +259,10 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 
 				// Dedicated reassignment endpoint (requires admin permissions)
 				tickets.POST("/:ticket_id/reassign", middleware.ProjectAdminMiddleware(), ticketHandler.ReassignTicket)
+
+				// Customer validation and magic links
+				tickets.POST("/:ticket_id/validate-customer", ticketHandler.ValidateCustomer)
+				tickets.POST("/:ticket_id/send-magic-link", ticketHandler.SendMagicLink)
 
 				// Ticket messages
 				tickets.GET("/:ticket_id/messages", ticketHandler.GetTicketMessages)

@@ -158,6 +158,20 @@ export interface ReassignTicketRequest {
   note?: string
 }
 
+export interface CustomerValidationResult {
+  success: boolean
+  message: string
+  smtp_configured: boolean
+  otp_sent?: boolean
+}
+
+export interface MagicLinkResult {
+  success: boolean
+  message: string
+  smtp_configured: boolean
+  link_sent?: boolean
+}
+
 export interface ApiKey {
   id: string
   name: string
@@ -519,6 +533,16 @@ class APIClient {
 
   async reassignTicket(id: string, data: ReassignTicketRequest): Promise<Ticket> {
     const response: AxiosResponse<Ticket> = await this.client.post(`/tickets/${id}/reassign`, data)
+    return response.data
+  }
+
+  async validateCustomer(ticketId: string): Promise<CustomerValidationResult> {
+    const response: AxiosResponse<CustomerValidationResult> = await this.client.post(`/tickets/${ticketId}/validate-customer`)
+    return response.data
+  }
+
+  async sendMagicLinkToCustomer(ticketId: string): Promise<MagicLinkResult> {
+    const response: AxiosResponse<MagicLinkResult> = await this.client.post(`/tickets/${ticketId}/send-magic-link`)
     return response.data
   }
 

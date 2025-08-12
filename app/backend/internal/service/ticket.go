@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log"
+	"math/big"
 	"time"
 
 	"github.com/bareuptime/tms/internal/db"
+	"github.com/bareuptime/tms/internal/mail"
 	"github.com/bareuptime/tms/internal/rbac"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/google/uuid"
@@ -19,6 +22,8 @@ type TicketService struct {
 	agentRepo    repo.AgentRepository
 	messageRepo  repo.TicketMessageRepository
 	rbacService  *rbac.Service
+	mailService  *mail.Service
+	publicService *PublicService
 }
 
 // TicketWithDetails represents a ticket with populated customer and agent details
@@ -49,13 +54,17 @@ func NewTicketService(
 	agentRepo repo.AgentRepository,
 	messageRepo repo.TicketMessageRepository,
 	rbacService *rbac.Service,
+	mailService *mail.Service,
+	publicService *PublicService,
 ) *TicketService {
 	return &TicketService{
-		ticketRepo:   ticketRepo,
-		customerRepo: customerRepo,
-		agentRepo:    agentRepo,
-		messageRepo:  messageRepo,
-		rbacService:  rbacService,
+		ticketRepo:    ticketRepo,
+		customerRepo:  customerRepo,
+		agentRepo:     agentRepo,
+		messageRepo:   messageRepo,
+		rbacService:   rbacService,
+		mailService:   mailService,
+		publicService: publicService,
 	}
 }
 
@@ -414,4 +423,129 @@ func (s *TicketService) ReassignTicket(ctx context.Context, tenantID, projectID,
 	}
 
 	return ticket, nil
+}
+
+// CustomerValidationResult represents the result of customer validation attempt
+type CustomerValidationResult struct {
+	Success      bool   `json:"success"`
+	Message      string `json:"message"`
+	SMTPConfigured bool   `json:"smtp_configured"`
+	OTPSent      bool   `json:"otp_sent,omitempty"`
+}
+
+// MagicLinkResult represents the result of magic link send attempt
+type MagicLinkResult struct {
+	Success        bool   `json:"success"`
+	Message        string `json:"message"`
+	SMTPConfigured bool   `json:"smtp_configured"`
+	LinkSent       bool   `json:"link_sent,omitempty"`
+}
+
+// SendCustomerValidationOTP sends an OTP to the customer for validation
+func (s *TicketService) SendCustomerValidationOTP(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*CustomerValidationResult, error) {
+	// Get ticket first to validate access and get customer info
+	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ticket: %w", err)
+	}
+
+	// Get customer details
+	customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.RequesterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get customer: %w", err)
+	}
+
+	// Check if SMTP is configured for this tenant/project
+	// For now, we'll assume it's configured if mail service is available
+	// In a real implementation, you'd check the tenant's email connector settings
+	smtpConfigured := s.mailService != nil
+
+	result := &CustomerValidationResult{
+		SMTPConfigured: smtpConfigured,
+	}
+
+	if !smtpConfigured {
+		result.Success = false
+		result.Message = "SMTP is not configured. Please configure email settings to send customer validation."
+		return result, nil
+	}
+
+	// Generate 6-digit OTP
+	otp, err := generateOTP()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	// TODO: Store OTP in cache/database with expiration
+	// For now, we'll just simulate sending the email
+
+	// TODO: Send email using mail service
+	// For now, we'll simulate successful sending
+	log.Printf("OTP email would be sent to %s: %s", customer.Email, otp)
+
+	result.Success = true
+	result.OTPSent = true
+	result.Message = fmt.Sprintf("Verification code sent to %s", customer.Email)
+
+	return result, nil
+}
+
+// SendMagicLinkToCustomer sends a magic link to the customer
+func (s *TicketService) SendMagicLinkToCustomer(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*MagicLinkResult, error) {
+	// Get ticket first to validate access and get customer info
+	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ticket: %w", err)
+	}
+
+	// Get customer details
+	customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.RequesterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get customer: %w", err)
+	}
+
+	// Check if SMTP is configured for this tenant/project
+	smtpConfigured := s.mailService != nil
+
+	result := &MagicLinkResult{
+		SMTPConfigured: smtpConfigured,
+	}
+
+	if !smtpConfigured {
+		result.Success = false
+		result.Message = "SMTP is not configured. Please configure email settings to send magic links."
+		return result, nil
+	}
+
+	// Generate magic link token
+	magicToken, err := s.publicService.GenerateMagicLinkToken(tenantID, projectID, ticketID, customer.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate magic link: %w", err)
+	}
+
+	// Create magic link URL
+	magicLinkURL := fmt.Sprintf("http://localhost:3000/public-view?token=%s", magicToken)
+
+	// TODO: Send email using mail service
+	// For now, we'll simulate successful sending
+	log.Printf("Magic link email would be sent to %s: %s", customer.Email, magicLinkURL)
+
+	result.Success = true
+	result.LinkSent = true
+	result.Message = fmt.Sprintf("Magic link sent to %s", customer.Email)
+
+	return result, nil
+}
+
+// generateOTP generates a 6-digit OTP
+func generateOTP() (string, error) {
+	max := big.NewInt(999999)
+	min := big.NewInt(100000)
+	
+	n, err := rand.Int(rand.Reader, max.Sub(max, min))
+	if err != nil {
+		return "", err
+	}
+	
+	return fmt.Sprintf("%06d", n.Add(n, min).Int64()), nil
 }

@@ -15,9 +15,11 @@ import {
   MessageSquare,
   Phone,
   Mail,
-  UserPlus
+  UserPlus,
+  Shield,
+  ExternalLink
 } from 'lucide-react'
-import { apiClient, Ticket, Message, ReassignTicketRequest } from '../lib/api'
+import { apiClient, Ticket, Message, ReassignTicketRequest, CustomerValidationResult, MagicLinkResult } from '../lib/api'
 
 // Simplified components - in a real app these would come from a UI library
 const Button = ({ children, variant = 'default', size = 'default', className = '', ...props }: any) => (
@@ -83,6 +85,8 @@ export function TicketDetailPage() {
   const [replyType, setReplyType] = useState<'public' | 'private'>('public')
   const [sending, setSending] = useState(false)
   const [showReassignModal, setShowReassignModal] = useState(false)
+  const [validatingCustomer, setValidatingCustomer] = useState(false)
+  const [sendingMagicLink, setSendingMagicLink] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -147,6 +151,50 @@ export function TicketDetailPage() {
     } catch (err) {
       console.error('Failed to reassign ticket:', err)
       // TODO: Show error toast
+    }
+  }
+
+  const handleValidateCustomer = async () => {
+    if (!ticket) return
+    
+    try {
+      setValidatingCustomer(true)
+      const result = await apiClient.validateCustomer(ticket.id)
+      
+      if (result.success) {
+        // Show success message
+        alert(result.message)
+      } else {
+        // Show error message
+        alert(`Failed to send validation: ${result.message}`)
+      }
+    } catch (err) {
+      console.error('Failed to validate customer:', err)
+      alert('Failed to send customer validation. Please try again.')
+    } finally {
+      setValidatingCustomer(false)
+    }
+  }
+
+  const handleSendMagicLink = async () => {
+    if (!ticket) return
+    
+    try {
+      setSendingMagicLink(true)
+      const result = await apiClient.sendMagicLinkToCustomer(ticket.id)
+      
+      if (result.success) {
+        // Show success message
+        alert(result.message)
+      } else {
+        // Show error message
+        alert(`Failed to send magic link: ${result.message}`)
+      }
+    } catch (err) {
+      console.error('Failed to send magic link:', err)
+      alert('Failed to send magic link. Please try again.')
+    } finally {
+      setSendingMagicLink(false)
     }
   }
 
@@ -399,7 +447,26 @@ export function TicketDetailPage() {
                 className="w-full justify-start"
                 onClick={() => setShowReassignModal(true)}
               >
+                <UserPlus className="w-4 h-4 mr-2" />
                 Reassign
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={handleValidateCustomer}
+                disabled={validatingCustomer}
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                {validatingCustomer ? 'Sending...' : 'Validate Customer'}
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={handleSendMagicLink}
+                disabled={sendingMagicLink}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                {sendingMagicLink ? 'Sending...' : 'Send Magic Link'}
               </Button>
               <Button variant="outline" className="w-full justify-start text-destructive">
                 Close Ticket
