@@ -1585,7 +1585,7 @@ export function SettingsPage() {
                           disabled={loading}
                           className="px-4 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap h-full flex items-center justify-center"
                         >
-                          {loading ? 'Verifying...' : 'Verify Domain'}
+                          {loading ? 'Verifying...' : 'Verify Email'}
                         </button>
                       </div>
                     </div>

@@ -8,28 +8,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bareuptime/tms/internal/crypto"
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/rs/zerolog"
 )
 
 // SMTPClient handles SMTP email sending
 type SMTPClient struct {
-	logger zerolog.Logger
+	logger     zerolog.Logger
+	encryption *crypto.PasswordEncryption
 }
 
 // NewSMTPClient creates a new SMTP client
-func NewSMTPClient(logger zerolog.Logger) *SMTPClient {
+func NewSMTPClient(logger zerolog.Logger, encryption *crypto.PasswordEncryption) *SMTPClient {
 	return &SMTPClient{
-		logger: logger,
+		logger:     logger,
+		encryption: encryption,
 	}
 }
 
 // SendMessage sends an email via SMTP
 func (c *SMTPClient) SendMessage(ctx context.Context, connector *models.EmailConnector, msg *Message) error {
-	if connector.SMTPHost == nil || connector.SMTPPort == nil {
-		return fmt.Errorf("SMTP configuration incomplete")
-	}
-
 	// Build email message
 	emailBody, err := c.buildMessage(msg)
 	if err != nil {
@@ -75,8 +74,14 @@ func (c *SMTPClient) sendWithTLS(addr string, connector *models.EmailConnector, 
 
 	// Authenticate if credentials provided
 	if connector.SMTPUsername != nil && connector.SMTPPasswordEnc != nil {
-		// TODO: Decrypt password using KMS/Vault
-		password := string(connector.SMTPPasswordEnc) // This should be decrypted
+		// Decrypt password using AES encryption
+		password, err := c.encryption.Decrypt(connector.SMTPPasswordEnc)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt SMTP password: %w", err)
+		}
+		fmt.Println("Decrypted SMTP password:", password)
+		fmt.Println("Using SMTP host:", *connector.SMTPHost)
+		fmt.Println("Using SMTP username:", *connector.SMTPUsername)
 		auth := smtp.PlainAuth("", *connector.SMTPUsername, password, *connector.SMTPHost)
 		if err = client.Auth(auth); err != nil {
 			return fmt.Errorf("SMTP authentication failed: %w", err)
@@ -126,7 +131,7 @@ func (c *SMTPClient) buildMessage(msg *Message) ([]byte, error) {
 		body.WriteString(fmt.Sprintf("Cc: %s\r\n", strings.Join(msg.CC, ", ")))
 	}
 	body.WriteString(fmt.Sprintf("Subject: %s\r\n", msg.Subject))
-	
+
 	if msg.MessageID != "" {
 		body.WriteString(fmt.Sprintf("Message-ID: %s\r\n", msg.MessageID))
 	}
@@ -137,9 +142,11 @@ func (c *SMTPClient) buildMessage(msg *Message) ([]byte, error) {
 		body.WriteString(fmt.Sprintf("References: %s\r\n", msg.References))
 	}
 
-	// Custom headers
+	// Custom headers (but not Content-Type which is handled below)
 	for key, value := range msg.Headers {
-		body.WriteString(fmt.Sprintf("%s: %s\r\n", key, value))
+		if key != "Content-Type" {
+			body.WriteString(fmt.Sprintf("%s: %s\r\n", key, value))
+		}
 	}
 
 	body.WriteString("MIME-Version: 1.0\r\n")
@@ -207,8 +214,11 @@ func (c *SMTPClient) TestConnection(ctx context.Context, connector *models.Email
 
 	// Try authentication if configured
 	if connector.SMTPUsername != nil && connector.SMTPPasswordEnc != nil {
-		// TODO: Decrypt password using KMS/Vault
-		password := string(connector.SMTPPasswordEnc) // This should be decrypted
+		// Decrypt password using AES encryption
+		password, err := c.encryption.Decrypt(connector.SMTPPasswordEnc)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt SMTP password: %w", err)
+		}
 		auth := smtp.PlainAuth("", *connector.SMTPUsername, password, *connector.SMTPHost)
 		if err = client.Auth(auth); err != nil {
 			return fmt.Errorf("SMTP authentication failed: %w", err)

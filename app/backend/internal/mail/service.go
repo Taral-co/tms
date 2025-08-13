@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bareuptime/tms/internal/crypto"
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -16,19 +17,26 @@ import (
 
 // Service handles email operations
 type Service struct {
-	logger      zerolog.Logger
-	smtpClient  *SMTPClient
-	imapClient  *IMAPClient
-	templates   map[string]*EmailTemplate
+	logger     zerolog.Logger
+	smtpClient *SMTPClient
+	imapClient *IMAPClient
+	templates  map[string]*EmailTemplate
+	encryption *crypto.PasswordEncryption
 }
 
 // NewService creates a new email service
 func NewService(logger zerolog.Logger) *Service {
+	encryption, err := crypto.NewPasswordEncryption()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to initialize password encryption")
+	}
+
 	return &Service{
 		logger:     logger,
-		smtpClient: NewSMTPClient(logger),
+		smtpClient: NewSMTPClient(logger, encryption),
 		imapClient: NewIMAPClient(logger),
 		templates:  make(map[string]*EmailTemplate),
+		encryption: encryption,
 	}
 }
 
@@ -91,20 +99,20 @@ func (s *Service) SendTicketReply(ctx context.Context, req *SendTicketReplyReque
 
 	// Build message
 	msg := &Message{
-		From:      req.FromAddress,
-		To:        req.ToAddresses,
-		CC:        req.CCAddresses,
-		Subject:   req.Subject,
-		TextBody:  req.TextBody,
-		HTMLBody:  req.HTMLBody,
-		Headers:   make(map[string]string),
+		From:     req.FromAddress,
+		To:       req.ToAddresses,
+		CC:       req.CCAddresses,
+		Subject:  req.Subject,
+		TextBody: req.TextBody,
+		HTMLBody: req.HTMLBody,
+		Headers:  make(map[string]string),
 	}
 
 	// Add threading headers
 	msg.MessageID = s.generateMessageID(req.TenantID)
 	msg.InReplyTo = routing.MessageIDRoot
 	msg.References = routing.MessageIDRoot
-	
+
 	// Set Reply-To to VERP address for proper threading
 	msg.Headers["Reply-To"] = routing.ReplyAddress
 	msg.Headers["X-Ticket-ID"] = req.TicketID.String()
@@ -160,7 +168,7 @@ func (s *Service) isAutoReply(msg *ParsedMessage) bool {
 		key = strings.ToLower(key)
 		for _, value := range values {
 			value = strings.ToLower(value)
-			
+
 			switch key {
 			case "auto-submitted":
 				if value != "no" {
@@ -276,7 +284,7 @@ func (s *Service) matchesRule(msg *ParsedMessage, rule string) bool {
 		pattern := strings.TrimPrefix(rule, "subject:")
 		return strings.Contains(strings.ToLower(msg.Subject), strings.ToLower(pattern))
 	}
-	
+
 	if strings.HasPrefix(rule, "from:") {
 		pattern := strings.TrimPrefix(rule, "from:")
 		return strings.Contains(strings.ToLower(msg.From), strings.ToLower(pattern))
@@ -295,7 +303,7 @@ func (s *Service) cleanSubject(subject string) string {
 func (s *Service) ensureTicketRouting(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*models.TicketMailRouting, error) {
 	// TODO: Check database for existing routing
 	// TODO: Create if not exists
-	
+
 	// For now, return a mock routing
 	token := s.generateToken()
 	return &models.TicketMailRouting{
@@ -357,16 +365,16 @@ type InboundResult struct {
 
 // SendTicketReplyRequest represents a request to send a ticket reply
 type SendTicketReplyRequest struct {
-	TenantID     uuid.UUID
-	ProjectID    uuid.UUID
-	TicketID     uuid.UUID
-	FromAddress  string
-	ToAddresses  []string
-	CCAddresses  []string
-	Subject      string
-	TextBody     string
-	HTMLBody     string
-	Attachments  []Attachment
+	TenantID    uuid.UUID
+	ProjectID   uuid.UUID
+	TicketID    uuid.UUID
+	FromAddress string
+	ToAddresses []string
+	CCAddresses []string
+	Subject     string
+	TextBody    string
+	HTMLBody    string
+	Attachments []Attachment
 }
 
 // SendMagicLinkRequest represents a request to send a magic link

@@ -3,10 +3,14 @@ package repo
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"net/http"
+	"strings"
 
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 // EmailRepo handles email-related database operations
@@ -20,7 +24,7 @@ func NewEmailRepo(db *sqlx.DB) *EmailRepo {
 }
 
 // CreateConnector creates a new email connector
-func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.EmailConnector) error {
+func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.EmailConnector) (int, error) {
 	query := `
 		INSERT INTO email_connectors (
 			id, tenant_id, project_id, type, name, is_active, is_validated, validation_status,
@@ -41,32 +45,47 @@ func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.Email
 		)`
 
 	_, err := r.db.NamedExecContext(ctx, query, connector)
-	return err
+
+	// Check for unique constraint violation
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			// Check if it's a unique constraint violation
+			if pqErr.Code == "23505" {
+				// Check which constraint was violated
+				if strings.Contains(pqErr.Detail, "tenant_id") && strings.Contains(pqErr.Detail, "project_id") && strings.Contains(pqErr.Detail, "from_address") {
+					return http.StatusConflict, errors.New("email connector with this from address already exists for this tenant and project")
+				}
+				return http.StatusConflict, errors.New("email connector with these details already exists")
+			}
+		}
+	}
+
+	return http.StatusInternalServerError, err
 }
 
 // GetConnector retrieves an email connector by ID
-func (r *EmailRepo) GetConnector(ctx context.Context, tenantID, connectorID uuid.UUID) (*models.EmailConnector, error) {
+func (r *EmailRepo) GetConnector(ctx context.Context, tenantID, projectID, connectorID uuid.UUID) (*models.EmailConnector, error) {
 	var connector models.EmailConnector
 	query := `
 		SELECT * FROM email_connectors 
-		WHERE tenant_id = $1 AND id = $2`
+		WHERE tenant_id = $1 AND project_id = $2 AND id = $3`
 
-	err := r.db.GetContext(ctx, &connector, query, tenantID, connectorID)
+	err := r.db.GetContext(ctx, &connector, query, tenantID, projectID, connectorID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	return &connector, err
 }
 
-// ListConnectors retrieves all email connectors for a tenant
-func (r *EmailRepo) ListConnectors(ctx context.Context, tenantID uuid.UUID, connectorType *models.EmailConnectorType) ([]*models.EmailConnector, error) {
+// ListConnectors retrieves all email connectors for a tenant and project
+func (r *EmailRepo) ListConnectors(ctx context.Context, tenantID, projectID uuid.UUID, connectorType *models.EmailConnectorType) ([]*models.EmailConnector, error) {
 	var connectors []*models.EmailConnector
 
-	query := `SELECT * FROM email_connectors WHERE tenant_id = $1`
-	args := []interface{}{tenantID}
+	query := `SELECT * FROM email_connectors WHERE tenant_id = $1 AND project_id = $2`
+	args := []interface{}{tenantID, projectID}
 
 	if connectorType != nil {
-		query += ` AND type = $2`
+		query += ` AND type = $3`
 		args = append(args, *connectorType)
 	}
 
@@ -96,13 +115,28 @@ func (r *EmailRepo) UpdateConnector(ctx context.Context, connector *models.Email
 		WHERE tenant_id = :tenant_id AND id = :id`
 
 	_, err := r.db.NamedExecContext(ctx, query, connector)
+
+	// Check for unique constraint violation
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			// Check if it's a unique constraint violation
+			if pqErr.Code == "23505" {
+				// Check which constraint was violated
+				if strings.Contains(pqErr.Detail, "tenant_id") && strings.Contains(pqErr.Detail, "project_id") && strings.Contains(pqErr.Detail, "from_address") {
+					return errors.New("email connector with this from address already exists for this tenant and project")
+				}
+				return errors.New("email connector with these details already exists")
+			}
+		}
+	}
+
 	return err
 }
 
 // DeleteConnector deletes an email connector
-func (r *EmailRepo) DeleteConnector(ctx context.Context, tenantID, connectorID uuid.UUID) error {
-	query := `DELETE FROM email_connectors WHERE tenant_id = $1 AND id = $2`
-	_, err := r.db.ExecContext(ctx, query, tenantID, connectorID)
+func (r *EmailRepo) DeleteConnector(ctx context.Context, tenantID, projectID, connectorID uuid.UUID) error {
+	query := `DELETE FROM email_connectors WHERE tenant_id = $1 AND project_id = $2 AND id = $3`
+	_, err := r.db.ExecContext(ctx, query, tenantID, projectID, connectorID)
 	return err
 }
 

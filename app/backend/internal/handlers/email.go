@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bareuptime/tms/internal/crypto"
 	"github.com/bareuptime/tms/internal/mail"
 	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/models"
@@ -20,14 +21,21 @@ type EmailHandler struct {
 	emailRepo    *repo.EmailRepo
 	redisService *redis.Service
 	mailService  *mail.Service
+	encryption   *crypto.PasswordEncryption
 }
 
 // NewEmailHandler creates a new email handler
 func NewEmailHandler(emailRepo *repo.EmailRepo, redisService *redis.Service, mailService *mail.Service) *EmailHandler {
+	encryption, err := crypto.NewPasswordEncryption()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize password encryption: %v", err))
+	}
+
 	return &EmailHandler{
 		emailRepo:    emailRepo,
 		redisService: redisService,
 		mailService:  mailService,
+		encryption:   encryption,
 	}
 }
 
@@ -115,18 +123,28 @@ func (h *EmailHandler) CreateConnector(c *gin.Context) {
 		connector.IMAPSeenStrategy = models.SeenStrategyMarkAfterParse
 	}
 
-	// Encrypt passwords (TODO: implement proper encryption with KMS/Vault)
+	// Encrypt passwords using AES encryption
 	if req.IMAPPassword != nil {
-		connector.IMAPPasswordEnc = []byte(*req.IMAPPassword) // This should be encrypted
+		encryptedPassword, err := h.encryption.Encrypt(*req.IMAPPassword)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt IMAP password"})
+			return
+		}
+		connector.IMAPPasswordEnc = encryptedPassword
 	}
 	if req.SMTPPassword != nil {
-		connector.SMTPPasswordEnc = []byte(*req.SMTPPassword) // This should be encrypted
+		encryptedPassword, err := h.encryption.Encrypt(*req.SMTPPassword)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt SMTP password"})
+			return
+		}
+		connector.SMTPPasswordEnc = encryptedPassword
 	}
 
 	// Save to database
-	if err := h.emailRepo.CreateConnector(c.Request.Context(), connector); err != nil {
+	if statusCode, err := h.emailRepo.CreateConnector(c.Request.Context(), connector); err != nil {
 		fmt.Println("Failed to create connector:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create connector"})
+		c.JSON(statusCode, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -139,12 +157,9 @@ func (h *EmailHandler) CreateConnector(c *gin.Context) {
 
 // ListConnectors lists all email connectors for a tenant
 func (h *EmailHandler) ListConnectors(c *gin.Context) {
-	tenantIDStr := c.MustGet("tenant_id").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
-		return
-	}
+
+	tenantID := middleware.GetTenantID(c)
+	projectID := middleware.GetProjectID(c)
 
 	var connectorType *models.EmailConnectorType
 	if typeParam := c.Query("type"); typeParam != "" {
@@ -152,7 +167,7 @@ func (h *EmailHandler) ListConnectors(c *gin.Context) {
 		connectorType = &t
 	}
 
-	connectors, err := h.emailRepo.ListConnectors(c.Request.Context(), tenantID, connectorType)
+	connectors, err := h.emailRepo.ListConnectors(c.Request.Context(), tenantID, projectID, connectorType)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list connectors"})
 		return
@@ -170,12 +185,8 @@ func (h *EmailHandler) ListConnectors(c *gin.Context) {
 
 // GetConnector gets a specific email connector
 func (h *EmailHandler) GetConnector(c *gin.Context) {
-	tenantIDStr := c.MustGet("tenant_id").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
-		return
-	}
+	tenantID := middleware.GetTenantID(c)
+	projectID := middleware.GetProjectID(c)
 
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
@@ -184,7 +195,7 @@ func (h *EmailHandler) GetConnector(c *gin.Context) {
 		return
 	}
 
-	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, connectorID)
+	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, projectID, connectorID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get connector"})
 		return
@@ -212,6 +223,8 @@ func (h *EmailHandler) UpdateConnector(c *gin.Context) {
 		return
 	}
 
+	projectID := middleware.GetProjectID(c)
+
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
 	if err != nil {
@@ -220,7 +233,7 @@ func (h *EmailHandler) UpdateConnector(c *gin.Context) {
 	}
 
 	// Get existing connector
-	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, connectorID)
+	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, projectID, connectorID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get connector"})
 		return
@@ -257,12 +270,22 @@ func (h *EmailHandler) UpdateConnector(c *gin.Context) {
 	connector.FromAddress = req.FromAddress
 	connector.UpdatedAt = time.Now()
 
-	// Update passwords if provided
+	// Update passwords if provided (with proper encryption)
 	if req.IMAPPassword != nil {
-		connector.IMAPPasswordEnc = []byte(*req.IMAPPassword) // This should be encrypted
+		encryptedPassword, err := h.encryption.Encrypt(*req.IMAPPassword)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt IMAP password"})
+			return
+		}
+		connector.IMAPPasswordEnc = encryptedPassword
 	}
 	if req.SMTPPassword != nil {
-		connector.SMTPPasswordEnc = []byte(*req.SMTPPassword) // This should be encrypted
+		encryptedPassword, err := h.encryption.Encrypt(*req.SMTPPassword)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt SMTP password"})
+			return
+		}
+		connector.SMTPPasswordEnc = encryptedPassword
 	}
 
 	// Save to database
@@ -287,6 +310,8 @@ func (h *EmailHandler) DeleteConnector(c *gin.Context) {
 		return
 	}
 
+	projectID := middleware.GetProjectID(c)
+
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
 	if err != nil {
@@ -294,7 +319,7 @@ func (h *EmailHandler) DeleteConnector(c *gin.Context) {
 		return
 	}
 
-	if err := h.emailRepo.DeleteConnector(c.Request.Context(), tenantID, connectorID); err != nil {
+	if err := h.emailRepo.DeleteConnector(c.Request.Context(), tenantID, projectID, connectorID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete connector"})
 		return
 	}
@@ -311,6 +336,8 @@ func (h *EmailHandler) TestConnector(c *gin.Context) {
 		return
 	}
 
+	projectID := middleware.GetProjectID(c)
+
 	connectorIDParam := c.Param("connector_id")
 	connectorID, err := uuid.Parse(connectorIDParam)
 	if err != nil {
@@ -318,7 +345,7 @@ func (h *EmailHandler) TestConnector(c *gin.Context) {
 		return
 	}
 
-	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, connectorID)
+	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, projectID, connectorID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get connector"})
 		return
@@ -443,7 +470,7 @@ func (h *EmailHandler) ValidateConnector(c *gin.Context) {
 	}
 
 	// Get the connector
-	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, connectorID)
+	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, projectID, connectorID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get connector"})
 		return
@@ -451,12 +478,6 @@ func (h *EmailHandler) ValidateConnector(c *gin.Context) {
 
 	if connector == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Connector not found"})
-		return
-	}
-
-	// Check if connector belongs to the project
-	if connector.ProjectID == nil || *connector.ProjectID != projectID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Connector does not belong to this project"})
 		return
 	}
 
@@ -530,7 +551,7 @@ func (h *EmailHandler) VerifyConnectorOTP(c *gin.Context) {
 	}
 
 	// Get the connector
-	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, connectorID)
+	connector, err := h.emailRepo.GetConnector(c.Request.Context(), tenantID, projectID, connectorID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get connector"})
 		return
@@ -617,71 +638,38 @@ func (h *EmailHandler) sendValidationEmail(ctx context.Context, connector *model
 		}
 	}
 
-	// Create the validation email message
+	// Create the validation email message using templates
+	templateData := TemplateData{
+		OTP: otp,
+	}
+	
+	// Load HTML template
+	htmlBody, err := loadHTMLTemplate("validation_email.html", templateData)
+	if err != nil {
+		return fmt.Errorf("failed to load HTML template: %w", err)
+	}
+	
+	// Load text template
+	textBody, err := loadTextTemplate("validation_email.txt", templateData)
+	if err != nil {
+		return fmt.Errorf("failed to load text template: %w", err)
+	}
+
 	message := &mail.Message{
-		From:    *fromAddress,
-		To:      []string{recipientEmail},
-		Subject: "Email Connector Validation - Action Required",
-		TextBody: fmt.Sprintf(`Email Connector Validation
-
-Hello,
-
-You have requested to validate an email connector in your TMS (Ticket Management System).
-
-Your verification code is: %s
-
-Please enter this code in your application to complete the validation process.
-
-This code will expire in 10 minutes.
-
-If you did not request this validation, please ignore this email.
-
-Best regards,
-TMS Team`, otp),
-		HTMLBody: fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Email Connector Validation</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2c3e50;">Email Connector Validation</h2>
-        
-        <p>Hello,</p>
-        
-        <p>You have requested to validate an email connector in your TMS (Ticket Management System).</p>
-        
-        <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 15px; margin: 20px 0; text-align: center;">
-            <p style="margin: 0; font-size: 14px; color: #6c757d;">Your verification code is:</p>
-            <h1 style="margin: 10px 0; font-size: 32px; color: #007bff; letter-spacing: 4px;">%s</h1>
-        </div>
-        
-        <p>Please enter this code in your application to complete the validation process.</p>
-        
-        <p style="color: #dc3545; font-weight: bold;">This code will expire in 10 minutes.</p>
-        
-        <p style="color: #6c757d; font-size: 12px;">If you did not request this validation, please ignore this email.</p>
-        
-        <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
-        
-        <p style="color: #6c757d; font-size: 12px;">
-            Best regards,<br>
-            TMS Team
-        </p>
-    </div>
-</body>
-</html>`, otp),
+		From:     *fromAddress,
+		To:       []string{recipientEmail},
+		Subject:  "Email Connector Validation - Action Required",
+		TextBody: textBody,
+		HTMLBody: htmlBody,
 		Headers: map[string]string{
-			"X-Mailer":     "TMS-EmailConnector-Validator/1.0",
-			"X-Priority":   "1",
-			"Importance":   "high",
-			"Content-Type": "text/html; charset=UTF-8",
+			"X-Mailer":   "TMS-EmailConnector-Validator/1.0",
+			"X-Priority": "1",
+			"Importance": "high",
 		},
 	}
 
 	// Send the email using mail service
-	err := h.mailService.SendValidationEmail(ctx, connector, message)
+	err = h.mailService.SendValidationEmail(ctx, connector, message)
 	if err != nil {
 		return fmt.Errorf("failed to send validation email via SMTP: %w", err)
 	}

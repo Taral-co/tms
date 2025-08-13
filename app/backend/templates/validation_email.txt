@@ -1,0 +1,18 @@
+Email Connector Validation
+==========================
+
+Hello,
+
+You have requested to validate an email connector in your TMS (Ticket Management System).
+
+Your verification code is: {{.OTP}}
+
+Please enter this code in your application to complete the validation process.
+
+⏰ This code will expire in 10 minutes.
+
+If you did not request this validation, please ignore this email. This could indicate that someone is trying to configure an email connector using your email address.
+
+---
+TMS Team
+Ticket Management System

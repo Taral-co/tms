@@ -103,11 +103,22 @@ export function EmailConnectorsPage() {
   const [validationEmail, setValidationEmail] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [validationLoading, setValidationLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
   
   // Load connectors on mount
   useEffect(() => {
     loadConnectors()
   }, [])
+
+  // Countdown effect for resend functionality
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
 
   const loadConnectors = async () => {
     setLoading(true)
@@ -138,6 +149,7 @@ export function EmailConnectorsPage() {
       console.log('Validation started:', response)
       setShowValidateModal(false)
       setShowVerifyModal(true)
+      setResendCooldown(30) // Set 30-second cooldown
       loadConnectors()
     } catch (error) {
       console.error('Failed to start validation:', error)
@@ -159,11 +171,30 @@ export function EmailConnectorsPage() {
       console.log('OTP verified:', response)
       setShowVerifyModal(false)
       setOtpCode('')
+      setResendCooldown(0)
       loadConnectors()
       alert('Email connector validated successfully!')
     } catch (error) {
       console.error('Failed to verify OTP:', error)
       alert('Failed to verify OTP. Please check the code and try again.')
+    } finally {
+      setValidationLoading(false)
+    }
+  }
+
+  const handleResendOTP = async () => {
+    if (!selectedConnector || !validationEmail || resendCooldown > 0) return
+    
+    setValidationLoading(true)
+    try {
+      await apiClient.validateEmailConnector(selectedConnector.id, { 
+        email: validationEmail 
+      })
+      setResendCooldown(30) // Reset 30-second cooldown
+      alert('Verification code resent successfully!')
+    } catch (error) {
+      console.error('Failed to resend validation code:', error)
+      alert('Failed to resend validation code')
     } finally {
       setValidationLoading(false)
     }
@@ -193,10 +224,15 @@ export function EmailConnectorsPage() {
     const handleClick = () => {
       if (connector.validation_status === 'pending' || connector.validation_status === 'failed') {
         handleValidateConnector(connector)
+      } else if (connector.validation_status === 'validating') {
+        // Allow users to enter OTP for validating connectors
+        setSelectedConnector(connector)
+        setValidationEmail(connector.from_address || '')
+        setShowVerifyModal(true)
       }
     }
 
-    const isClickable = connector.validation_status === 'pending' || connector.validation_status === 'failed'
+    const isClickable = connector.validation_status === 'pending' || connector.validation_status === 'failed' || connector.validation_status === 'validating'
 
     switch (connector.validation_status) {
       case 'validated':
@@ -205,9 +241,13 @@ export function EmailConnectorsPage() {
           Domain Verified
         </Badge>
       case 'validating':
-        return <Badge variant="warning" className="flex items-center gap-1">
+        return <Badge 
+          variant="warning" 
+          className={`flex items-center gap-1 ${isClickable ? 'cursor-pointer hover:opacity-80' : ''}`}
+          onClick={isClickable ? handleClick : undefined}
+        >
           <Clock className="w-3 h-3" />
-          Validating Domain
+          Validating - Click to Enter Code
         </Badge>
       case 'failed':
         return <Badge 
@@ -442,6 +482,23 @@ export function EmailConnectorsPage() {
               className="mt-1"
             />
           </div>
+          
+          {/* Resend button */}
+          <div className="text-center">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleResendOTP}
+              disabled={resendCooldown > 0 || validationLoading}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              {resendCooldown > 0 
+                ? `Resend Code (${resendCooldown}s)` 
+                : 'Resend Verification Code'
+              }
+            </Button>
+          </div>
+
           <div className="flex gap-2 justify-end">
             <Button 
               variant="outline" 
