@@ -2,9 +2,6 @@ package handlers
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 
@@ -22,74 +19,6 @@ func NewSettingsHandler(settingsRepo *repo.SettingsRepository) *SettingsHandler 
 	return &SettingsHandler{
 		settingsRepo: settingsRepo,
 	}
-}
-
-// EmailSettings represents email configuration
-type EmailSettings struct {
-	// SMTP Configuration
-	SMTPHost                 string `json:"smtp_host"`
-	SMTPPort                 int    `json:"smtp_port"`
-	SMTPUsername             string `json:"smtp_username"`
-	SMTPPassword             string `json:"smtp_password,omitempty"` // omit from response
-	SMTPEncryption           string `json:"smtp_encryption"`
-	
-	// IMAP Configuration
-	IMAPHost                 string `json:"imap_host"`
-	IMAPPort                 int    `json:"imap_port"`
-	IMAPUsername             string `json:"imap_username"`
-	IMAPPassword             string `json:"imap_password,omitempty"` // omit from response
-	IMAPEncryption           string `json:"imap_encryption"`
-	IMAPFolder               string `json:"imap_folder"`
-	
-	// Email Settings
-	FromEmail                string `json:"from_email"`
-	FromName                 string `json:"from_name"`
-	EnableEmailNotifications bool   `json:"enable_email_notifications"`
-	EnableEmailToTicket      bool   `json:"enable_email_to_ticket"`
-}
-
-// --- Encryption helpers ---
-var encryptionKey = []byte("0123456789abcdef0123456789abcdef") // 32 bytes for AES-256; replace with env/config
-
-func encrypt(text string) (string, error) {
-	block, err := aes.NewCipher(encryptionKey)
-	if err != nil {
-		return "", err
-	}
-	plaintext := []byte(text)
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-	nonce := make([]byte, aesGCM.NonceSize())
-	// For demo, nonce is zeroed. In production, use crypto/rand to fill nonce and store it with ciphertext.
-	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return base64.StdEncoding.EncodeToString(ciphertext), nil
-}
-
-func decrypt(enc string) (string, error) {
-	block, err := aes.NewCipher(encryptionKey)
-	if err != nil {
-		return "", err
-	}
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-	data, err := base64.StdEncoding.DecodeString(enc)
-	if err != nil {
-		return "", err
-	}
-	nonceSize := aesGCM.NonceSize()
-	if len(data) < nonceSize {
-		return "", err
-	}
-	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return "", err
-	}
-	return string(plaintext), nil
 }
 
 // BrandingSettings represents branding configuration
@@ -115,86 +44,6 @@ type AutomationSettings struct {
 	EscalationThresholdHours int    `json:"escalation_threshold_hours"`
 	EnableAutoReply          bool   `json:"enable_auto_reply"`
 	AutoReplyTemplate        string `json:"auto_reply_template"`
-}
-
-// GetEmailSettings retrieves email settings for a tenant
-func (h *SettingsHandler) GetEmailSettings(c *gin.Context) {
-	tenantUUID := middleware.GetTenantID(c)
-	projectIDStr, _ := c.Params.Get("project_id")
-	projectUUID, err := uuid.Parse(projectIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
-		return
-	}
-
-	settings, httpStatusCode, err := h.settingsRepo.GetSetting(context.Background(), tenantUUID, projectUUID, "email_settings")
-	if err != nil {
-		c.JSON(httpStatusCode, gin.H{"error": "Failed to retrieve email settings"})
-		return
-	}
-
-	// Convert map to EmailSettings struct
-	settingsJSON, _ := json.Marshal(settings)
-	var emailSettings EmailSettings
-	json.Unmarshal(settingsJSON, &emailSettings)
-
-	// Remove smtp_password and imap_password from response
-	emailSettings.SMTPPassword = ""
-	emailSettings.IMAPPassword = ""
-
-	c.JSON(http.StatusOK, emailSettings)
-}
-
-// UpdateEmailSettings updates email settings for a tenant
-func (h *SettingsHandler) UpdateEmailSettings(c *gin.Context) {
-	tenantID := middleware.GetTenantID(c)
-	projectIDStr, _ := c.Params.Get("project_id")
-	projectUUID, err := uuid.Parse(projectIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
-		return
-	}
-
-	var emailSettings EmailSettings
-	if err := c.ShouldBindJSON(&emailSettings); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	// Encrypt passwords if present and non-empty
-	if emailSettings.SMTPPassword != "" {
-		enc, err := encrypt(emailSettings.SMTPPassword)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt SMTP password"})
-			return
-		}
-		emailSettings.SMTPPassword = enc
-	}
-
-	if emailSettings.IMAPPassword != "" {
-		enc, err := encrypt(emailSettings.IMAPPassword)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt IMAP password"})
-			return
-		}
-		emailSettings.IMAPPassword = enc
-	}
-
-	// Convert struct to map
-	settingsJSON, _ := json.Marshal(emailSettings)
-	var settingsMap map[string]interface{}
-	json.Unmarshal(settingsJSON, &settingsMap)
-
-	err = h.settingsRepo.UpdateSetting(context.Background(), tenantID, projectUUID, "email_settings", settingsMap)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update email settings"})
-		return
-	}
-
-	// Do not return passwords in response
-	emailSettings.SMTPPassword = ""
-	emailSettings.IMAPPassword = ""
-	c.JSON(http.StatusOK, emailSettings)
 }
 
 // GetBrandingSettings retrieves branding settings for a tenant

@@ -289,8 +289,6 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			// Settings endpoints
 			settings := projects.Group("/settings")
 			{
-				settings.GET("/email", middleware.ProjectAdminMiddleware(), settingsHandler.GetEmailSettings)
-				settings.PUT("/email", middleware.ProjectAdminMiddleware(), settingsHandler.UpdateEmailSettings)
 				settings.GET("/branding", middleware.ProjectAdminMiddleware(), settingsHandler.GetBrandingSettings)
 				settings.PUT("/branding", middleware.ProjectAdminMiddleware(), settingsHandler.UpdateBrandingSettings)
 				settings.GET("/automation", middleware.ProjectAdminMiddleware(), settingsHandler.GetAutomationSettings)
