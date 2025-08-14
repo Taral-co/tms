@@ -64,7 +64,7 @@ CREATE TABLE email_mailboxes (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     address TEXT NOT NULL,
     inbound_connector_id UUID NOT NULL REFERENCES email_connectors(id) ON DELETE CASCADE,
-    default_project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     routing_rules JSONB DEFAULT '[]'::jsonb,
     allow_new_ticket BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

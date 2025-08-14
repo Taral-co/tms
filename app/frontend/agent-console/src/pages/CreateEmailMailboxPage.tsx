@@ -167,7 +167,6 @@ export function CreateEmailMailboxPage() {
       // For now, we'll use a placeholder that the backend should handle
       const createData = {
         ...formData,
-        default_project_id: 'current', // Backend should resolve this to current project
         routing_rules: []  // Convert empty object to empty array
       }
       await apiClient.createEmailMailbox(createData)

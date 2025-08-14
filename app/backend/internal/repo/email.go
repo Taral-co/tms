@@ -141,10 +141,10 @@ func (r *EmailRepo) DeleteConnector(ctx context.Context, tenantID, projectID, co
 func (r *EmailRepo) CreateMailbox(ctx context.Context, mailbox *models.EmailMailbox) error {
 	query := `
 		INSERT INTO email_mailboxes (
-			id, tenant_id, project_id, address, inbound_connector_id, default_project_id,
+			id, tenant_id, project_id, address, inbound_connector_id,
 			routing_rules, allow_new_ticket, created_at, updated_at
 		) VALUES (
-			:id, :tenant_id, :project_id, :address, :inbound_connector_id, :default_project_id,
+			:id, :tenant_id, :project_id, :address, :inbound_connector_id,
 			:routing_rules, :allow_new_ticket, :created_at, :updated_at
 		)`
 
@@ -180,7 +180,6 @@ func (r *EmailRepo) UpdateMailbox(ctx context.Context, mailbox *models.EmailMail
 	query := `
 		UPDATE email_mailboxes SET
 			inbound_connector_id = :inbound_connector_id,
-			default_project_id = :default_project_id,
 			routing_rules = :routing_rules,
 			allow_new_ticket = :allow_new_ticket,
 			updated_at = :updated_at
@@ -349,7 +348,7 @@ func (r *EmailRepo) IsEmailSuppressed(ctx context.Context, tenantID uuid.UUID, a
 func (r *EmailRepo) ListMailboxesByProject(ctx context.Context, tenantID, projectID uuid.UUID) ([]*models.EmailMailbox, error) {
 	var mailboxes []*models.EmailMailbox
 	query := `
-		SELECT id, tenant_id, project_id, address, inbound_connector_id, default_project_id,
+		SELECT id, tenant_id, project_id, address, inbound_connector_id,
 			   routing_rules, allow_new_ticket, created_at, updated_at
 		FROM email_mailboxes 
 		WHERE tenant_id = $1 AND (project_id = $2 OR project_id IS NULL)

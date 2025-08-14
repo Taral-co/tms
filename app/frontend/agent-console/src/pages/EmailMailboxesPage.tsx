@@ -10,10 +10,9 @@ import {
   ArrowLeft,
   Trash2,
   Inbox,
-  ExternalLink,
-  Folder
+  ExternalLink
 } from 'lucide-react'
-import { apiClient, EmailMailbox, EmailConnector, Project as ProjectType } from '../lib/api'
+import { apiClient, EmailMailbox, EmailConnector } from '../lib/api'
 
 // UI Components (same as other pages for consistency)
 const Button = ({ children, variant = 'default', size = 'default', className = '', disabled = false, ...props }: any) => (
@@ -141,7 +140,6 @@ export function EmailMailboxesPage() {
     address: '',
     display_name: '',
     inbound_connector_id: '',
-    default_project_id: '',
     allow_new_ticket: true,
     routing_rules: [] as { match: string; project_id: string }[]
   })
@@ -174,7 +172,6 @@ export function EmailMailboxesPage() {
       address: '',
       display_name: '',
       inbound_connector_id: '',
-      default_project_id: '',
       allow_new_ticket: true,
       routing_rules: []
     })
@@ -189,7 +186,6 @@ export function EmailMailboxesPage() {
       address: mailbox.address,
       display_name: mailbox.display_name || '',
       inbound_connector_id: mailbox.inbound_connector_id,
-      default_project_id: mailbox.default_project_id,
       allow_new_ticket: mailbox.allow_new_ticket,
       routing_rules: mailbox.routing_rules || []
     })
@@ -285,90 +281,51 @@ export function EmailMailboxesPage() {
             All Email Mailboxes ({mailboxes.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0">
           {mailboxes.length === 0 ? (
-            <div className="text-center py-12">
-              <Inbox className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">No Email Mailboxes</h3>
-              <p className="text-muted-foreground mb-4">
+            <div className="text-center py-8">
+              <Inbox className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <h3 className="text-base font-medium mb-1">No Email Mailboxes</h3>
+              <p className="text-sm text-muted-foreground mb-3">
                 Create your first email mailbox to start routing incoming emails to projects.
               </p>
-              <Button onClick={handleCreateMailbox}>
+              <Button onClick={handleCreateMailbox} size="sm">
                 <Plus className="w-4 h-4 mr-2" />
                 Add First Mailbox
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {mailboxes.map((mailbox) => (
                 <div
                   key={mailbox.id}
-                  className="p-6 border rounded-lg hover:bg-muted/30 transition-colors"
+                  className="p-3 border rounded-md hover:bg-muted/10 transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Mail className="w-6 h-6 text-primary" />
+                  {/* Header with avatar and actions */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Mail className="w-4 h-4 text-primary" />
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-lg font-semibold">
-                            {mailbox.display_name || mailbox.address}
-                          </h4>
-                          {mailbox.display_name && (
-                            <span className="text-sm text-muted-foreground">
-                              &lt;{mailbox.address}&gt;
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Connector: {getConnectorName(mailbox.inbound_connector_id)}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="flex items-center gap-1">
-                            <Folder className="w-4 h-4" />
-                            Default:
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <ExternalLink className="w-4 h-4" />
-                            <a 
-                              href={`mailto:${mailbox.address}${mailbox.display_name ? `?subject=Email to ${mailbox.display_name}` : ''}`}
-                              className="text-blue-600 hover:text-blue-700 hover:underline"
-                            >
-                              Send Email
-                            </a>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant={mailbox.allow_new_ticket ? 'success' : 'secondary'}>
-                            {mailbox.allow_new_ticket ? (
-                              <>
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                New Tickets Allowed
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="w-3 h-3 mr-1" />
-                                New Tickets Disabled
-                              </>
-                            )}
-                          </Badge>
-                          {mailbox.routing_rules && Object.keys(mailbox.routing_rules).length > 0 && (
-                            <Badge variant="outline">
-                              Has Routing Rules
-                            </Badge>
-                          )}
-                        </div>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-medium truncate">
+                          {mailbox.display_name || mailbox.address}
+                        </h4>
+                        {mailbox.display_name && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {mailbox.address}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEditMailbox(mailbox)}
                         title="Edit mailbox"
                       >
-                        <Settings className="w-4 h-4" />
+                        <Settings className="w-3 h-3" />
                       </Button>
                       <Button
                         variant="destructive"
@@ -376,27 +333,60 @@ export function EmailMailboxesPage() {
                         onClick={() => handleDeleteMailbox(mailbox)}
                         title="Delete mailbox"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
-                  
-                  {/* Additional details */}
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Created:</span>
-                        <div>{new Date(mailbox.created_at).toLocaleDateString()}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Last Updated:</span>
-                        <div>{new Date(mailbox.updated_at).toLocaleDateString()}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Routing Rules:</span>
-                        <div>{mailbox.routing_rules && Object.keys(mailbox.routing_rules).length > 0 ? 'Configured' : 'None'}</div>
-                      </div>
+
+                  {/* Details */}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Connector:</span>
+                      <span className="font-medium">{getConnectorName(mailbox.inbound_connector_id)}</span>
                     </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Created:</span>
+                      <span>{new Date(mailbox.created_at).toLocaleDateString()}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Last Updated:</span>
+                      <span>{new Date(mailbox.updated_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Status badges */}
+                  <div className="flex flex-wrap gap-1 mt-3">
+                    <Badge variant={mailbox.allow_new_ticket ? 'success' : 'secondary'} className="text-xs px-2 py-0.5">
+                      {mailbox.allow_new_ticket ? (
+                        <>
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          New Tickets
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                          Disabled
+                        </>
+                      )}
+                    </Badge>
+                    {mailbox.routing_rules && Object.keys(mailbox.routing_rules).length > 0 && (
+                      <Badge variant="outline" className="text-xs px-2 py-0.5">
+                        Routing Rules
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Quick action */}
+                  <div className="mt-3 pt-2 border-t">
+                    <a 
+                      href={`mailto:${mailbox.address}${mailbox.display_name ? `?subject=Email to ${mailbox.display_name}` : ''}`}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Send Test Email
+                    </a>
                   </div>
                 </div>
               ))}
@@ -469,7 +459,7 @@ export function EmailMailboxesPage() {
             </Button>
             <Button 
               onClick={handleSubmit}
-              disabled={formLoading || !formData.address || !formData.inbound_connector_id || !formData.default_project_id}
+              disabled={formLoading || !formData.address || !formData.inbound_connector_id}
             >
               {formLoading ? 'Saving...' : 'Save Changes'}
             </Button>

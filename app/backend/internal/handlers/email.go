@@ -406,6 +406,7 @@ func (h *EmailHandler) CreateMailbox(c *gin.Context) {
 	}
 
 	if err := h.emailRepo.CreateMailbox(c.Request.Context(), mailbox); err != nil {
+		fmt.Println("Failed to create mailbox:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create mailbox"})
 		return
 	}

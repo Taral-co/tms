@@ -153,7 +153,6 @@ type EmailMailbox struct {
 	Address            string     `json:"address" db:"address"`
 	DisplayName        *string    `json:"display_name,omitempty" db:"display_name"`
 	InboundConnectorID uuid.UUID  `json:"inbound_connector_id" db:"inbound_connector_id"`
-	DefaultProjectID   uuid.UUID  `json:"default_project_id" db:"default_project_id"`
 	RoutingRules       JSONMap    `json:"routing_rules" db:"routing_rules"`
 	AllowNewTicket     bool       `json:"allow_new_ticket" db:"allow_new_ticket"`
 	CreatedAt          time.Time  `json:"created_at" db:"created_at"`

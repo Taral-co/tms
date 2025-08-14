@@ -65,7 +65,7 @@ func (s *Service) ProcessInboundEmail(ctx context.Context, msg *ParsedMessage, m
 		// Reply to existing ticket
 		result.Action = "reply"
 		result.TicketID = *ticketID
-		result.ProjectID = mailbox.DefaultProjectID // TODO: Get actual project from ticket
+		result.ProjectID = *mailbox.ProjectID // TODO: Get actual project from ticket
 	} else if mailbox.AllowNewTicket {
 		// Create new ticket
 		projectID, err := s.routeToProject(msg, mailbox)
@@ -273,8 +273,8 @@ func (s *Service) routeToProject(msg *ParsedMessage, mailbox *models.EmailMailbo
 		}
 	}
 
-	// Default to mailbox default project
-	return mailbox.DefaultProjectID, nil
+	// Default to mailbox project
+	return *mailbox.ProjectID, nil
 }
 
 // matchesRule checks if a message matches a routing rule

@@ -260,7 +260,6 @@ export interface EmailMailbox {
   address: string
   display_name?: string
   inbound_connector_id: string
-  default_project_id: string
   routing_rules: any
   allow_new_ticket: boolean
   created_at: string
@@ -288,7 +287,6 @@ export interface EmailMailboxRequest {
   address: string
   display_name?: string
   inbound_connector_id: string
-  default_project_id: string
   routing_rules?: Array<{
     match: string
     project_id: string
