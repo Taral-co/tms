@@ -1,28 +1,43 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, TicketCheck, Plus, Settings, CheckCircle, AlertCircle, Clock, Mail, List, Inbox } from 'lucide-react'
-import { apiClient, EmailConnector, EmailMailbox } from '../lib/api'
+import { 
+  RefreshCw, 
+  Search, 
+  Filter, 
+  Settings, 
+  Mail, 
+  TicketIcon, 
+  ChevronDown,
+  Eye,
+  EyeOff,
+  ArrowUpRight,
+  Reply,
+  Paperclip
+} from 'lucide-react'
+import { apiClient, EmailInbox, EmailMailbox, EmailFilter, ConvertToTicketRequest } from '../lib/api'
+import { formatDistanceToNow } from 'date-fns'
 
-// Temporary simplified UI components since @tms/shared may have build issues
-const Button = ({ children, variant = 'default', size = 'default', className = '', disabled = false, ...props }: any) => (
+// Temporary UI components since @tms/shared has build issues
+const Button = ({ children, variant = 'default', size = 'default', className = '', disabled = false, onClick, ...props }: any) => (
   <button 
     disabled={disabled}
+    onClick={onClick}
     className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
       variant === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
       variant === 'ghost' ? 'hover:bg-accent hover:text-accent-foreground' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
+      variant === 'secondary' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80' :
       'bg-primary text-primary-foreground hover:bg-primary/90'
     } ${
-      size === 'sm' ? 'h-9 px-3 rounded-md' : 'h-10 py-2 px-4'
+      size === 'sm' ? 'h-9 px-3 rounded-md' : 
+      size === 'xs' ? 'h-8 px-2 text-xs' :
+      'h-10 py-2 px-4'
     } ${className}`}
     {...props}
   >
     {children}
   </button>
 )
-
-// Custom input component since @tms/shared is not working
-// Removed unused Input component since we no longer need modals
 
 const Badge = ({ children, variant = 'default', className = '' }: any) => (
   <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
@@ -37,31 +52,6 @@ const Badge = ({ children, variant = 'default', className = '' }: any) => (
   </span>
 )
 
-const Card = ({ children, className = '' }: any) => (
-  <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}>
-    {children}
-  </div>
-)
-
-const CardHeader = ({ children, className = '' }: any) => (
-  <div className={`flex flex-col space-y-1.5 p-6 ${className}`}>
-    {children}
-  </div>
-)
-
-const CardTitle = ({ children, className = '' }: any) => (
-  <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`}>
-    {children}
-  </h3>
-)
-
-const CardContent = ({ children, className = '' }: any) => (
-  <div className={`p-6 pt-0 ${className}`}>
-    {children}
-  </div>
-)
-
-// Input component
 const Input = ({ className = '', ...props }: any) => (
   <input 
     className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
@@ -69,472 +59,502 @@ const Input = ({ className = '', ...props }: any) => (
   />
 )
 
-// Modal component
-const Modal = ({ open, onClose, children }: any) => {
+const Select = ({ children, value, onValueChange, disabled = false, ...props }: any) => {
+  const [isOpen, setIsOpen] = useState(false)
+  
+  return (
+    <div className="relative">
+      <button
+        className={`flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        {...props}
+      >
+        <span className="line-clamp-1">{value || 'Select...'}</span>
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      </button>
+      {isOpen && !disabled && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+          <div className="p-1">
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SelectItem = ({ children, value, onSelect }: any) => (
+  <div
+    className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+    onClick={() => onSelect?.(value)}
+  >
+    <span>{children}</span>
+  </div>
+)
+
+const Dialog = ({ children, open, onOpenChange }: any) => {
   if (!open) return null
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-background rounded-lg p-6 w-full max-w-md mx-4 shadow-lg">
+      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange?.(false)} />
+      <div className="relative bg-background rounded-lg shadow-lg w-full max-w-lg mx-4">
         {children}
       </div>
     </div>
   )
 }
 
+const DialogContent = ({ children }: any) => (
+  <div className="p-6">
+    {children}
+  </div>
+)
+
+const DialogHeader = ({ children }: any) => (
+  <div className="mb-4">
+    {children}
+  </div>
+)
+
+const DialogTitle = ({ children }: any) => (
+  <h2 className="text-lg font-semibold">
+    {children}
+  </h2>
+)
+
 export function InboxPage() {
   const navigate = useNavigate()
-  const [connectors, setConnectors] = useState<EmailConnector[]>([])
+  
+  // State management
+  const [emails, setEmails] = useState<EmailInbox[]>([])
   const [mailboxes, setMailboxes] = useState<EmailMailbox[]>([])
   const [loading, setLoading] = useState(false)
-  const [showValidateModal, setShowValidateModal] = useState(false)
-  const [showVerifyModal, setShowVerifyModal] = useState(false)
-  const [selectedConnector, setSelectedConnector] = useState<EmailConnector | null>(null)
-  const [validationEmail, setValidationEmail] = useState('')
-  const [otpCode, setOtpCode] = useState('')
-  const [validationLoading, setValidationLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [selectedMailbox, setSelectedMailbox] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filter, setFilter] = useState({
+    is_read: undefined as boolean | undefined,
+    has_attachments: undefined as boolean | undefined,
+    is_reply: undefined as boolean | undefined,
+  })
+  const [selectedEmail, setSelectedEmail] = useState<EmailInbox | null>(null)
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false)
+  const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false)
+  const [total, setTotal] = useState(0)
   
-  // Load connectors and mailboxes on mount
+  // Load initial data
   useEffect(() => {
-    loadData()
+    loadMailboxes()
+    loadEmails()
   }, [])
-
-  const loadData = async () => {
+  
+  // Reload emails when filters change
+  useEffect(() => {
+    loadEmails()
+  }, [selectedMailbox, searchQuery, filter])
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (settingsDropdownOpen && !target.closest('.settings-dropdown')) {
+        setSettingsDropdownOpen(false)
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [settingsDropdownOpen])
+  
+  const loadMailboxes = async () => {
+    try {
+      const response = await apiClient.getEmailMailboxes()
+      setMailboxes(response.mailboxes || [])
+    } catch (error) {
+      console.error('Failed to load mailboxes:', error)
+    }
+  }
+  
+  const loadEmails = async () => {
     setLoading(true)
     try {
-      const [connectorsResponse, mailboxesResponse] = await Promise.all([
-        apiClient.getEmailConnectors(),
-        apiClient.getEmailMailboxes()
-      ])
-      setConnectors(connectorsResponse.connectors || [])
-      setMailboxes(mailboxesResponse.mailboxes || [])
+      const emailFilter: EmailFilter = {
+        limit: 50,
+        page: 1,
+        ...(selectedMailbox !== 'all' && { mailbox: selectedMailbox }),
+        ...(searchQuery && { search: searchQuery }),
+        ...filter
+      }
+      
+      const response = await apiClient.getEmailInbox(emailFilter)
+      setEmails(response.emails || [])
+      setTotal(response.total || 0)
     } catch (error) {
-      console.error('Failed to load email data:', error)
+      console.error('Failed to load emails:', error)
+      setEmails([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }
   }
-
-  const handleCreateConnector = () => {
-    console.log('handleCreateConnector clicked - navigating to /inbox/add')
-    navigate('/inbox/add')
-  }
-
-  const handleListConnectors = () => {
-    navigate('/inbox/connectors')
-  }
-
-  const handleListMailboxes = () => {
-    navigate('/inbox/mailboxes')
-  }
-
-  const handleValidateConnector = (connector: EmailConnector) => {
-    setSelectedConnector(connector)
-    setValidationEmail(connector.smtp_username || '')
-    setShowValidateModal(true)
-  }
-
-  const handleStartValidation = async () => {
-    if (!selectedConnector || !validationEmail) return
-    
-    setValidationLoading(true)
+  
+  const handleSync = async () => {
+    setSyncing(true)
     try {
-      const response = await apiClient.validateEmailConnector(selectedConnector.id, { 
-        email: validationEmail 
-      })
-      console.log('Validation started:', response)
-      setShowValidateModal(false)
-      setShowVerifyModal(true)
-      // Refresh data to show updated status
-      loadData()
+      await apiClient.syncEmails()
+      // Reload emails after sync
+      await loadEmails()
     } catch (error) {
-      console.error('Failed to start validation:', error)
-      alert('Failed to start validation')
+      console.error('Failed to sync emails:', error)
+      alert('Failed to sync emails. Please try again.')
     } finally {
-      setValidationLoading(false)
+      setSyncing(false)
     }
   }
-
-  const handleVerifyOTP = async () => {
-    if (!selectedConnector || !otpCode || !validationEmail) return
-    
-    setValidationLoading(true)
+  
+  const handleMarkAsRead = async (emailId: string) => {
     try {
-      const response = await apiClient.verifyEmailConnectorOTP(selectedConnector.id, {
-        email: validationEmail,
-        otp: otpCode
-      })
-      console.log('OTP verified:', response)
-      setShowVerifyModal(false)
-      setOtpCode('')
-      // Refresh data to show updated status
-      loadData()
-      alert('Email connector validated successfully!')
+      await apiClient.markEmailAsRead(emailId)
+      // Update email state
+      setEmails(emails.map(email => 
+        email.id === emailId ? { ...email, is_read: true } : email
+      ))
     } catch (error) {
-      console.error('Failed to verify OTP:', error)
-      alert('Failed to verify OTP. Please check the code and try again.')
-    } finally {
-      setValidationLoading(false)
+      console.error('Failed to mark email as read:', error)
     }
   }
-
-  const handleEditConnector = (connector: EmailConnector) => {
-    navigate(`/inbox/add?edit=${connector.id}`)
-  }
-
-  const handleCreateMailbox = () => {
-    const validatedConnectors = connectors.filter(c => c.is_validated && c.validation_status === 'validated')
-    if (validatedConnectors.length === 0) {
-      alert('Please add and validate at least one email connector first. Domain validation is required before creating email inboxes.')
-      return
-    }
-    navigate('/inbox/mailboxes')
-  }
-
-  const getValidationStatusBadge = (connector: EmailConnector) => {
-    const handleClick = () => {
-      if (connector.validation_status === 'pending' || connector.validation_status === 'failed') {
-        handleValidateConnector(connector)
-      }
-    }
-
-    const isClickable = connector.validation_status === 'pending' || connector.validation_status === 'failed'
-
-    switch (connector.validation_status) {
-      case 'validated':
-        return <Badge variant="success" className="flex items-center gap-1">
-          <CheckCircle className="w-3 h-3" />
-          Domain Verified
-        </Badge>
-      case 'validating':
-        return <Badge variant="warning" className="flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          Validating Domain
-        </Badge>
-      case 'failed':
-        return <Badge 
-          variant="destructive" 
-          className={`flex items-center gap-1 ${isClickable ? 'cursor-pointer hover:opacity-80' : ''}`}
-          onClick={isClickable ? handleClick : undefined}
-        >
-          <AlertCircle className="w-3 h-3" />
-          Validation Failed - Click to Retry
-        </Badge>
-      default:
-        return <Badge 
-          variant="outline" 
-          className={`flex items-center gap-1 ${isClickable ? 'cursor-pointer hover:bg-muted' : ''}`}
-          onClick={isClickable ? handleClick : undefined}
-        >
-          <Clock className="w-3 h-3" />
-          Click to Validate Domain
-        </Badge>
+  
+  const handleConvertToTicket = async (emailId: string, ticketData: ConvertToTicketRequest) => {
+    try {
+      await apiClient.convertEmailToTicket(emailId, ticketData)
+      // Update email state
+      setEmails(emails.map(email => 
+        email.id === emailId ? { ...email, is_converted_to_ticket: true } : email
+      ))
+      setConvertDialogOpen(false)
+    } catch (error) {
+      console.error('Failed to convert email to ticket:', error)
+      alert('Failed to convert email to ticket. Please try again.')
     }
   }
-
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading email configuration...</p>
+  
+  const handleEmailClick = (email: EmailInbox) => {
+    setSelectedEmail(email)
+    if (!email.is_read) {
+      handleMarkAsRead(email.id)
+    }
+  }
+  
+  const SettingsDropdown = () => (
+    <div className="relative settings-dropdown">
+      <Button 
+        variant="outline" 
+        onClick={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
+        className="gap-2"
+      >
+        <Settings className="w-4 h-4" />
+        Settings
+        <ChevronDown className="w-4 h-4" />
+      </Button>
+      {settingsDropdownOpen && (
+        <div className="absolute right-0 z-50 mt-1 w-48 rounded-md border bg-popover shadow-md">
+          <div className="p-1">
+            <div
+              className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+              onClick={() => {
+                navigate('/inbox/mailboxes')
+                setSettingsDropdownOpen(false)
+              }}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              <span>Manage Mailboxes</span>
+            </div>
+            <div
+              className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+              onClick={() => {
+                navigate('/inbox/connectors')
+                setSettingsDropdownOpen(false)
+              }}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              <span>Manage Connectors</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+  
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Mail className="w-16 h-16 text-muted-foreground mb-4" />
+      <h3 className="text-lg font-semibold mb-2">No emails found</h3>
+      <p className="text-muted-foreground mb-4">
+        {selectedMailbox === 'all' 
+          ? 'No emails have been received yet.'
+          : `No emails found for mailbox: ${selectedMailbox}`
+        }
+      </p>
+      <Button onClick={handleSync} variant="outline">
+        <RefreshCw className="w-4 h-4 mr-2" />
+        Sync Emails
+      </Button>
+    </div>
+  )
+  
+  const EmailItem = ({ email }: { email: EmailInbox }) => (
+    <div 
+      className={`p-4 border-b border-border hover:bg-muted/50 cursor-pointer transition-colors ${
+        !email.is_read ? 'bg-primary/5' : ''
+      }`}
+      onClick={() => handleEmailClick(email)}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <div className={`w-2 h-2 rounded-full ${!email.is_read ? 'bg-primary' : 'bg-transparent'}`} />
+            <span className={`text-sm font-medium truncate ${!email.is_read ? 'font-semibold' : ''}`}>
+              {email.from_name || email.from_address}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {email.from_address}
+            </span>
+          </div>
+          
+          <h4 className={`font-medium mb-1 truncate ${!email.is_read ? 'font-semibold' : ''}`}>
+            {email.subject}
+          </h4>
+          
+          {email.snippet && (
+            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+              {email.snippet}
+            </p>
+          )}
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
+            </span>
+            
+            {email.has_attachments && (
+              <Badge variant="secondary" className="text-xs">
+                <Paperclip className="w-3 h-3 mr-1" />
+                {email.attachment_count}
+              </Badge>
+            )}
+            
+            {email.is_reply && (
+              <Badge variant="outline" className="text-xs">
+                <Reply className="w-3 h-3 mr-1" />
+                Reply
+              </Badge>
+            )}
+            
+            {email.is_converted_to_ticket && (
+              <Badge variant="success" className="text-xs">
+                <TicketIcon className="w-3 h-3 mr-1" />
+                Ticket
+              </Badge>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation()
+              if (!email.is_read) {
+                handleMarkAsRead(email.id)
+              }
+            }}
+            className="h-8 w-8 p-0"
+          >
+            {email.is_read ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </Button>
+          
+          {!email.is_converted_to_ticket && (
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation()
+                setSelectedEmail(email)
+                setConvertDialogOpen(true)
+              }}
+              className="h-8 w-8 p-0"
+            >
+              <ArrowUpRight className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
-    )
-  }
-
-
-  // Show empty state if no connectors or mailboxes
-  if (connectors.length === 0 || mailboxes.length === 0) {
-    const hasConnectors = connectors.length > 0
-    const hasValidatedConnectors = connectors.some(c => c.is_validated && c.validation_status === 'validated')
-
-
-    const handleCreateOrValidateConnector = () => {
-      if(!hasConnectors) {
-        console.log('handleCreateConnector clicked - navigating to /inbox/add')
-        navigate('/inbox/add')
-      } else {
-        handleListConnectors()
-      }
-    }
-
-
-    
-    
+    </div>
+  )
+  
+  // Show setup message if no mailboxes configured
+  if (mailboxes.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center max-w-lg">
           <Mail className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
-          <h2 className="text-2xl font-semibold mb-4">Setup Email Integration</h2>
-          <p className="text-muted-foreground mb-8">
-            Follow these steps to start receiving and managing customer emails as tickets.
+          <h2 className="text-2xl font-semibold mb-4">Email Setup Required</h2>
+          <p className="text-muted-foreground mb-6">
+            Configure email connectors and mailboxes to start receiving customer emails as tickets.
           </p>
-          
-          {/* Step-by-step setup */}
-          <div className="space-y-6 text-left">
-            {/* Step 1: Attach Email Connector */}
-            <div className="flex items-start gap-4 p-4 border rounded-lg bg-card">
-              <div className="flex-shrink-0 mt-1">
-                {hasValidatedConnectors ? (
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                ) : (
-                  <div className="w-6 h-6 rounded-full border-2 border-muted-foreground flex items-center justify-center text-sm font-medium">
-                    1
-                  </div>
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
-                  Attach Email Connector
-                  {hasValidatedConnectors && <Badge variant="success" className="text-xs">Completed</Badge>}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Connect your email account (Gmail, Outlook, etc.) and validate domain ownership to enable email processing.
-                </p>
-                {!hasValidatedConnectors && (
-                  <Button 
-                    onClick={handleCreateOrValidateConnector} 
-                    className="flex items-center gap-2"
-                    size="sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {hasConnectors ? 'Validate Connector' : 'Attach Email Connector'}
-                  </Button>
-                )}
-                {hasConnectors && !hasValidatedConnectors && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                    You have connectors but they need validation. <a href="" onClick={handleListConnectors} className="underline">Click here to validate them.</a>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Step 2: Add Email Mailbox */}
-            <div className="flex items-start gap-4 p-4 border rounded-lg bg-card">
-              <div className="flex-shrink-0 mt-1">
-                {mailboxes.length > 0 ? (
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                ) : (
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm font-medium ${
-                    hasValidatedConnectors ? 'border-primary text-primary' : 'border-muted-foreground text-muted-foreground'
-                  }`}>
-                    2
-                  </div>
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
-                  Add Email Mailbox
-                  {mailboxes.length > 0 && <Badge variant="success" className="text-xs">Completed</Badge>}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Create specific email addresses (like support@yourcompany.com) that will automatically convert incoming emails to tickets.
-                </p>
-                {hasValidatedConnectors && mailboxes.length === 0 && (
-                  <Button 
-                    onClick={handleCreateMailbox}
-                    className="flex items-center gap-2"
-                    size="sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Email Mailbox
-                  </Button>
-                )}
-                {!hasValidatedConnectors && (
-                  <p className="text-xs text-muted-foreground">
-                    Complete Step 1 first to enable this step
-                  </p>
-                )}
-              </div>
-            </div>
+          <div className="space-y-3">
+            <Button onClick={() => navigate('/inbox/connectors')} className="w-full">
+              <Settings className="w-4 h-4 mr-2" />
+              Configure Email Setup
+            </Button>
           </div>
-
-          {hasValidatedConnectors && mailboxes.length > 0 && (
-            <div className="mt-8 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-              <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
-                <CheckCircle className="w-5 h-5" />
-                <p className="font-medium">Email integration is ready!</p>
-              </div>
-              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                Your email system is now configured and ready to receive customer emails.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     )
-  }  return (
-    <div className="h-full max-h-screen p-6 space-y-6 overflow-y-auto">
+  }
+  
+  return (
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Email Inbox</h1>
-          <p className="text-muted-foreground">
-            Manage email connectors and mailboxes for your project
-          </p>
+      <div className="border-b border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold">Inbox</h1>
+            <p className="text-muted-foreground">
+              {total} emails • {emails.filter(e => !e.is_read).length} unread
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <SettingsDropdown />
+            <Button 
+              variant="outline" 
+              onClick={handleSync} 
+              disabled={syncing}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync'}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={loadData} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+        
+        {/* Filters */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Mailbox:</span>
+            <Select
+              value={selectedMailbox}
+              onValueChange={setSelectedMailbox}
+            >
+              <SelectItem value="all" onSelect={() => setSelectedMailbox('all')}>
+                All Mailboxes
+              </SelectItem>
+              {mailboxes.map((mailbox) => (
+                <SelectItem 
+                  key={mailbox.id} 
+                  value={mailbox.address}
+                  onSelect={() => setSelectedMailbox(mailbox.address)}
+                >
+                  {mailbox.address}
+                </SelectItem>
+              ))}
+            </Select>
+          </div>
+          
+          <div className="flex-1 max-w-md">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search emails..."
+                value={searchQuery}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter({ ...filter, is_read: filter.is_read === false ? undefined : false })}
+            className={filter.is_read === false ? 'bg-primary text-primary-foreground' : ''}
+          >
+            <Filter className="w-4 h-4 mr-1" />
+            Unread
           </Button>
-          <Button variant="outline" onClick={handleListConnectors}>
-            <List className="w-4 h-4 mr-2" />
-            Manage Connectors
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter({ ...filter, has_attachments: filter.has_attachments === true ? undefined : true })}
+            className={filter.has_attachments === true ? 'bg-primary text-primary-foreground' : ''}
+          >
+            <Paperclip className="w-4 h-4 mr-1" />
+            Attachments
           </Button>
-          <Button variant="outline" onClick={handleListMailboxes}>
-            <Inbox className="w-4 h-4 mr-2" />
-            Manage Mailboxes
-          </Button>
-          {/* <Button onClick={handleCreateConnector}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Connector
-          </Button> */}
         </div>
       </div>
-
-      {/* Email Mailboxes */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TicketCheck className="w-5 h-5" />
-              Email Mailboxes
-            </CardTitle>
-            <Button
-              onClick={handleCreateMailbox}
-              disabled={connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0}
-              title={connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0 ? 'Domain validation required: Please validate at least one email connector first' : 'Create new email mailbox'}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Mailbox
-            </Button>
+      
+      {/* Email List */}
+      <div className="flex-1 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
-        </CardHeader>
-        <CardContent>
-          {mailboxes.length === 0 ? (
-            <div className="text-center py-8">
-              {connectors.filter(c => c.is_validated && c.validation_status === 'validated').length === 0 ? (
-                <>
-                  <p className="text-muted-foreground mb-2">
-                    No email mailboxes configured.
-                  </p>
-                  <p className="text-sm text-amber-600 dark:text-amber-400">
-                    <strong> <a href='' onClick={handleListConnectors} className='text-amber-600 dark:text-amber-400 underline'>Domain validation required:</a></strong> Please validate at least one email connector before creating mailboxes.
-                  </p>
-                </>
-              ) : (
-                <p className="text-muted-foreground">
-                  No email mailboxes configured. <a href='' onClick={handleCreateMailbox} className='text-amber-600 dark:text-amber-400 underline'> Add a mailbox </a> to start managing emails.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {mailboxes.map((mailbox) => (
-                <div
-                  key={mailbox.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Mail className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{mailbox.address}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {mailbox.allow_new_ticket ? 'Creates new tickets' : 'Existing tickets only'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="success">Active</Badge>
-                    <Button variant="outline" size="sm">
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+        ) : emails.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <div className="h-full overflow-y-auto">
+            <div className="divide-y divide-border">
+              {emails.map((email) => (
+                <EmailItem key={email.id} email={email} />
               ))}
             </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Convert to Ticket Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Convert Email to Ticket</DialogTitle>
+          </DialogHeader>
+          {selectedEmail && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Subject</label>
+                <p className="text-sm text-muted-foreground">{selectedEmail.subject}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">From</label>
+                <p className="text-sm text-muted-foreground">
+                  {selectedEmail.from_name} ({selectedEmail.from_address})
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handleConvertToTicket(selectedEmail.id, {
+                    type: 'question',
+                    priority: 'normal'
+                  })}
+                  className="flex-1"
+                >
+                  Convert to Ticket
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setConvertDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Add some bottom padding to ensure scrolling works */}
-      <div className="h-20"></div>
-
-      {/* Validation Modal */}
-      <Modal open={showValidateModal} onClose={() => setShowValidateModal(false)}>
-        <h2 className="text-xl font-semibold mb-4">Validate Email Domain</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          We'll send a verification code to validate your email ownership.
-        </p>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Email Address</label>
-            <Input
-              type="email"
-              value={validationEmail}
-              onChange={(e: any) => setValidationEmail(e.target.value)}
-              placeholder="Enter email address"
-              className="mt-1"
-            />
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowValidateModal(false)}
-              disabled={validationLoading}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleStartValidation}
-              disabled={validationLoading || !validationEmail}
-            >
-              {validationLoading ? 'Sending...' : 'Send Verification Code'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* OTP Verification Modal */}
-      <Modal open={showVerifyModal} onClose={() => setShowVerifyModal(false)}>
-        <h2 className="text-xl font-semibold mb-4">Enter Verification Code</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Please enter the 6-digit verification code sent to your email.
-        </p>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Verification Code</label>
-            <Input
-              type="text"
-              value={otpCode}
-              onChange={(e: any) => setOtpCode(e.target.value)}
-              placeholder="Enter 6-digit code"
-              maxLength={6}
-              className="mt-1"
-            />
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowVerifyModal(false)}
-              disabled={validationLoading}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleVerifyOTP}
-              disabled={validationLoading || !otpCode || otpCode.length !== 6}
-            >
-              {validationLoading ? 'Verifying...' : 'Verify Code'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
