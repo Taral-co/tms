@@ -103,13 +103,6 @@ func (s *EmailInboxService) SyncEmails(ctx context.Context, tenantID uuid.UUID) 
 	return nil
 }
 
-// ForceSyncEmails forces email synchronization for a specific connector (placeholder implementation)
-func (s *EmailInboxService) ForceSyncEmails(ctx context.Context, tenantID, connectorID uuid.UUID) error {
-	// TODO: Implement actual email sync logic
-	// For now, this is a placeholder
-	return nil
-}
-
 // ConvertEmailToTicket converts an email to a ticket
 func (s *EmailInboxService) ConvertEmailToTicket(ctx context.Context, tenantID, emailID, projectID uuid.UUID, ticketType, priority string) (*db.Ticket, error) {
 	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, emailID)

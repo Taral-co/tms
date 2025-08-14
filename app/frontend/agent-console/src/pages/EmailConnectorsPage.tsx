@@ -320,10 +320,6 @@ export function EmailConnectorsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={loadConnectors} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
           <Button variant="outline" onClick={() => navigate('/inbox/mailboxes')}>
             <Inbox className="w-4 h-4 mr-2" />
             Manage Mailboxes
@@ -357,119 +353,91 @@ export function EmailConnectorsPage() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {connectors.map((connector) => (
                 <div
                   key={connector.id}
                   className="bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/20 group"
                 >
-                  <div className="p-4">
-                    <div className="flex items-center justify-between">
-                      {/* Left Section - Main Info */}
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="relative flex-shrink-0">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center border border-primary/10 group-hover:border-primary/20 transition-colors">
-                            <Mail className="w-5 h-5 text-primary" />
-                          </div>
-                          {connector.is_validated && (
-                            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                              <CheckCircle className="w-2.5 h-2.5 text-white" />
-                            </div>
-                          )}
+                  <div className="p-6">
+                    {/* Header with Icon and Status */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="relative flex-shrink-0">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center border border-primary/10 group-hover:border-primary/20 transition-colors">
+                          <Mail className="w-6 h-6 text-primary" />
                         </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                              {connector.name}
-                            </h4>
-                            <Badge variant="success" className="text-xs flex-shrink-0">
-                              Active
-                            </Badge>
-                            {getValidationStatusBadge(connector)}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="font-medium uppercase tracking-wide text-xs">
-                              {getConnectorTypeDisplay(connector.type)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Middle Section - Connection Details */}
-                      <div className="hidden lg:flex items-center gap-6 px-4 text-sm text-muted-foreground">
-                        {connector.smtp_host && (
-                          <div className="flex items-center gap-1">
-                            <Settings className="w-3 h-3" />
-                            <span>SMTP: {connector.smtp_host}:{connector.smtp_port}</span>
-                          </div>
-                        )}
-                        {connector.imap_host && (
-                          <div className="flex items-center gap-1">
-                            <Inbox className="w-3 h-3" />
-                            <span>IMAP: {connector.imap_host}:{connector.imap_port}</span>
+                        {connector.is_validated && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                            <CheckCircle className="w-3 h-3 text-white" />
                           </div>
                         )}
                       </div>
-
-                      {/* Right Section - Dates & Actions */}
-                      <div className="flex items-center gap-4">
-                        <div className="hidden md:block text-right text-sm">
-                          <div className="text-muted-foreground text-xs">
-                            Created: {new Date(connector.created_at).toLocaleDateString()}
-                          </div>
-                          <div className="text-muted-foreground text-xs">
-                            Updated: {new Date(connector.updated_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleTestConnector(connector)}
-                            title="Test connection"
-                            // className="h-7 w-7 p-5"
-                          >
-                            <TestTube className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/inbox/add?edit=${connector.id}`)}
-                            title="Edit connector"
-                            // className="h-7 w-7 p-0"
-                          >
-                            <Settings className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteConnector(connector)}
-                            title="Delete connector"
-                            // className="h-7 w-7 p-0"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                      
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleTestConnector(connector)}
+                          title="Test connection"
+                        >
+                          <TestTube className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/inbox/add?edit=${connector.id}`)}
+                          title="Edit connector"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteConnector(connector)}
+                          title="Delete connector"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    
-                    {/* Mobile Connection Details */}
-                    <div className="lg:hidden mt-3 pt-3 border-t border-border/50">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
-                        {connector.smtp_host && (
-                          <div className="flex items-center gap-1">
-                            <Settings className="w-3 h-3" />
-                            <span>SMTP: {connector.smtp_host}:{connector.smtp_port}</span>
-                          </div>
-                        )}
-                        {connector.imap_host && (
-                          <div className="flex items-center gap-1">
-                            <Inbox className="w-3 h-3" />
-                            <span>IMAP: {connector.imap_host}:{connector.imap_port}</span>
-                          </div>
-                        )}
+
+                    {/* Title and Type */}
+                    <div className="mb-4">
+                      <h4 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors mb-2 line-clamp-1">
+                        {connector.name}
+                      </h4>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="success" className="text-xs">
+                          Active
+                        </Badge>
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {getConnectorTypeDisplay(connector.type)}
+                        </span>
+                      </div>
+                      {getValidationStatusBadge(connector)}
+                    </div>
+
+                    {/* Connection Details */}
+                    <div className="space-y-2 mb-4 text-sm text-muted-foreground">
+                      {connector.smtp_host && (
+                        <div className="flex items-center gap-2">
+                          <Settings className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">SMTP: {connector.smtp_host}:{connector.smtp_port}</span>
+                        </div>
+                      )}
+                      {connector.imap_host && (
+                        <div className="flex items-center gap-2">
+                          <Inbox className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">IMAP: {connector.imap_host}:{connector.imap_port}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer with Dates */}
+                    <div className="border-t border-border/50 pt-3 text-xs text-muted-foreground">
+                      <div className="flex justify-between">
+                        <span>Created: {new Date(connector.created_at).toLocaleDateString()}</span>
+                        <span>Updated: {new Date(connector.updated_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>

@@ -23,15 +23,15 @@ const Button = ({ children, variant = 'default', size = 'default', className = '
     disabled={disabled}
     onClick={onClick}
     className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
-      variant === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
+      variant === 'outline' ? 'border border-input bg-background hover:bg-accent hover:text-accent-foreground' :
       variant === 'ghost' ? 'hover:bg-accent hover:text-accent-foreground' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
       variant === 'secondary' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80' :
       'bg-primary text-primary-foreground hover:bg-primary/90'
     } ${
-      size === 'sm' ? 'h-9 px-3 rounded-md' : 
-      size === 'xs' ? 'h-8 px-2 text-xs' :
-      'h-10 py-2 px-4'
+      size === 'sm' ? 'h-8 px-3 text-sm' : 
+      size === 'xs' ? 'h-6 px-2 text-xs' :
+      'h-9 px-4'
     } ${className}`}
     {...props}
   >
@@ -288,17 +288,19 @@ export function InboxPage() {
   )
   
   const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Mail className="w-16 h-16 text-muted-foreground mb-4" />
-      <h3 className="text-lg font-semibold mb-2">No emails found</h3>
-      <p className="text-muted-foreground mb-4">
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+        <Mail className="w-6 h-6 text-muted-foreground" />
+      </div>
+      <h3 className="text-sm font-semibold mb-1 text-foreground">No emails found</h3>
+      <p className="text-xs text-muted-foreground mb-4 max-w-sm">
         {selectedMailbox === 'all' 
-          ? 'No emails have been received yet.'
+          ? 'No emails have been received yet. Try syncing to check for new messages.'
           : `No emails found for mailbox: ${selectedMailbox}`
         }
       </p>
-      <Button onClick={handleSync} variant="outline">
-        <RefreshCw className="w-4 h-4 mr-2" />
+      <Button onClick={handleSync} variant="outline" size="sm" className="h-8">
+        <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
         Sync Emails
       </Button>
     </div>
@@ -306,90 +308,101 @@ export function InboxPage() {
   
   const EmailItem = ({ email }: { email: EmailInbox }) => (
     <div 
-      className={`p-4 border-b border-border hover:bg-muted/50 cursor-pointer transition-colors ${
-        !email.is_read ? 'bg-primary/5' : ''
+      className={`px-6 py-3 border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors group ${
+        !email.is_read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
       }`}
       onClick={() => handleEmailClick(email)}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <div className={`w-2 h-2 rounded-full ${!email.is_read ? 'bg-primary' : 'bg-transparent'}`} />
-            <span className={`text-sm font-medium truncate ${!email.is_read ? 'font-semibold' : ''}`}>
-              {email.from_name || email.from_address}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {email.from_address}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Read/Unread Indicator */}
+          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${!email.is_read ? 'bg-blue-600' : 'bg-transparent'}`} />
+          
+          {/* Avatar/Initials */}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              {(email.from_name || email.from_address).charAt(0).toUpperCase()}
             </span>
           </div>
           
-          <h4 className={`font-medium mb-1 truncate ${!email.is_read ? 'font-semibold' : ''}`}>
-            {email.subject}
-          </h4>
-          
-          {email.snippet && (
-            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-              {email.snippet}
-            </p>
-          )}
-          
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
-            </span>
+          {/* Email Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-sm truncate ${!email.is_read ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
+                {email.from_name || email.from_address}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
+              </span>
+            </div>
             
+            <h4 className={`text-sm mb-1 truncate ${!email.is_read ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
+              {email.subject}
+            </h4>
+            
+            {email.snippet && (
+              <p className="text-xs text-muted-foreground line-clamp-1">
+                {email.snippet}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        {/* Badges and Actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1">
             {email.has_attachments && (
-              <Badge variant="secondary" className="text-xs">
-                <Paperclip className="w-3 h-3 mr-1" />
+              <Badge variant="secondary" className="text-xs h-5 px-1.5">
+                <Paperclip className="w-2.5 h-2.5 mr-0.5" />
                 {email.attachment_count}
               </Badge>
             )}
             
             {email.is_reply && (
-              <Badge variant="outline" className="text-xs">
-                <Reply className="w-3 h-3 mr-1" />
-                Reply
+              <Badge variant="outline" className="text-xs h-5 px-1.5">
+                <Reply className="w-2.5 h-2.5 mr-0.5" />
+                Re
               </Badge>
             )}
             
             {email.is_converted_to_ticket && (
-              <Badge variant="success" className="text-xs">
-                <TicketIcon className="w-3 h-3 mr-1" />
+              <Badge variant="success" className="text-xs h-5 px-1.5">
+                <TicketIcon className="w-2.5 h-2.5 mr-0.5" />
                 Ticket
               </Badge>
             )}
           </div>
-        </div>
-        
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={(e: React.MouseEvent) => {
-              e.stopPropagation()
-              if (!email.is_read) {
-                handleMarkAsRead(email.id)
-              }
-            }}
-            className="h-8 w-8 p-0"
-          >
-            {email.is_read ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </Button>
           
-          {!email.is_converted_to_ticket && (
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
-              size="xs"
+              size="sm"
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation()
-                setSelectedEmail(email)
-                setConvertDialogOpen(true)
+                if (!email.is_read) {
+                  handleMarkAsRead(email.id)
+                }
               }}
-              className="h-8 w-8 p-0"
+              className="h-6 w-6 p-0 hover:bg-muted"
             >
-              <ArrowUpRight className="w-4 h-4" />
+              {email.is_read ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </Button>
-          )}
+            
+            {!email.is_converted_to_ticket && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation()
+                  setSelectedEmail(email)
+                  setConvertDialogOpen(true)
+                }}
+                className="h-6 w-6 p-0 hover:bg-muted"
+              >
+                <ArrowUpRight className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -417,97 +430,114 @@ export function InboxPage() {
   }
   
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold">Inbox</h1>
-            <p className="text-muted-foreground">
-              {total} emails • {emails.filter(e => !e.is_read).length} unread
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <SettingsDropdown />
-            <Button 
-              variant="outline" 
-              onClick={handleSync} 
-              disabled={syncing}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync'}
-            </Button>
-          </div>
-        </div>
-        
-        {/* Filters */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Mailbox:</span>
-            <Select
-              value={selectedMailbox}
-              onValueChange={setSelectedMailbox}
-            >
-              <SelectItem value="all" onSelect={() => setSelectedMailbox('all')}>
-                All Mailboxes
-              </SelectItem>
-              {mailboxes.map((mailbox) => (
-                <SelectItem 
-                  key={mailbox.id} 
-                  value={mailbox.address}
-                  onSelect={() => setSelectedMailbox(mailbox.address)}
-                >
-                  {mailbox.address}
-                </SelectItem>
-              ))}
-            </Select>
-          </div>
-          
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search emails..."
-                value={searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+    <div className="h-full flex flex-col bg-background">
+      {/* Compact Header */}
+      <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-semibold">Inbox</h1>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <span className="font-medium">{total}</span>
+                <span>emails</span>
+                {emails.filter(e => !e.is_read).length > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="font-medium text-blue-600">{emails.filter(e => !e.is_read).length}</span>
+                    <span>unread</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <SettingsDropdown />
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleSync} 
+                disabled={syncing}
+                className="h-8"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync'}
+              </Button>
             </div>
           </div>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFilter({ ...filter, is_read: filter.is_read === false ? undefined : false })}
-            className={filter.is_read === false ? 'bg-primary text-primary-foreground' : ''}
-          >
-            <Filter className="w-4 h-4 mr-1" />
-            Unread
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFilter({ ...filter, has_attachments: filter.has_attachments === true ? undefined : true })}
-            className={filter.has_attachments === true ? 'bg-primary text-primary-foreground' : ''}
-          >
-            <Paperclip className="w-4 h-4 mr-1" />
-            Attachments
-          </Button>
+          {/* Compact Filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mailbox</span>
+              <Select
+                value={selectedMailbox}
+                onValueChange={setSelectedMailbox}
+              >
+                <SelectItem value="all" onSelect={() => setSelectedMailbox('all')}>
+                  All Mailboxes
+                </SelectItem>
+                {mailboxes.map((mailbox) => (
+                  <SelectItem 
+                    key={mailbox.id} 
+                    value={mailbox.address}
+                    onSelect={() => setSelectedMailbox(mailbox.address)}
+                  >
+                    {mailbox.address}
+                  </SelectItem>
+                ))}
+              </Select>
+            </div>
+            
+            <div className="flex-1 max-w-xs">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search emails..."
+                  value={searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <Button
+                variant={filter.is_read === false ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilter({ ...filter, is_read: filter.is_read === false ? undefined : false })}
+                className="h-7 px-2.5 text-xs"
+              >
+                <Filter className="w-3 h-3 mr-1" />
+                Unread
+              </Button>
+              
+              <Button
+                variant={filter.has_attachments === true ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilter({ ...filter, has_attachments: filter.has_attachments === true ? undefined : true })}
+                className="h-7 px-2.5 text-xs"
+              >
+                <Paperclip className="w-3 h-3 mr-1" />
+                Attachments
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
       
       {/* Email List */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden bg-background">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          <div className="flex items-center justify-center py-16">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Loading emails...</span>
+            </div>
           </div>
         ) : emails.length === 0 ? (
           <EmptyState />
         ) : (
           <div className="h-full overflow-y-auto">
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border/50">
               {emails.map((email) => (
                 <EmailItem key={email.id} email={email} />
               ))}

@@ -51,26 +51,26 @@ type ListEmailsResponse struct {
 
 // EmailResponse represents an email in the response
 type EmailResponse struct {
-	ID               uuid.UUID         `json:"id"`
-	MessageID        string            `json:"message_id"`
-	ThreadID         *string           `json:"thread_id,omitempty"`
-	MailboxAddress   string            `json:"mailbox_address"`
-	FromAddress      string            `json:"from_address"`
-	FromName         *string           `json:"from_name,omitempty"`
-	ToAddresses      []string          `json:"to_addresses"`
-	CcAddresses      []string          `json:"cc_addresses,omitempty"`
-	Subject          string            `json:"subject"`
-	Snippet          *string           `json:"snippet,omitempty"`
-	IsRead           bool              `json:"is_read"`
-	IsReply          bool              `json:"is_reply"`
-	HasAttachments   bool              `json:"has_attachments"`
-	AttachmentCount  int               `json:"attachment_count"`
-	SentAt           *time.Time        `json:"sent_at,omitempty"`
-	ReceivedAt       time.Time         `json:"received_at"`
-	TicketID         *uuid.UUID        `json:"ticket_id,omitempty"`
-	IsConvertedToTicket bool           `json:"is_converted_to_ticket"`
-	Headers          map[string]string `json:"headers,omitempty"`
-	CreatedAt        time.Time         `json:"created_at"`
+	ID                  uuid.UUID         `json:"id"`
+	MessageID           string            `json:"message_id"`
+	ThreadID            *string           `json:"thread_id,omitempty"`
+	MailboxAddress      string            `json:"mailbox_address"`
+	FromAddress         string            `json:"from_address"`
+	FromName            *string           `json:"from_name,omitempty"`
+	ToAddresses         []string          `json:"to_addresses"`
+	CcAddresses         []string          `json:"cc_addresses,omitempty"`
+	Subject             string            `json:"subject"`
+	Snippet             *string           `json:"snippet,omitempty"`
+	IsRead              bool              `json:"is_read"`
+	IsReply             bool              `json:"is_reply"`
+	HasAttachments      bool              `json:"has_attachments"`
+	AttachmentCount     int               `json:"attachment_count"`
+	SentAt              *time.Time        `json:"sent_at,omitempty"`
+	ReceivedAt          time.Time         `json:"received_at"`
+	TicketID            *uuid.UUID        `json:"ticket_id,omitempty"`
+	IsConvertedToTicket bool              `json:"is_converted_to_ticket"`
+	Headers             map[string]string `json:"headers,omitempty"`
+	CreatedAt           time.Time         `json:"created_at"`
 }
 
 // ConvertToTicketRequest represents request to convert email to ticket
@@ -163,7 +163,7 @@ func (h *EmailInboxHandler) GetEmail(c *gin.Context) {
 	}
 
 	response := h.convertToEmailResponse(email)
-	
+
 	// Add attachments to response
 	if len(attachments) > 0 {
 		// You can extend the response structure to include attachments
@@ -224,8 +224,8 @@ func (h *EmailInboxHandler) ConvertToTicket(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":   "email converted to ticket successfully",
-		"ticket_id": ticket.ID,
+		"message":       "email converted to ticket successfully",
+		"ticket_id":     ticket.ID,
 		"ticket_number": ticket.Number,
 	})
 }
@@ -280,38 +280,6 @@ func (h *EmailInboxHandler) SyncEmails(c *gin.Context) {
 	response := SyncEmailsResponse{
 		Status:    "started",
 		Message:   "Email synchronization started",
-		StartedAt: time.Now(),
-	}
-
-	c.JSON(http.StatusAccepted, response)
-}
-
-// ForceSyncEmails handles POST /emails/sync/:connector_id
-func (h *EmailInboxHandler) ForceSyncEmails(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
-
-	connectorID, err := uuid.Parse(c.Param("connector_id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid connector_id"})
-		return
-	}
-
-	// Run sync in background
-	go func() {
-		err := h.emailInboxService.ForceSyncEmails(c.Request.Context(), tenantUUID, connectorID)
-		if err != nil {
-			// Log error
-		}
-	}()
-
-	response := SyncEmailsResponse{
-		Status:    "started",
-		Message:   "Email synchronization started for connector",
 		StartedAt: time.Now(),
 	}
 
