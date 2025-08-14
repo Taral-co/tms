@@ -251,14 +251,14 @@ export function InboxPage() {
     const hasValidatedConnectors = connectors.some(c => c.is_validated && c.validation_status === 'validated')
 
 
-  const handleCreateOrValidateConnector = () => {
-    if(!hasConnectors) {
-      console.log('handleCreateConnector clicked - navigating to /inbox/add')
-      navigate('/inbox/add')
-    } else {
-      handleListConnectors()
+    const handleCreateOrValidateConnector = () => {
+      if(!hasConnectors) {
+        console.log('handleCreateConnector clicked - navigating to /inbox/add')
+        navigate('/inbox/add')
+      } else {
+        handleListConnectors()
+      }
     }
-  }
 
 
     
