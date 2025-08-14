@@ -244,10 +244,24 @@ export function InboxPage() {
     )
   }
 
+
   // Show empty state if no connectors or mailboxes
   if (connectors.length === 0 || mailboxes.length === 0) {
     const hasConnectors = connectors.length > 0
     const hasValidatedConnectors = connectors.some(c => c.is_validated && c.validation_status === 'validated')
+
+
+  const handleCreateOrValidateConnector = () => {
+    if(!hasConnectors) {
+      console.log('handleCreateConnector clicked - navigating to /inbox/add')
+      navigate('/inbox/add')
+    } else {
+      handleListConnectors()
+    }
+  }
+
+
+    
     
     return (
       <div className="h-full flex items-center justify-center">
@@ -281,7 +295,7 @@ export function InboxPage() {
                 </p>
                 {!hasValidatedConnectors && (
                   <Button 
-                    onClick={handleCreateConnector} 
+                    onClick={handleCreateOrValidateConnector} 
                     className="flex items-center gap-2"
                     size="sm"
                   >

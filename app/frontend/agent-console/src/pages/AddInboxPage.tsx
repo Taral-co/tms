@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, Server, Forward, AlertTriangle, Copy, ExternalLink, ChevronRight, ChevronLeft } from 'lucide-react'
+import { ArrowLeft, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react'
 import { apiClient } from '../lib/api'
 
 // Temporary simplified UI components since @tms/shared may have build issues
 const Button = ({ children, variant = 'default', size = 'default', className = '', disabled = false, ...props }: any) => (
-  <button 
+  <button
     disabled={disabled}
-    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors             <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">{isEditing ? 'Ready to Update' : 'Ready to Create'}</h4>
-            <p className="text-green-800 dark:text-green-200">
-              Your email connector is configured and ready to be {isEditing ? 'updated' : 'created'}. {!isEditing && 'After creation, we\'ll send a validation email to verify email ownership.'}
-            </p>s-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
+    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
       variant === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
       variant === 'ghost' ? 'hover:bg-accent hover:text-accent-foreground' :
       variant === 'destructive' ? 'bg-red-600 text-white hover:bg-red-700' :
@@ -56,7 +53,7 @@ export function AddInboxPage() {
   
   const [formData, setFormData] = useState({
     name: '',
-    type: 'email_forwarder' as 'email_forwarder' | 'inbound_imap',
+  type: 'inbound_imap' as 'inbound_imap',
     imap_host: '',
     imap_port: 993,
     imap_username: '',
@@ -75,7 +72,7 @@ export function AddInboxPage() {
         .then(connector => {
           setFormData({
             name: connector.name,
-            type: connector.type === 'outbound_smtp' ? 'email_forwarder' : connector.type,
+            type: 'inbound_imap',
             imap_host: connector.imap_host || '',
             imap_port: connector.imap_port || 993,
             imap_username: connector.imap_username || '',
@@ -85,10 +82,10 @@ export function AddInboxPage() {
             smtp_username: connector.smtp_username || '',
             smtp_password: '' // Don't populate password for security
           })
-          setCreatedConnectorId(connector.id)
+          // setCreatedConnectorId(connector.id)
           // If connector is already validated, skip to last step
           if (connector.is_validated && connector.validation_status === 'validated') {
-            setCurrentStep(5)
+            setCurrentStep(4)
           }
         })
         .catch(error => {
@@ -104,15 +101,9 @@ export function AddInboxPage() {
   const steps = [
     { number: 1, title: 'Email Configuration', description: 'Basic email settings' },
     { number: 2, title: 'SMTP Configuration', description: 'Outbound email settings' },
-    { number: 3, title: 'Connection Method', description: 'Choose how to receive emails' },
-    { number: 4, title: 'Setup Instructions', description: 'Configure email forwarding' },
-    { number: 5, title: 'Domain Validation', description: 'Verify domain ownership' }
+    { number: 3, title: 'IMAP Configuration', description: 'Incoming email settings' },
+    { number: 4, title: 'Domain Validation', description: 'Verify domain ownership' }
   ]
-
-  const getForwardingAddress = () => {
-    const projId = localStorage.getItem('project_id')
-    return `${projId}@taral.co`
-  }
 
   const handleNext = () => {
     if (currentStep < steps.length) {
@@ -121,31 +112,26 @@ export function AddInboxPage() {
   }
 
   const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
+    if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Convert email_forwarder to outbound_smtp for API compatibility
       const apiData = {
         ...formData,
-        type: (formData.type === 'email_forwarder' ? 'outbound_smtp' : formData.type) as 'inbound_imap' | 'outbound_smtp'
+        type: (formData.type === 'inbound_imap' ? 'inbound_imap' : 'outbound_smtp') as 'inbound_imap' | 'outbound_smtp'
       }
-      
+
       let response
       if (editId) {
-        // Update existing connector
         response = await apiClient.updateEmailConnector(editId, apiData)
       } else {
-        // Create new connector
         response = await apiClient.createEmailConnector(apiData)
       }
-      
+
       setCreatedConnectorId(response.id)
-      handleNext() // Move to validation step
+      handleNext()
     } catch (error) {
       console.error('Failed to save connector:', error)
       alert('Failed to save connector')
@@ -156,12 +142,9 @@ export function AddInboxPage() {
 
   const handleValidate = async () => {
     if (!createdConnectorId) return
-    
     setSaving(true)
     try {
-      await apiClient.validateEmailConnector(createdConnectorId, {
-        email: formData.smtp_username
-      })
+      await apiClient.validateEmailConnector(createdConnectorId, { email: formData.smtp_username })
       alert('Validation email sent! Please check your inbox and follow the verification steps.')
       navigate('/inbox')
     } catch (error) {
@@ -172,14 +155,7 @@ export function AddInboxPage() {
     }
   }
 
-  const handleBack = () => {
-    navigate('/inbox')
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    alert('Copied to clipboard!')
-  }
+  const handleBack = () => navigate('/inbox')
 
   const renderStepIndicator = () => (
     <div className="flex items-center justify-between mb-8">
@@ -199,17 +175,11 @@ export function AddInboxPage() {
             )}
           </div>
           <div className="ml-2 hidden sm:block">
-            <p className={`text-sm font-medium ${
-              currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'
-            }`}>
-              {step.title}
-            </p>
+            <p className={`text-sm font-medium ${ currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground' }`}>{step.title}</p>
             <p className="text-xs text-muted-foreground">{step.description}</p>
           </div>
           {index < steps.length - 1 && (
-            <div className={`w-12 h-px mx-4 ${
-              currentStep > step.number ? 'bg-green-500' : 'bg-muted'
-            }`} />
+            <div className={`w-12 h-px mx-4 ${ currentStep > step.number ? 'bg-green-500' : 'bg-muted' }`} />
           )}
         </div>
       ))}
@@ -313,105 +283,14 @@ export function AddInboxPage() {
           Previous
         </Button>
         <Button onClick={handleNext} disabled={!formData.smtp_host || !formData.smtp_username || !formData.smtp_password}>
-          Next: Connection Method
+          Next: IMAP Configuration
           <ChevronRight className="w-4 h-4 ml-2" />
         </Button>
       </div>
     </div>
   )
 
-  const renderStep3 = () => (
-    <div className="space-y-6 py-5">
-      <div>
-        <h3 className="text-lg font-medium mb-4">Choose Connection Method</h3>
-        <p className="text-sm text-muted-foreground mb-6">
-          Select how you want to receive incoming emails. We recommend Email Forwarding for better performance and reliability.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Email Forwarding Option */}
-        <div 
-          className={`p-6 border-2 rounded-lg cursor-pointer transition-all ${
-            formData.type === 'email_forwarder' 
-              ? 'border-green-500 bg-green-50 dark:bg-green-950' 
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-          onClick={() => setFormData(prev => ({ ...prev, type: 'email_forwarder' }))}
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mt-1">
-              <Forward className="w-4 h-4 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-medium text-green-900 dark:text-green-100">Email Forwarding</h4>
-              <p className="text-sm text-green-700 dark:text-green-300 mb-3">Recommended</p>
-              <ul className="text-sm text-green-600 dark:text-green-400 space-y-1">
-                <li>• Fast and automatic</li>
-                <li>• Real-time processing</li>
-                <li>• No manual checking</li>
-                <li>• Works with any email provider</li>
-                <li>• Better reliability</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* IMAP Option */}
-        <div 
-          className={`p-6 border-2 rounded-lg cursor-pointer transition-all ${
-            formData.type === 'inbound_imap' 
-              ? 'border-orange-500 bg-orange-50 dark:bg-orange-950' 
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-          onClick={() => setFormData(prev => ({ ...prev, type: 'inbound_imap' }))}
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center mt-1">
-              <Server className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-medium text-orange-900 dark:text-orange-100">IMAP Connection</h4>
-              <p className="text-sm text-orange-700 dark:text-orange-300 mb-3">Manual setup required</p>
-              <ul className="text-sm text-orange-600 dark:text-orange-400 space-y-1">
-                <li>• Slower processing</li>
-                <li>• Periodic checking</li>
-                <li>• Requires email credentials</li>
-                <li>• More complex setup</li>
-                <li>• Provider limitations</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {formData.type === 'inbound_imap' && (
-        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-4 rounded-lg">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-            <div>
-              <h4 className="font-medium text-amber-900 dark:text-amber-100">IMAP Setup Required</h4>
-              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                If you choose IMAP, you'll need to provide additional credentials in the next step. 
-                Email forwarding is recommended for better performance and security.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-between pt-4">
-        <Button variant="outline" onClick={handlePrevious}>
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-        <Button onClick={handleNext}>
-          {formData.type === 'email_forwarder' ? 'Next: Setup Instructions' : 'Next: IMAP Configuration'}
-          <ChevronRight className="w-4 h-4 ml-2" />
-        </Button>
-      </div>
-    </div>
-  )
+  
 
   const renderStep4 = () => {
     if (formData.type === 'inbound_imap') {
@@ -487,98 +366,8 @@ export function AddInboxPage() {
       )
     }
 
-    // Email forwarding setup instructions
-    return (
-      <div className="space-y-6 py-5">
-        <div>
-          <h3 className="text-lg font-medium mb-4">Email Forwarding Setup</h3>
-          <p className="text-sm text-muted-foreground mb-6">
-            Follow these steps to forward your emails to our system for automatic ticket creation.
-          </p>
-        </div>
-
-        <div className="bg-blue-50 dark:bg-blue-950 p-6 rounded-lg">
-          <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">Your Forwarding Address</h4>
-          <div className="flex items-center gap-2 bg-white dark:bg-blue-900 p-3 rounded border">
-            <code className="flex-1 text-blue-900 dark:text-blue-100">{getForwardingAddress()}</code>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyToClipboard(getForwardingAddress())}
-            >
-              <Copy className="w-4 h-4" />
-            </Button>
-          </div>
-          <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-            Forward all emails from {formData.smtp_username} to this address.
-          </p>
-        </div>
-        <div className="flex justify-between pt-4">
-          <Button variant="outline" onClick={handlePrevious}>
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Previous
-          </Button>
-          <Button onClick={handleNext}>
-            Next: Domain Validation
-            <ChevronRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-        <hr className="my-4 border-t border-blue-200 dark:border-blue-700" />
-        
-
-        <div className="space-y-4">
-          <h4 className="font-medium">Setup Instructions by Provider:</h4>
-          
-          {/* Gmail Instructions */}
-          <div className="border rounded-lg p-4">
-            <h5 className="font-medium flex items-center gap-2 mb-3">
-              Gmail Setup
-              <ExternalLink className="w-4 h-4" />
-            </h5>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Go to Gmail Settings → Forwarding and POP/IMAP</li>
-              <li>Click "Add a forwarding address"</li>
-              <li>Enter: <code className="bg-muted px-1 rounded">{getForwardingAddress()}</code></li>
-              <li>Choose "Forward a copy of incoming mail to" and select the address</li>
-              <li>Choose what to do with Gmail's copy (keep, archive, or delete)</li>
-              <li>Save changes</li>
-            </ol>
-          </div>
-
-          {/* Outlook Instructions */}
-          <div className="border rounded-lg p-4">
-            <h5 className="font-medium flex items-center gap-2 mb-3">
-              Outlook Setup
-              <ExternalLink className="w-4 h-4" />
-            </h5>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Go to Outlook Settings → Mail → Forwarding</li>
-              <li>Check "Enable forwarding"</li>
-              <li>Enter forwarding address: <code className="bg-muted px-1 rounded">{getForwardingAddress()}</code></li>
-              <li>Choose whether to keep a copy in Outlook</li>
-              <li>Save settings</li>
-            </ol>
-          </div>
-
-          {/* Custom Domain Instructions */}
-          <div className="border rounded-lg p-4">
-            <h5 className="font-medium flex items-center gap-2 mb-3">
-              Custom Domain Setup
-              <ExternalLink className="w-4 h-4" />
-            </h5>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Access your domain's email management panel</li>
-              <li>Look for "Email Forwarding" or "Mail Forwarding" settings</li>
-              <li>Create a forwarding rule for {formData.smtp_username}</li>
-              <li>Set destination to: <code className="bg-muted px-1 rounded">{getForwardingAddress()}</code></li>
-              <li>Save and test the forwarding rule</li>
-            </ol>
-          </div>
-        </div>
-
-        
-      </div>
-    )
+  // No forwarding fallback — IMAP is the only supported inbound method.
+  return null
   }
 
   const renderStep5 = () => (
@@ -603,7 +392,7 @@ export function AddInboxPage() {
             <h4 className="font-medium mb-3">Configuration Summary</h4>
             <div className="space-y-2 text-sm">
               <div><strong>Name:</strong> {formData.name}</div>
-              <div><strong>Type:</strong> {formData.type === 'email_forwarder' ? 'Email Forwarding' : 'IMAP Connection'}</div>
+              <div><strong>Type:</strong> IMAP Connection</div>
               <div><strong>SMTP Username:</strong> {formData.smtp_username}</div>
               <div><strong>SMTP:</strong> {formData.smtp_host}:{formData.smtp_port}</div>
               {formData.type === 'inbound_imap' && (
@@ -683,9 +472,8 @@ export function AddInboxPage() {
             <CardContent className="p-8">
               {currentStep === 1 && renderStep1()}
               {currentStep === 2 && renderStep2()}
-              {currentStep === 3 && renderStep3()}
-              {currentStep === 4 && renderStep4()}
-              {currentStep === 5 && renderStep5()}
+              {currentStep === 3 && renderStep4()}
+              {currentStep === 4 && renderStep5()}
             </CardContent>
           </Card>
         </>

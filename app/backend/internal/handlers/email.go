@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bareuptime/tms/internal/crypto"
@@ -604,12 +605,15 @@ func (h *EmailHandler) ValidateConnector(c *gin.Context) {
 	if err != nil {
 		// Log the error but don't fail the request - user can retry
 		fmt.Printf("Failed to send validation email: %v\n", err)
-		c.JSON(http.StatusOK, gin.H{
-			"status":  "validation_started",
-			"message": "Validation initiated. Please check your email for the verification code.",
-			"warning": "Email sending failed, please try again or check your SMTP settings",
-			"otp":     otp, // Temporary - for testing when email fails
-		})
+		if strings.Contains(err.Error(), "SMTP authentication failed") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "validation_started",
+				"message": "Validation initiated. Please check your email for the verification code.",
+				"warning": "Email sending failed, please try again or check your SMTP settings",
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send validation email"})
+		}
 		return
 	}
 

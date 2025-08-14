@@ -888,7 +888,7 @@ class APIClient {
   }
 
   async updateEmailConnector(id: string, data: EmailConnectorRequest): Promise<EmailConnector> {
-    const response: AxiosResponse<EmailConnector> = await this.client.put(`/email/connectors/${id}`, data)
+    const response: AxiosResponse<EmailConnector> = await this.client.patch(`/email/connectors/${id}`, data)
     return response.data
   }
 

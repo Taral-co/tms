@@ -155,6 +155,11 @@ export function EmailConnectorsPage() {
     } catch (error) {
       console.error('Failed to start validation:', error)
       alert('Failed to start validation')
+      // console.log('Validation started:', response)
+      setShowValidateModal(false)
+      setShowVerifyModal(true)
+      setResendCooldown(30) // Set 30-second cooldown
+      loadConnectors()
     } finally {
       setValidationLoading(false)
     }
@@ -184,6 +189,10 @@ export function EmailConnectorsPage() {
   }
 
   const handleResendOTP = async () => {
+    console.log('handleResendOTP clicked')
+    console.log("selectedConnector", selectedConnector)
+    console.log("validationEmail", validationEmail)
+    console.log("resendCooldown", resendCooldown)
     if (!selectedConnector || !validationEmail || resendCooldown > 0) return
     
     setValidationLoading(true)
@@ -196,6 +205,7 @@ export function EmailConnectorsPage() {
     } catch (error) {
       console.error('Failed to resend validation code:', error)
       alert('Failed to resend validation code')
+      setResendCooldown(30) // Reset 30-second cooldown
     } finally {
       setValidationLoading(false)
     }
@@ -228,7 +238,7 @@ export function EmailConnectorsPage() {
       } else if (connector.validation_status === 'validating') {
         // Allow users to enter OTP for validating connectors
         setSelectedConnector(connector)
-        setValidationEmail('')
+        setValidationEmail(connector.smtp_username)
         setShowVerifyModal(true)
       }
     }
@@ -239,7 +249,7 @@ export function EmailConnectorsPage() {
       case 'validated':
         return <Badge variant="success" className="flex items-center gap-1">
           <CheckCircle className="w-3 h-3" />
-          Domain Verified
+          Email Verified
         </Badge>
       case 'validating':
         return <Badge 
