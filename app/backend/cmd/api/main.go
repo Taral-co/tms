@@ -345,6 +345,9 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				// Email mailboxes
 				email.GET("/mailboxes", emailHandler.ListMailboxes)
 				email.POST("/mailboxes", emailHandler.CreateMailbox)
+				email.GET("/mailboxes/:mailbox_id", emailHandler.GetMailbox)
+				email.PUT("/mailboxes/:mailbox_id", emailHandler.UpdateMailbox)
+				email.DELETE("/mailboxes/:mailbox_id", emailHandler.DeleteMailbox)
 
 				// Email inbox
 				inbox := email.Group("/inbox")

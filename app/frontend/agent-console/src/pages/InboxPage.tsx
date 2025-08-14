@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, TicketCheck, Plus, Settings, CheckCircle, AlertCircle, Clock, Mail, List } from 'lucide-react'
+import { RefreshCw, TicketCheck, Plus, Settings, CheckCircle, AlertCircle, Clock, Mail, List, Inbox } from 'lucide-react'
 import { apiClient, EmailConnector, EmailMailbox } from '../lib/api'
 
 // Temporary simplified UI components since @tms/shared may have build issues
@@ -125,9 +125,13 @@ export function InboxPage() {
     navigate('/inbox/connectors')
   }
 
+  const handleListMailboxes = () => {
+    navigate('/inbox/mailboxes')
+  }
+
   const handleValidateConnector = (connector: EmailConnector) => {
     setSelectedConnector(connector)
-    setValidationEmail(connector.from_address || '')
+    setValidationEmail(connector.smtp_username || '')
     setShowValidateModal(true)
   }
 
@@ -185,8 +189,7 @@ export function InboxPage() {
       alert('Please add and validate at least one email connector first. Domain validation is required before creating email inboxes.')
       return
     }
-    // TODO: Create a separate mailbox page
-    alert('Mailbox creation will be implemented')
+    navigate('/inbox/mailboxes')
   }
 
   const getValidationStatusBadge = (connector: EmailConnector) => {
@@ -241,20 +244,110 @@ export function InboxPage() {
     )
   }
 
-  // Show empty state if no connectors
-  if (connectors.length === 0) {
+  // Show empty state if no connectors or mailboxes
+  if (connectors.length === 0 || mailboxes.length === 0) {
+    const hasConnectors = connectors.length > 0
+    const hasValidatedConnectors = connectors.some(c => c.is_validated && c.validation_status === 'validated')
+    
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <Mail className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-semibold mb-2">No Email Inbox Attached</h2>
-          <p className="text-muted-foreground mb-6">
-            Connect your email accounts to start receiving and managing customer emails as tickets.
+        <div className="text-center max-w-lg">
+          <Mail className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
+          <h2 className="text-2xl font-semibold mb-4">Setup Email Integration</h2>
+          <p className="text-muted-foreground mb-8">
+            Follow these steps to start receiving and managing customer emails as tickets.
           </p>
-          <Button onClick={handleCreateConnector} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Attach Email Box
-          </Button>
+          
+          {/* Step-by-step setup */}
+          <div className="space-y-6 text-left">
+            {/* Step 1: Attach Email Connector */}
+            <div className="flex items-start gap-4 p-4 border rounded-lg bg-card">
+              <div className="flex-shrink-0 mt-1">
+                {hasValidatedConnectors ? (
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full border-2 border-muted-foreground flex items-center justify-center text-sm font-medium">
+                    1
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                  Attach Email Connector
+                  {hasValidatedConnectors && <Badge variant="success" className="text-xs">Completed</Badge>}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Connect your email account (Gmail, Outlook, etc.) and validate domain ownership to enable email processing.
+                </p>
+                {!hasValidatedConnectors && (
+                  <Button 
+                    onClick={handleCreateConnector} 
+                    className="flex items-center gap-2"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {hasConnectors ? 'Validate Connector' : 'Attach Email Connector'}
+                  </Button>
+                )}
+                {hasConnectors && !hasValidatedConnectors && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                    You have connectors but they need validation. <a href="" onClick={handleListConnectors} className="underline">Click here to validate them.</a>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Step 2: Add Email Mailbox */}
+            <div className="flex items-start gap-4 p-4 border rounded-lg bg-card">
+              <div className="flex-shrink-0 mt-1">
+                {mailboxes.length > 0 ? (
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                ) : (
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm font-medium ${
+                    hasValidatedConnectors ? 'border-primary text-primary' : 'border-muted-foreground text-muted-foreground'
+                  }`}>
+                    2
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                  Add Email Mailbox
+                  {mailboxes.length > 0 && <Badge variant="success" className="text-xs">Completed</Badge>}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Create specific email addresses (like support@yourcompany.com) that will automatically convert incoming emails to tickets.
+                </p>
+                {hasValidatedConnectors && mailboxes.length === 0 && (
+                  <Button 
+                    onClick={handleCreateMailbox}
+                    className="flex items-center gap-2"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Email Mailbox
+                  </Button>
+                )}
+                {!hasValidatedConnectors && (
+                  <p className="text-xs text-muted-foreground">
+                    Complete Step 1 first to enable this step
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {hasValidatedConnectors && mailboxes.length > 0 && (
+            <div className="mt-8 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+                <CheckCircle className="w-5 h-5" />
+                <p className="font-medium">Email integration is ready!</p>
+              </div>
+              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                Your email system is now configured and ready to receive customer emails.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -275,12 +368,16 @@ export function InboxPage() {
           </Button>
           <Button variant="outline" onClick={handleListConnectors}>
             <List className="w-4 h-4 mr-2" />
-            List Email Connectors
+            Manage Connectors
           </Button>
-          <Button onClick={handleCreateConnector}>
+          <Button variant="outline" onClick={handleListMailboxes}>
+            <Inbox className="w-4 h-4 mr-2" />
+            Manage Mailboxes
+          </Button>
+          {/* <Button onClick={handleCreateConnector}>
             <Plus className="w-4 h-4 mr-2" />
             Add Connector
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -316,7 +413,7 @@ export function InboxPage() {
                 </>
               ) : (
                 <p className="text-muted-foreground">
-                  No email mailboxes configured. Add a mailbox to start receiving emails.
+                  No email mailboxes configured. <a href='' onClick={handleCreateMailbox} className='text-amber-600 dark:text-amber-400 underline'> Add a mailbox </a> to start managing emails.
                 </p>
               )}
             </div>

@@ -57,8 +57,6 @@ export function AddInboxPage() {
   const [formData, setFormData] = useState({
     name: '',
     type: 'email_forwarder' as 'email_forwarder' | 'inbound_imap',
-    from_address: '',
-    reply_to_address: '',
     imap_host: '',
     imap_port: 993,
     imap_username: '',
@@ -78,8 +76,6 @@ export function AddInboxPage() {
           setFormData({
             name: connector.name,
             type: connector.type === 'outbound_smtp' ? 'email_forwarder' : connector.type,
-            from_address: connector.from_address || '',
-            reply_to_address: connector.reply_to_address || '',
             imap_host: connector.imap_host || '',
             imap_port: connector.imap_port || 993,
             imap_username: connector.imap_username || '',
@@ -164,7 +160,7 @@ export function AddInboxPage() {
     setSaving(true)
     try {
       await apiClient.validateEmailConnector(createdConnectorId, {
-        email: formData.reply_to_address
+        email: formData.smtp_username
       })
       alert('Validation email sent! Please check your inbox and follow the verification steps.')
       navigate('/inbox')
@@ -241,36 +237,10 @@ export function AddInboxPage() {
             Give your email connector a descriptive name for easy identification.
           </p>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">From Address</label>
-          <Input
-            type="email"
-            value={formData.from_address}
-            onChange={(e: any) => setFormData(prev => ({ ...prev, from_address: e.target.value }))}
-            placeholder="support@yourcompany.com"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            This email address will appear as the sender when replying to customer tickets.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Reply-To Address</label>
-          <Input
-            type="email"
-            value={formData.reply_to_address}
-            onChange={(e: any) => setFormData(prev => ({ ...prev, reply_to_address: e.target.value }))}
-            placeholder="support@yourcompany.com"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Customers will reply to this address. Usually the same as the from address.
-          </p>
-        </div>
       </div>
 
       <div className="flex justify-end pt-4">
-        <Button onClick={handleNext} disabled={!formData.name || !formData.from_address || !formData.reply_to_address}>
+        <Button onClick={handleNext} disabled={!formData.name}>
           Next: SMTP Configuration
           <ChevronRight className="w-4 h-4 ml-2" />
         </Button>
@@ -540,7 +510,7 @@ export function AddInboxPage() {
             </Button>
           </div>
           <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-            Forward all emails from {formData.from_address} to this address.
+            Forward all emails from {formData.smtp_username} to this address.
           </p>
         </div>
         <div className="flex justify-between pt-4">
@@ -599,7 +569,7 @@ export function AddInboxPage() {
             <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
               <li>Access your domain's email management panel</li>
               <li>Look for "Email Forwarding" or "Mail Forwarding" settings</li>
-              <li>Create a forwarding rule for {formData.from_address}</li>
+              <li>Create a forwarding rule for {formData.smtp_username}</li>
               <li>Set destination to: <code className="bg-muted px-1 rounded">{getForwardingAddress()}</code></li>
               <li>Save and test the forwarding rule</li>
             </ol>
@@ -634,8 +604,7 @@ export function AddInboxPage() {
             <div className="space-y-2 text-sm">
               <div><strong>Name:</strong> {formData.name}</div>
               <div><strong>Type:</strong> {formData.type === 'email_forwarder' ? 'Email Forwarding' : 'IMAP Connection'}</div>
-              <div><strong>From Address:</strong> {formData.from_address}</div>
-              <div><strong>Reply-To:</strong> {formData.reply_to_address}</div>
+              <div><strong>SMTP Username:</strong> {formData.smtp_username}</div>
               <div><strong>SMTP:</strong> {formData.smtp_host}:{formData.smtp_port}</div>
               {formData.type === 'inbound_imap' && (
                 <div><strong>IMAP:</strong> {formData.imap_host}:{formData.imap_port}</div>
@@ -666,7 +635,7 @@ export function AddInboxPage() {
           <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
             <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Domain Validation</h4>
             <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-              We'll send a validation email to <strong>{formData.reply_to_address}</strong> with instructions to verify email ownership.
+              We'll send a validation email to <strong>{formData.smtp_username}</strong> with instructions to verify email ownership.
             </p>
             <Button onClick={handleValidate} disabled={saving} className="w-full">
               {saving ? 'Sending Validation Email...' : 'Send Validation Email'}

@@ -241,8 +241,6 @@ export interface EmailConnector {
   project_id: string
   name: string
   type: 'inbound_imap' | 'outbound_smtp'
-  from_address: string
-  reply_to_address: string
   imap_host?: string
   imap_port?: number
   imap_username?: string
@@ -257,20 +255,25 @@ export interface EmailConnector {
 
 export interface EmailMailbox {
   id: string
-  project_id: string
+  tenant_id: string
+  project_id?: string
   address: string
+  display_name?: string
   inbound_connector_id: string
+  default_project_id: string
+  routing_rules: any
   allow_new_ticket: boolean
-  is_active: boolean
   created_at: string
   updated_at: string
+  // Additional fields for display
+  connector_name?: string
+  project_name?: string
+  default_project_name?: string
 }
 
 export interface EmailConnectorRequest {
   name: string
   type: 'inbound_imap' | 'outbound_smtp'
-  from_address: string
-  reply_to_address: string
   imap_host?: string
   imap_port?: number
   imap_username?: string
@@ -283,7 +286,13 @@ export interface EmailConnectorRequest {
 
 export interface EmailMailboxRequest {
   address: string
+  display_name?: string
   inbound_connector_id: string
+  default_project_id: string
+  routing_rules?: Array<{
+    match: string
+    project_id: string
+  }>
   allow_new_ticket: boolean
 }
 
@@ -900,6 +909,11 @@ class APIClient {
   // Email Mailbox endpoints
   async getEmailMailboxes(): Promise<{ mailboxes: EmailMailbox[] }> {
     const response: AxiosResponse<{ mailboxes: EmailMailbox[] }> = await this.client.get('/email/mailboxes')
+    return response.data
+  }
+
+  async getEmailMailbox(id: string): Promise<EmailMailbox> {
+    const response: AxiosResponse<EmailMailbox> = await this.client.get(`/email/mailboxes/${id}`)
     return response.data
   }
 

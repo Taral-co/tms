@@ -118,43 +118,41 @@ func (s *EmailValidationService) VerifyDomainOTP(ctx context.Context, tenantID, 
 
 // ValidateEmailConfiguration validates email connector configuration
 func (s *EmailValidationService) ValidateEmailConfiguration(ctx context.Context, connector *models.EmailConnector) error {
-	// Basic validation
-	if connector.FromAddress == nil || *connector.FromAddress == "" {
-		return fmt.Errorf("from address is required")
+	// Basic SMTP configuration validation
+	if connector.SMTPHost == nil || *connector.SMTPHost == "" {
+		return fmt.Errorf("SMTP host is required")
 	}
 
-	if connector.ReplyToAddress == nil || *connector.ReplyToAddress == "" {
-		return fmt.Errorf("reply-to address is required")
+	if connector.SMTPPort == nil {
+		return fmt.Errorf("SMTP port is required")
 	}
 
-	// Validate email format
-	if !isValidEmail(*connector.FromAddress) {
-		return fmt.Errorf("invalid from address format")
+	if connector.SMTPUsername == nil || *connector.SMTPUsername == "" {
+		return fmt.Errorf("SMTP username is required")
 	}
 
-	if !isValidEmail(*connector.ReplyToAddress) {
-		return fmt.Errorf("invalid reply-to address format")
+	// Validate SMTP username email format
+	if !isValidEmail(*connector.SMTPUsername) {
+		return fmt.Errorf("invalid SMTP username email format")
 	}
 
-	// Extract and validate domains
-	fromDomain, err := extractDomain(*connector.FromAddress)
-	if err != nil {
-		return fmt.Errorf("invalid from address domain: %w", err)
-	}
+	// For IMAP connectors, validate IMAP configuration
+	if connector.Type == "inbound_imap" {
+		if connector.IMAPHost == nil || *connector.IMAPHost == "" {
+			return fmt.Errorf("IMAP host is required for inbound connectors")
+		}
 
-	replyToDomain, err := extractDomain(*connector.ReplyToAddress)
-	if err != nil {
-		return fmt.Errorf("invalid reply-to address domain: %w", err)
-	}
+		if connector.IMAPPort == nil {
+			return fmt.Errorf("IMAP port is required for inbound connectors")
+		}
 
-	// Both addresses must use the same domain
-	if fromDomain != replyToDomain {
-		return fmt.Errorf("from address and reply-to address must use the same domain")
-	}
+		if connector.IMAPUsername == nil || *connector.IMAPUsername == "" {
+			return fmt.Errorf("IMAP username is required for inbound connectors")
+		}
 
-	// Validate domain exists (basic DNS check)
-	if err := validateDomainExists(fromDomain); err != nil {
-		return fmt.Errorf("domain validation failed: %w", err)
+		if !isValidEmail(*connector.IMAPUsername) {
+			return fmt.Errorf("invalid IMAP username email format")
+		}
 	}
 
 	// Validate SMTP/IMAP configuration based on connector type

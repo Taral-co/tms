@@ -44,11 +44,6 @@ CREATE TABLE email_connectors (
     oauth_account_email TEXT,
     oauth_token_ref UUID REFERENCES oauth_tokens(id),
     
-    -- From identity & branding
-    from_name TEXT,
-    from_address TEXT,
-    reply_to_address TEXT,
-    
     -- DKIM settings
     dkim_selector TEXT,
     dkim_public_key TEXT,

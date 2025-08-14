@@ -8,6 +8,8 @@ import { LoginPage } from './pages/LoginPage'
 import { InboxPage } from './pages/InboxPage'
 import { AddInboxPage } from './pages/AddInboxPage'
 import { EmailConnectorsPage } from './pages/EmailConnectorsPage'
+import { EmailMailboxesPage } from './pages/EmailMailboxesPage'
+import { CreateEmailMailboxPage } from './pages/CreateEmailMailboxPage'
 import { TicketsPage } from './pages/TicketsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { TicketDetailPage } from './pages/TicketDetailPage'
@@ -58,6 +60,8 @@ function AppContent() {
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/inbox/add" element={<AddInboxPage />} />
               <Route path="/inbox/connectors" element={<EmailConnectorsPage />} />
+              <Route path="/inbox/mailboxes" element={<EmailMailboxesPage />} />
+              <Route path="/inbox/mailboxes/create" element={<CreateEmailMailboxPage />} />
               <Route path="/tickets" element={<TicketsPage />} />
               <Route path="/tickets/:id" element={<TicketDetailPage />} />
               <Route path="/settings" element={<SettingsPage />} />

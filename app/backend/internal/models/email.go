@@ -131,11 +131,6 @@ type EmailConnector struct {
 	OAuthAccountEmail *string        `json:"oauth_account_email,omitempty" db:"oauth_account_email"`
 	OAuthTokenRef     *uuid.UUID     `json:"oauth_token_ref,omitempty" db:"oauth_token_ref"`
 
-	// From identity & branding
-	FromName       *string `json:"from_name,omitempty" db:"from_name"`
-	FromAddress    *string `json:"from_address,omitempty" db:"from_address"`
-	ReplyToAddress *string `json:"reply_to_address,omitempty" db:"reply_to_address"`
-
 	// DKIM settings
 	DKIMSelector      *string `json:"dkim_selector,omitempty" db:"dkim_selector"`
 	DKIMPublicKey     *string `json:"dkim_public_key,omitempty" db:"dkim_public_key"`
@@ -156,6 +151,7 @@ type EmailMailbox struct {
 	TenantID           uuid.UUID  `json:"tenant_id" db:"tenant_id"`
 	ProjectID          *uuid.UUID `json:"project_id,omitempty" db:"project_id"`
 	Address            string     `json:"address" db:"address"`
+	DisplayName        *string    `json:"display_name,omitempty" db:"display_name"`
 	InboundConnectorID uuid.UUID  `json:"inbound_connector_id" db:"inbound_connector_id"`
 	DefaultProjectID   uuid.UUID  `json:"default_project_id" db:"default_project_id"`
 	RoutingRules       JSONMap    `json:"routing_rules" db:"routing_rules"`

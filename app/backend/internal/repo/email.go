@@ -31,7 +31,6 @@ func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.Email
 			imap_host, imap_port, imap_use_tls, imap_username, imap_password_enc, imap_folder, imap_seen_strategy,
 			smtp_host, smtp_port, smtp_use_tls, smtp_username, smtp_password_enc,
 			oauth_provider, oauth_account_email, oauth_token_ref,
-			from_name, from_address, reply_to_address,
 			dkim_selector, dkim_public_key, dkim_private_key_enc, return_path_domain,
 			provider_webhook_secret, last_health, created_at, updated_at
 		) VALUES (
@@ -39,7 +38,6 @@ func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.Email
 			:imap_host, :imap_port, :imap_use_tls, :imap_username, :imap_password_enc, :imap_folder, :imap_seen_strategy,
 			:smtp_host, :smtp_port, :smtp_use_tls, :smtp_username, :smtp_password_enc,
 			:oauth_provider, :oauth_account_email, :oauth_token_ref,
-			:from_name, :from_address, :reply_to_address,
 			:dkim_selector, :dkim_public_key, :dkim_private_key_enc, :return_path_domain,
 			:provider_webhook_secret, :last_health, :created_at, :updated_at
 		)`
@@ -52,8 +50,8 @@ func (r *EmailRepo) CreateConnector(ctx context.Context, connector *models.Email
 			// Check if it's a unique constraint violation
 			if pqErr.Code == "23505" {
 				// Check which constraint was violated
-				if strings.Contains(pqErr.Detail, "tenant_id") && strings.Contains(pqErr.Detail, "project_id") && strings.Contains(pqErr.Detail, "from_address") {
-					return http.StatusConflict, errors.New("email connector with this from address already exists for this tenant and project")
+				if strings.Contains(pqErr.Detail, "tenant_id") && strings.Contains(pqErr.Detail, "project_id") {
+					return http.StatusConflict, errors.New("email connector with these details already exists")
 				}
 				return http.StatusConflict, errors.New("email connector with these details already exists")
 			}
@@ -108,7 +106,6 @@ func (r *EmailRepo) UpdateConnector(ctx context.Context, connector *models.Email
 			smtp_host = :smtp_host, smtp_port = :smtp_port, smtp_use_tls = :smtp_use_tls,
 			smtp_username = :smtp_username, smtp_password_enc = :smtp_password_enc,
 			oauth_provider = :oauth_provider, oauth_account_email = :oauth_account_email, oauth_token_ref = :oauth_token_ref,
-			from_name = :from_name, from_address = :from_address, reply_to_address = :reply_to_address,
 			dkim_selector = :dkim_selector, dkim_public_key = :dkim_public_key, dkim_private_key_enc = :dkim_private_key_enc,
 			return_path_domain = :return_path_domain, provider_webhook_secret = :provider_webhook_secret,
 			last_health = :last_health, updated_at = :updated_at
@@ -122,8 +119,8 @@ func (r *EmailRepo) UpdateConnector(ctx context.Context, connector *models.Email
 			// Check if it's a unique constraint violation
 			if pqErr.Code == "23505" {
 				// Check which constraint was violated
-				if strings.Contains(pqErr.Detail, "tenant_id") && strings.Contains(pqErr.Detail, "project_id") && strings.Contains(pqErr.Detail, "from_address") {
-					return errors.New("email connector with this from address already exists for this tenant and project")
+				if strings.Contains(pqErr.Detail, "tenant_id") && strings.Contains(pqErr.Detail, "project_id") {
+					return errors.New("email connector with these details already exists")
 				}
 				return errors.New("email connector with these details already exists")
 			}
@@ -190,6 +187,27 @@ func (r *EmailRepo) UpdateMailbox(ctx context.Context, mailbox *models.EmailMail
 		WHERE tenant_id = :tenant_id AND id = :id`
 
 	_, err := r.db.NamedExecContext(ctx, query, mailbox)
+	return err
+}
+
+// GetMailboxByID retrieves a mailbox by ID
+func (r *EmailRepo) GetMailboxByID(ctx context.Context, tenantID, mailboxID uuid.UUID) (*models.EmailMailbox, error) {
+	var mailbox models.EmailMailbox
+	query := `
+		SELECT * FROM email_mailboxes 
+		WHERE tenant_id = $1 AND id = $2`
+
+	err := r.db.GetContext(ctx, &mailbox, query, tenantID, mailboxID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &mailbox, err
+}
+
+// DeleteMailbox deletes a mailbox
+func (r *EmailRepo) DeleteMailbox(ctx context.Context, tenantID, mailboxID uuid.UUID) error {
+	query := `DELETE FROM email_mailboxes WHERE tenant_id = $1 AND id = $2`
+	_, err := r.db.ExecContext(ctx, query, tenantID, mailboxID)
 	return err
 }
 

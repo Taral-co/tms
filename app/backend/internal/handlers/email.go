@@ -55,9 +55,6 @@ type CreateConnectorRequest struct {
 	SMTPUseTLS       *bool                     `json:"smtp_use_tls,omitempty"`
 	SMTPUsername     *string                   `json:"smtp_username,omitempty"`
 	SMTPPassword     *string                   `json:"smtp_password,omitempty"`
-	FromName         *string                   `json:"from_name,omitempty"`
-	FromAddress      *string                   `json:"from_address,omitempty"`
-	ReplyToAddress   *string                   `json:"reply_to_address,omitempty"`
 }
 
 // ValidateConnectorRequest represents a request to validate email connector
@@ -103,9 +100,6 @@ func (h *EmailHandler) CreateConnector(c *gin.Context) {
 		SMTPPort:         req.SMTPPort,
 		SMTPUseTLS:       req.SMTPUseTLS,
 		SMTPUsername:     req.SMTPUsername,
-		FromName:         req.FromName,
-		FromAddress:      req.FromAddress,
-		ReplyToAddress:   req.ReplyToAddress,
 		LastHealth:       make(models.JSONMap),
 		CreatedAt:        time.Now(),
 		UpdatedAt:        time.Now(),
@@ -266,8 +260,6 @@ func (h *EmailHandler) UpdateConnector(c *gin.Context) {
 	connector.SMTPPort = req.SMTPPort
 	connector.SMTPUseTLS = req.SMTPUseTLS
 	connector.SMTPUsername = req.SMTPUsername
-	connector.FromName = req.FromName
-	connector.FromAddress = req.FromAddress
 	connector.UpdatedAt = time.Now()
 
 	// Update passwords if provided (with proper encryption)
@@ -370,20 +362,16 @@ func (h *EmailHandler) TestConnector(c *gin.Context) {
 // CreateMailboxRequest represents a request to create an email mailbox
 type CreateMailboxRequest struct {
 	Address            string               `json:"address" binding:"required,email"`
+	DisplayName        *string              `json:"display_name,omitempty"`
 	InboundConnectorID uuid.UUID            `json:"inbound_connector_id" binding:"required"`
-	DefaultProjectID   uuid.UUID            `json:"default_project_id" binding:"required"`
 	RoutingRules       []models.RoutingRule `json:"routing_rules,omitempty"`
 	AllowNewTicket     bool                 `json:"allow_new_ticket"`
 }
 
 // CreateMailbox creates a new email mailbox
 func (h *EmailHandler) CreateMailbox(c *gin.Context) {
-	tenantIDStr := c.MustGet("tenant_id").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
-		return
-	}
+	tenantID := middleware.GetTenantID(c)
+	projectID := middleware.GetProjectID(c)
 
 	var req CreateMailboxRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -398,7 +386,7 @@ func (h *EmailHandler) CreateMailbox(c *gin.Context) {
 		for i, rule := range req.RoutingRules {
 			rules[i] = map[string]interface{}{
 				"match":      rule.Match,
-				"project_id": rule.ProjectID.String(),
+				"project_id": projectID.String(),
 			}
 		}
 		routingRules["rules"] = rules
@@ -408,8 +396,8 @@ func (h *EmailHandler) CreateMailbox(c *gin.Context) {
 		ID:                 uuid.New(),
 		TenantID:           tenantID,
 		Address:            req.Address,
+		DisplayName:        req.DisplayName,
 		InboundConnectorID: req.InboundConnectorID,
-		DefaultProjectID:   req.DefaultProjectID,
 		RoutingRules:       routingRules,
 		AllowNewTicket:     req.AllowNewTicket,
 		CreatedAt:          time.Now(),
@@ -424,7 +412,7 @@ func (h *EmailHandler) CreateMailbox(c *gin.Context) {
 	c.JSON(http.StatusCreated, mailbox)
 }
 
-// ListMailboxes lists all email mailboxes for a tenant and project
+// ListMailboxes lists all email mailboxes for a tenant
 func (h *EmailHandler) ListMailboxes(c *gin.Context) {
 	tenantIDStr := c.MustGet("tenant_id").(string)
 	tenantID, err := uuid.Parse(tenantIDStr)
@@ -433,21 +421,131 @@ func (h *EmailHandler) ListMailboxes(c *gin.Context) {
 		return
 	}
 
-	// Get project ID from URL params
-	projectIDStr := c.Param("project_id")
-	projectID, err := uuid.Parse(projectIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID format"})
-		return
-	}
-
-	mailboxes, err := h.emailRepo.ListMailboxesByProject(c.Request.Context(), tenantID, projectID)
+	// Get all mailboxes for the tenant (not project-specific)
+	mailboxes, err := h.emailRepo.ListMailboxes(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list mailboxes"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"mailboxes": mailboxes})
+}
+
+// GetMailbox gets a specific email mailbox
+func (h *EmailHandler) GetMailbox(c *gin.Context) {
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
+
+	mailboxIDStr := c.Param("mailbox_id")
+	mailboxID, err := uuid.Parse(mailboxIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid mailbox ID format"})
+		return
+	}
+
+	mailbox, err := h.emailRepo.GetMailboxByID(c.Request.Context(), tenantID, mailboxID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get mailbox"})
+		return
+	}
+
+	if mailbox == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Mailbox not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, mailbox)
+}
+
+// UpdateMailbox updates an email mailbox
+func (h *EmailHandler) UpdateMailbox(c *gin.Context) {
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
+
+	mailboxIDStr := c.Param("mailbox_id")
+	mailboxID, err := uuid.Parse(mailboxIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid mailbox ID format"})
+		return
+	}
+
+	var req CreateMailboxRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get existing mailbox
+	mailbox, err := h.emailRepo.GetMailboxByID(c.Request.Context(), tenantID, mailboxID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get mailbox"})
+		return
+	}
+
+	if mailbox == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Mailbox not found"})
+		return
+	}
+
+	// Update fields
+	mailbox.Address = req.Address
+	mailbox.DisplayName = req.DisplayName
+	mailbox.InboundConnectorID = req.InboundConnectorID
+	mailbox.AllowNewTicket = req.AllowNewTicket
+	mailbox.UpdatedAt = time.Now()
+
+	// Convert routing rules to JSONMap
+	routingRules := make(models.JSONMap)
+	if len(req.RoutingRules) > 0 {
+		rules := make([]map[string]interface{}, len(req.RoutingRules))
+		for i, rule := range req.RoutingRules {
+			rules[i] = map[string]interface{}{
+				"match":      rule.Match,
+				"project_id": rule.ProjectID.String(),
+			}
+		}
+		routingRules["rules"] = rules
+	}
+	mailbox.RoutingRules = routingRules
+
+	if err := h.emailRepo.UpdateMailbox(c.Request.Context(), mailbox); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update mailbox"})
+		return
+	}
+
+	c.JSON(http.StatusOK, mailbox)
+}
+
+// DeleteMailbox deletes an email mailbox
+func (h *EmailHandler) DeleteMailbox(c *gin.Context) {
+	tenantIDStr := c.MustGet("tenant_id").(string)
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
+		return
+	}
+
+	mailboxIDStr := c.Param("mailbox_id")
+	mailboxID, err := uuid.Parse(mailboxIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid mailbox ID format"})
+		return
+	}
+
+	if err := h.emailRepo.DeleteMailbox(c.Request.Context(), tenantID, mailboxID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete mailbox"})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
 }
 
 // ValidateConnector initiates domain validation for a connector
@@ -619,15 +717,11 @@ func (h *EmailHandler) sendValidationEmail(ctx context.Context, connector *model
 		return fmt.Errorf("SMTP authentication incomplete: missing username or password")
 	}
 
-	// Use connector's from address or fallback to a default
-	fromAddress := connector.FromAddress
-	if fromAddress == nil || *fromAddress == "" {
-		if connector.SMTPUsername != nil {
-			fromAddress = connector.SMTPUsername
-		} else {
-			return fmt.Errorf("no valid from address found")
-		}
+	// Use SMTP username as the from address (typically the authenticated email)
+	if connector.SMTPUsername == nil {
+		return fmt.Errorf("no valid from address found: SMTP username required")
 	}
+	fromAddress := connector.SMTPUsername
 
 	// Ensure TLS is enabled for common secure ports
 	if connector.SMTPUseTLS == nil {
@@ -642,13 +736,13 @@ func (h *EmailHandler) sendValidationEmail(ctx context.Context, connector *model
 	templateData := TemplateData{
 		OTP: otp,
 	}
-	
+
 	// Load HTML template
 	htmlBody, err := loadHTMLTemplate("validation_email.html", templateData)
 	if err != nil {
 		return fmt.Errorf("failed to load HTML template: %w", err)
 	}
-	
+
 	// Load text template
 	textBody, err := loadTextTemplate("validation_email.txt", templateData)
 	if err != nil {
