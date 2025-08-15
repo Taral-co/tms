@@ -293,11 +293,6 @@ export function EmailDetailPage() {
             <div className="flex items-center gap-3">
               <PageHeaderTitle>{email.subject || '(No Subject)'}</PageHeaderTitle>
               <div className="flex items-center gap-2">
-                {!email.is_read && (
-                  <StatusIndicator status="info" size="sm">
-                    Unread
-                  </StatusIndicator>
-                )}
                 {email.is_reply && (
                   <StatusIndicator status="default" size="sm" showDot={false}>
                     <Reply className="w-3 h-3 mr-1" />
