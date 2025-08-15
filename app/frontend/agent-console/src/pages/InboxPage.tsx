@@ -11,12 +11,11 @@ import {
   ArrowUpRight,
   Reply,
   Paperclip,
-  ChevronRight,
   Inbox
 } from 'lucide-react'
 import { 
   Button, 
-  Badge, 
+  Badge,
   Input, 
   Select, 
   SelectContent, 
@@ -64,40 +63,6 @@ const formatEmailDate = (date: string | Date, sentAt?: string | Date) => {
   return format(emailDate, 'MMM d, yyyy')
 }
 
-// Email status utilities
-const getEmailStatusBadge = (email: EmailInbox) => {
-  const badges = []
-  
-  if (email.is_reply) {
-    badges.push(
-      <Badge key="reply" variant="outline" className="text-xs">
-        <Reply className="w-2.5 h-2.5 mr-1" />
-        Reply
-      </Badge>
-    )
-  }
-  
-  if (email.has_attachments) {
-    badges.push(
-      <Badge key="attachments" variant="secondary" className="text-xs">
-        <Paperclip className="w-2.5 h-2.5 mr-1" />
-        {email.attachment_count}
-      </Badge>
-    )
-  }
-  
-  if (email.is_converted_to_ticket) {
-    badges.push(
-      <Badge key="ticket" variant="default" className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-        <TicketIcon className="w-2.5 h-2.5 mr-1" />
-        Ticket
-      </Badge>
-    )
-  }
-  
-  return badges
-}
-
 // Virtualized email item component (simplified for now)
 interface EmailItemProps {
   email: EmailInbox
@@ -112,11 +77,11 @@ const EmailItem = ({ email, isSelected, onEmailSelect, onToggleRead, onConvertTo
   
   return (
     <div 
-      className={`group relative px-6 py-4 hover:bg-accent/30 transition-all duration-200 cursor-pointer border-l-4 ${
+      className={`group relative px-4 py-2 hover:bg-accent/50 transition-colors duration-150 cursor-pointer ${
         !email.is_read 
-          ? 'bg-blue-50/30 dark:bg-blue-950/20 border-l-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/30' 
-          : 'border-l-transparent hover:border-l-accent'
-      } ${isSelected ? 'bg-accent/50 border-l-primary' : ''}`}
+          ? ' dark:bg-blue-950/10' 
+          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/30'
+      } ${isSelected ? 'bg-accent/70 border-l-2 border-l-primary' : ''}`}
       onClick={() => onEmailSelect(email)}
       role="listitem"
       tabIndex={0}
@@ -128,97 +93,97 @@ const EmailItem = ({ email, isSelected, onEmailSelect, onToggleRead, onConvertTo
         }
       }}
     >
-      <div className="flex items-start gap-4">
-        {/* Avatar with better design */}
-        <div className={`relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
-          !email.is_read 
-            ? 'bg-gradient-to-br from-blue-400 to-blue-600 text-white' 
-            : 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 text-slate-600 dark:text-slate-300'
-        }`}>
-          <span className="text-sm font-semibold">
-            {(email.from_name || email.from_address).charAt(0).toUpperCase()}
+      <div className="flex items-center gap-3">
+        {/* Unread indicator */}
+        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+          !email.is_read ? 'bg-blue-600' : 'bg-transparent'
+        }`} />
+        
+        {/* Sender name */}
+        <div className="w-44 flex-shrink-0">
+          <span className={`text-sm truncate block ${
+            !email.is_read 
+              ? 'font-semibold text-foreground' 
+              : 'text-muted-foreground'
+          }`}>
+            {email.from_name || email.from_address}
           </span>
-          {!email.is_read && (
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full border-2 border-background"></div>
+        </div>
+        
+        {/* Subject and preview */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className={`text-sm truncate ${
+              !email.is_read 
+                ? 'font-medium text-foreground' 
+                : 'text-muted-foreground'
+            }`}>
+              {email.subject}
+            </span>
+            {email.snippet && (
+              <>
+                <span className="text-muted-foreground">-</span>
+                <span className="text-sm text-muted-foreground truncate flex-1">
+                  {email.snippet}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        
+        {/* Status badges - compact */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {email.has_attachments && (
+            <Paperclip className="w-5 h-5 text-muted-foreground" />
+          )}
+          {email.is_reply && (
+            <Reply className="w-5 h-5 text-muted-foreground" />
+          )}
+          {email.is_converted_to_ticket && (
+            <TicketIcon className="w-5 h-5 text-green-600" />
           )}
         </div>
         
-        {/* Email Content */}
-        <div className="flex-1 min-w-0">
-          {/* Header row */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <h3 className={`text-sm truncate ${!email.is_read ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
-                {email.from_name || email.from_address}
-              </h3>
-              {email.from_name && (
-                <span className="text-xs text-muted-foreground truncate max-w-[120px]">
-                  {email.from_address}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className={`text-xs ${!email.is_read ? 'text-blue-600 font-medium' : 'text-muted-foreground'}`}>
-                {emailDate}
-              </span>
-              
-              {/* Quick Actions - Better positioned */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 hover:bg-background/80"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onToggleRead(email)
-                  }}
-                  title={email.is_read ? 'Mark as unread' : 'Mark as read'}
-                >
-                  {email.is_read ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </Button>
-                
-                {!email.is_converted_to_ticket && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 hover:bg-background/80"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onConvertToTicket(email)
-                    }}
-                    title="Convert to ticket"
-                  >
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
+        {/* Date */}
+        <div className="w-20 flex-shrink-0 text-right">
+          <span className={`text-xs ${
+            !email.is_read 
+              ? 'font-medium' 
+              : 'text-muted-foreground'
+          }`}>
+            {emailDate}
+          </span>
+        </div>
+        
+        {/* Quick Actions - minimal */}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 hover:bg-background/80"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleRead(email)
+            }}
+            title={email.is_read ? 'Mark as unread' : 'Mark as read'}
+          >
+            {email.is_read ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </Button>
           
-          {/* Subject */}
-          <h4 className={`text-sm mb-2 line-clamp-1 ${!email.is_read ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'}`}>
-            {email.subject}
-          </h4>
-          
-          {/* Preview */}
-          {email.snippet && (
-            <p className="text-sm text-muted-foreground line-clamp-2 mb-3 leading-relaxed">
-              {email.snippet}
-            </p>
+          {!email.is_converted_to_ticket && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 hover:bg-background/80"
+              onClick={(e) => {
+                e.stopPropagation()
+                onConvertToTicket(email)
+              }}
+              title="Convert to ticket"
+            >
+              <ArrowUpRight className="w-5 h-5" />
+            </Button>
           )}
-          
-          {/* Status Badges - Better layout */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              {getEmailStatusBadge(email)}
-            </div>
-            
-            {/* Chevron indicator */}
-            <ChevronRight className={`w-4 h-4 transition-all duration-200 ${
-              isSelected ? 'text-primary' : 'text-muted-foreground/40 group-hover:text-muted-foreground/60'
-            }`} />
-          </div>
         </div>
       </div>
     </div>
@@ -673,8 +638,18 @@ export function InboxPage() {
             </div>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto">
-            <div className="divide-y divide-border">
+          <div className="h-full overflow-y-auto px-3">
+            {/* Email list header - Gmail style */}
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50 px-4 py-2">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
+                <div className="w-2 flex-shrink-0"></div>
+                <div className="w-44 flex-shrink-0">SENDER</div>
+                <div className="flex-1">SUBJECT</div>
+                <div className="w-16 flex-shrink-0 text-right">DATE</div>
+                <div className="w-14 flex-shrink-0"></div>
+              </div>
+            </div>
+            <div className="divide-y divide-border/30">
               {emails.map((email) => (
                 <EmailItem 
                   key={email.id} 
