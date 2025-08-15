@@ -13,17 +13,8 @@ export * from './lib/query-hooks'
 // Utility exports
 export * from './lib/utils'
 
-// UI Component exports (when dependencies are available)
-export * from './components/ui/button'
-export * from './components/ui/input'
-export * from './components/ui/badge'
-export * from './components/ui/command'
-export * from './components/ui/card'
-export * from './components/ui/separator'
+// Enterprise UI Component exports
+export * from './components/ui'
 
 // Virtualized components
 export * from './components/virtualized'
-export * from './components/ui/dialog'
-export * from './components/ui/select'
-export * from './components/ui/table'
-export * from './components/ui/textarea'

@@ -12,15 +12,15 @@ import {
   EyeOff,
   Clock,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle2,
+  MoreHorizontal,
+  Archive,
+  Tag,
+  Flag
 } from 'lucide-react'
 import { 
   Button, 
-  Badge, 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -29,7 +29,21 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  PageHeader,
+  PageHeaderContent,
+  PageHeaderTitle,
+  PageHeaderBreadcrumb,
+  PageHeaderActions,
+  DataCard,
+  DataCardHeader,
+  DataCardContent,
+  DetailSection,
+  DetailSectionHeader,
+  DetailSectionTitle,
+  DetailSectionContent,
+  DetailItem,
+  StatusIndicator
 } from '@tms/shared'
 import { apiClient, EmailInbox, ConvertToTicketRequest } from '../lib/api'
 
@@ -138,12 +152,46 @@ export function EmailDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-1/4 mb-6"></div>
-          <div className="space-y-4">
-            <div className="h-32 bg-muted rounded"></div>
-            <div className="h-64 bg-muted rounded"></div>
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
+        <PageHeader>
+          <PageHeaderContent>
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-24 bg-muted rounded animate-pulse"></div>
+              <div className="h-8 w-64 bg-muted rounded animate-pulse"></div>
+            </div>
+            <div className="h-10 w-32 bg-muted rounded animate-pulse"></div>
+          </PageHeaderContent>
+        </PageHeader>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+          <div className="lg:col-span-2 space-y-6">
+            <DataCard>
+              <DataCardHeader>
+                <div className="h-6 w-48 bg-muted rounded animate-pulse"></div>
+              </DataCardHeader>
+              <DataCardContent>
+                <div className="space-y-4">
+                  <div className="h-4 w-full bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 w-3/4 bg-muted rounded animate-pulse"></div>
+                  <div className="h-64 w-full bg-muted rounded animate-pulse"></div>
+                </div>
+              </DataCardContent>
+            </DataCard>
+          </div>
+          
+          <div className="space-y-6">
+            <DataCard>
+              <DataCardHeader>
+                <div className="h-5 w-24 bg-muted rounded animate-pulse"></div>
+              </DataCardHeader>
+              <DataCardContent>
+                <div className="space-y-3">
+                  <div className="h-4 w-full bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 w-2/3 bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 w-3/4 bg-muted rounded animate-pulse"></div>
+                </div>
+              </DataCardContent>
+            </DataCard>
           </div>
         </div>
       </div>
@@ -152,156 +200,203 @@ export function EmailDetailPage() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="flex items-center space-x-2 text-destructive mb-4">
-          <AlertTriangle className="h-5 w-5" />
-          <span>{error}</span>
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
+        <PageHeader>
+          <PageHeaderContent>
+            <div>
+              <PageHeaderTitle>Email Not Found</PageHeaderTitle>
+            </div>
+            <PageHeaderActions>
+              <Button onClick={() => navigate('/inbox')} variant="outline">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Inbox
+              </Button>
+            </PageHeaderActions>
+          </PageHeaderContent>
+        </PageHeader>
+        
+        <div className="mt-8">
+          <DataCard>
+            <DataCardContent>
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center space-y-4">
+                  <AlertTriangle className="h-12 w-12 text-destructive mx-auto" />
+                  <div>
+                    <h3 className="text-lg font-semibold">Unable to Load Email</h3>
+                    <p className="text-muted-foreground mt-1">{error}</p>
+                  </div>
+                </div>
+              </div>
+            </DataCardContent>
+          </DataCard>
         </div>
-        <Button onClick={() => navigate('/inbox')} variant="outline">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Inbox
-        </Button>
       </div>
     )
   }
 
   if (!email) {
     return (
-      <div className="p-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">Email not found</h2>
-          <p className="text-muted-foreground mt-2">
-            The email you're looking for doesn't exist or you don't have permission to view it.
-          </p>
-          <Button onClick={() => navigate('/inbox')} className="mt-4">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Inbox
-          </Button>
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
+        <PageHeader>
+          <PageHeaderContent>
+            <div>
+              <PageHeaderTitle>Email Not Found</PageHeaderTitle>
+            </div>
+            <PageHeaderActions>
+              <Button onClick={() => navigate('/inbox')} variant="outline">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Inbox
+              </Button>
+            </PageHeaderActions>
+          </PageHeaderContent>
+        </PageHeader>
+        
+        <div className="mt-8">
+          <DataCard>
+            <DataCardContent>
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center space-y-4">
+                  <Mail className="h-12 w-12 text-muted-foreground mx-auto" />
+                  <div>
+                    <h3 className="text-lg font-semibold">Email not found</h3>
+                    <p className="text-muted-foreground mt-1">
+                      The email you're looking for doesn't exist or you don't have permission to view it.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </DataCardContent>
+          </DataCard>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => navigate('/inbox')}>
+    <div className="container mx-auto px-6 py-8 max-w-7xl">
+      {/* Page Header */}
+      <PageHeader>
+        <PageHeaderBreadcrumb>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/inbox')}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Inbox
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{email.subject || '(No Subject)'}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+        </PageHeaderBreadcrumb>
+        
+        <PageHeaderContent>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <PageHeaderTitle>{email.subject || '(No Subject)'}</PageHeaderTitle>
+              <div className="flex items-center gap-2">
+                {!email.is_read && (
+                  <StatusIndicator status="info" size="sm">
+                    Unread
+                  </StatusIndicator>
+                )}
+                {email.is_reply && (
+                  <StatusIndicator status="default" size="sm" showDot={false}>
+                    <Reply className="w-3 h-3 mr-1" />
+                    Reply
+                  </StatusIndicator>
+                )}
+                {email.is_converted_to_ticket && (
+                  <StatusIndicator status="success" size="sm" showDot={false}>
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    Converted
+                  </StatusIndicator>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Mail className="w-4 h-4" />
               <span>Email ID: {email.id}</span>
             </div>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggleRead}
-            disabled={toggling || email.is_read}
-          >
-            {email.is_read ? (
-              <>
-                <Eye className="w-4 h-4 mr-2" />
-                Read
-              </>
-            ) : (
-              <>
-                <EyeOff className="w-4 h-4 mr-2" />
-                Mark Read
-              </>
-            )}
-          </Button>
           
-          {!email.is_converted_to_ticket && (
+          <PageHeaderActions>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowConvertDialog(true)}
+              onClick={handleToggleRead}
+              disabled={toggling || email.is_read}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Convert to Ticket
+              {email.is_read ? (
+                <>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Read
+                </>
+              ) : (
+                <>
+                  <EyeOff className="w-4 h-4 mr-2" />
+                  Mark Read
+                </>
+              )}
             </Button>
-          )}
-          
-          <Button variant="outline" size="sm">
-            <Reply className="w-4 h-4 mr-2" />
-            Reply
-          </Button>
-          
-          <Button variant="outline" size="sm">
-            <Forward className="w-4 h-4 mr-2" />
-            Forward
-          </Button>
-        </div>
-      </div>
+            
+            {!email.is_converted_to_ticket && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConvertDialog(true)}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Convert to Ticket
+              </Button>
+            )}
+            
+            <Button variant="default" size="sm">
+              <Reply className="w-4 h-4 mr-2" />
+              Reply
+            </Button>
+            
+            <Button variant="outline" size="sm">
+              <Forward className="w-4 h-4 mr-2" />
+              Forward
+            </Button>
+          </PageHeaderActions>
+        </PageHeaderContent>
+      </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Email Content */}
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{getFromDisplay(email)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        to {email.mailbox_address}
-                      </p>
-                    </div>
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+        {/* Email Content */}
+        <div className="lg:col-span-2">
+          <DataCard>
+            <DataCardHeader>
+              <div className="flex items-start justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-5 h-5 text-primary" />
                   </div>
-                  
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      <span>{formatEmailDate(email.sent_at || email.received_at)}</span>
-                    </div>
-                    
-                    {email.is_reply && (
-                      <Badge variant="secondary" className="text-xs">
-                        Reply
-                      </Badge>
-                    )}
-                    
-                    {email.is_converted_to_ticket && (
-                      <Badge variant="outline" className="text-xs">
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        Converted to Ticket
-                      </Badge>
-                    )}
-                    
-                    {!email.is_read && (
-                      <Badge variant="default" className="text-xs">
-                        Unread
-                      </Badge>
-                    )}
+                  <div>
+                    <p className="font-medium text-card-foreground">{getFromDisplay(email)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      to {email.mailbox_address}
+                    </p>
                   </div>
                 </div>
+                
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>{formatEmailDate(email.sent_at || email.received_at)}</span>
+                </div>
               </div>
-            </CardHeader>
+            </DataCardHeader>
             
-            <CardContent>
-              {/* Email Body */}
-              <div className="prose prose-sm max-w-none">
+            <DataCardContent>
+              <div className="prose prose-sm max-w-none dark:prose-invert">
                 {email.body_html ? (
                   <div 
                     dangerouslySetInnerHTML={{ __html: email.body_html }}
                     className="email-content"
                   />
                 ) : (
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-card-foreground">
                     {email.body_text || email.snippet}
                   </pre>
                 )}
@@ -309,79 +404,72 @@ export function EmailDetailPage() {
               
               {/* Attachments */}
               {email.has_attachments && (
-                <div className="mt-6 pt-4 border-t">
-                  <div className="flex items-center gap-2 text-sm font-medium mb-3">
+                <div className="mt-8 pt-6 border-t border-border/40">
+                  <div className="flex items-center gap-2 text-sm font-medium mb-4">
                     <Paperclip className="w-4 h-4" />
                     Attachments ({email.attachment_count})
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    This email has {email.attachment_count} attachment(s).
+                  <div className="rounded-lg bg-muted/50 p-4">
+                    <p className="text-sm text-muted-foreground">
+                      This email has {email.attachment_count} attachment(s).
+                    </p>
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </DataCardContent>
+          </DataCard>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Email Details */}
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <span className="text-sm font-medium">From:</span>
-                <div className="text-sm mt-1 text-muted-foreground">
-                  {getFromDisplay(email)}
-                </div>
-              </div>
-              
-              <div>
-                <span className="text-sm font-medium">To:</span>
-                <div className="text-sm mt-1 text-muted-foreground">
-                  {email.mailbox_address}
-                </div>
-              </div>
-              
-              <div>
-                <span className="text-sm font-medium">Received:</span>
-                <div className="text-sm mt-1 text-muted-foreground">
-                  {format(new Date(email.received_at), 'MMM d, yyyy h:mm a')}
-                </div>
-              </div>
-              
+          <DetailSection>
+            <DetailSectionHeader>
+              <DetailSectionTitle>Details</DetailSectionTitle>
+            </DetailSectionHeader>
+            <DetailSectionContent>
+              <DetailItem
+                label="From"
+                value={getFromDisplay(email)}
+              />
+              <DetailItem
+                label="To"
+                value={email.mailbox_address}
+              />
+              <DetailItem
+                label="Received"
+                value={format(new Date(email.received_at), 'MMM d, yyyy h:mm a')}
+              />
               {email.sent_at && (
-                <div>
-                  <span className="text-sm font-medium">Sent:</span>
-                  <div className="text-sm mt-1 text-muted-foreground">
-                    {format(new Date(email.sent_at), 'MMM d, yyyy h:mm a')}
-                  </div>
-                </div>
+                <DetailItem
+                  label="Sent"
+                  value={format(new Date(email.sent_at), 'MMM d, yyyy h:mm a')}
+                />
               )}
-              
               {email.message_id && (
-                <div>
-                  <span className="text-sm font-medium">Message ID:</span>
-                  <div className="text-sm mt-1 text-muted-foreground font-mono break-all">
-                    {email.message_id}
-                  </div>
-                </div>
+                <DetailItem
+                  label="Message ID"
+                  value={
+                    <span className="font-mono text-xs break-all">
+                      {email.message_id}
+                    </span>
+                  }
+                  vertical
+                />
               )}
-            </CardContent>
-          </Card>
+            </DetailSectionContent>
+          </DetailSection>
 
-          {/* Ticket Info */}
+          {/* Linked Ticket */}
           {email.ticket_id && (
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Linked Ticket</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground mb-3">
+            <DetailSection>
+              <DetailSectionHeader>
+                <DetailSectionTitle>Linked Ticket</DetailSectionTitle>
+              </DetailSectionHeader>
+              <DetailSectionContent>
+                <p className="text-sm text-muted-foreground mb-4">
                   This email has been converted to a ticket.
-                </div>
+                </p>
                 <Button 
                   variant="default" 
                   size="sm" 
@@ -391,21 +479,21 @@ export function EmailDetailPage() {
                   <ExternalLink className="w-4 h-4 mr-2" />
                   View Ticket
                 </Button>
-              </CardContent>
-            </Card>
+              </DetailSectionContent>
+            </DetailSection>
           )}
         </div>
       </div>
 
       {/* Convert to Ticket Dialog */}
       <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Convert Email to Ticket</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-6">
+            <div className="space-y-2">
               <label className="text-sm font-medium">Ticket Type</label>
               <Select value={convertForm.type} onValueChange={(value) => setConvertForm(prev => ({ ...prev, type: value }))}>
                 <SelectTrigger>
@@ -420,7 +508,7 @@ export function EmailDetailPage() {
               </Select>
             </div>
             
-            <div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Priority</label>
               <Select value={convertForm.priority} onValueChange={(value) => setConvertForm(prev => ({ ...prev, priority: value }))}>
                 <SelectTrigger>
@@ -435,7 +523,7 @@ export function EmailDetailPage() {
               </Select>
             </div>
             
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
               <Button
                 variant="outline"
                 onClick={() => setShowConvertDialog(false)}
@@ -468,10 +556,10 @@ export function EmailDetailPage() {
           border-collapse: collapse;
         }
         .email-content blockquote {
-          border-left: 3px solid #e5e5e5;
+          border-left: 3px solid hsl(var(--border));
           padding-left: 1rem;
           margin: 1rem 0;
-          color: #6b7280;
+          color: hsl(var(--muted-foreground));
         }
       `}</style>
     </div>

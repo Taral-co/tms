@@ -86,37 +86,37 @@ export function AppShell({ children }: AppShellProps) {
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <div 
-        className={`${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-200 flex flex-col bg-card border-r border-border`}
+        className={`${sidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ease-in-out flex flex-col bg-card border-r border-border/60 shadow-sm`}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-center border-b border-border">
+        <div className="flex h-16 items-center justify-center border-b border-border/60 bg-card">
           {sidebarCollapsed ? (
-            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
               <span className="text-primary-foreground font-bold text-sm">T</span>
             </div>
           ) : (
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
+            <div className="flex items-center space-x-3">
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
                 <span className="text-primary-foreground font-bold text-sm">T</span>
               </div>
-              <span className="font-semibold text-foreground">TMS</span>
+              <span className="font-semibold text-foreground text-lg">TMS</span>
             </div>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="flex-1 space-y-2 p-3">
           {navigation.map((item) => {
-            const isActive = location.pathname === item.href
+            const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
             return (
               <Link
                 key={item.name}
                 to={item.href}
                 className={`
-                  group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors
+                  group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-in-out
                   ${isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:shadow-sm'
                   }
                   ${sidebarCollapsed ? 'justify-center' : ''}
                 `}
@@ -124,27 +124,30 @@ export function AppShell({ children }: AppShellProps) {
                 <item.icon
                   className={`h-5 w-5 flex-shrink-0 ${
                     sidebarCollapsed ? '' : 'mr-3'
-                  }`}
+                  } ${isActive ? 'text-primary-foreground' : ''}`}
                   aria-hidden="true"
                 />
-                {!sidebarCollapsed && item.name}
+                {!sidebarCollapsed && (
+                  <span className="truncate">{item.name}</span>
+                )}
               </Link>
             )
           })}
         </nav>
 
         {/* Collapse toggle */}
-        <div className="border-t border-border p-2">
+        <div className="border-t border-border/60 p-3 bg-muted/20">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="w-full flex items-center justify-center rounded-md px-2 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="w-full flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 ease-in-out hover:shadow-sm"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {sidebarCollapsed ? (
               <ChevronRight className="h-5 w-5" />
             ) : (
               <>
                 <ChevronLeft className="h-5 w-5 mr-3" />
-                Collapse
+                <span className="truncate">Collapse</span>
               </>
             )}
           </button>
@@ -152,17 +155,17 @@ export function AppShell({ children }: AppShellProps) {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* Top bar */}
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
+        <header className="flex h-16 items-center justify-between border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 px-6 shadow-sm">
           {/* Search */}
-          <div className="flex flex-1 items-center space-x-4">
-            <div className="relative w-96">
+          <div className="flex flex-1 items-center space-x-6">
+            <div className="relative w-80">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search tickets... (Cmd+K)"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-shadow"
                 onFocus={() => setCommandPaletteOpen(true)}
                 readOnly
               />
@@ -176,35 +179,35 @@ export function AppShell({ children }: AppShellProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
-              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 hover:shadow-sm"
               title={`Theme: ${theme}`}
             >
               {getThemeIcon()}
             </button>
 
             {/* Notifications */}
-            <button className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+            <button className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 hover:shadow-sm">
               <Bell className="h-5 w-5" />
             </button>
 
             {/* User menu */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 pl-4 border-l border-border/60">
               <div className="text-right text-sm">
-                <div className="font-medium text-foreground">{user?.name || 'Loading...'}</div>
-                <div className="text-muted-foreground">{user?.email || ''}</div>
+                <div className="font-medium text-foreground leading-tight">{user?.name || 'Loading...'}</div>
+                <div className="text-muted-foreground text-xs">{user?.email || ''}</div>
               </div>
-              <div className="relative">
-                <button className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
-                  <User className="h-6 w-6" />
+              <div className="relative flex items-center">
+                <button className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 hover:shadow-sm">
+                  <User className="h-5 w-5" />
                 </button>
                 {/* Simple logout for now - could be expanded to dropdown menu */}
                 <button
                   onClick={handleLogout}
-                  className="ml-2 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  className="ml-2 rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200 hover:shadow-sm"
                   title="Logout"
                 >
                   <LogOut className="h-4 w-4" />
@@ -215,7 +218,7 @@ export function AppShell({ children }: AppShellProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-background">
           {children}
         </main>
       </div>

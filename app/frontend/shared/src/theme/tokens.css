@@ -1,106 +1,140 @@
-/* Enterprise Theme System - HSL Variables for shadcn/ui compatibility */
+/* Enterprise Theme System - Professional Grade CSS Variables */
 
-/* Light theme (default) */
+/* Light theme (default) - Enterprise Professional */
 :root {
-  /* Base colors - HSL format for Tailwind compatibility */
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  /* Base colors - Refined for enterprise use */
+  --background: 0 0% 99%;
+  --foreground: 210 11% 15%;
   
-  /* Card backgrounds */
+  /* Card backgrounds - Subtle elevation */
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 210 11% 15%;
   
   /* Popover backgrounds */
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
+  --popover-foreground: 210 11% 15%;
   
-  /* Primary brand colors */
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
+  /* Primary brand colors - Professional blue */
+  --primary: 213 94% 68%;
+  --primary-foreground: 0 0% 100%;
   
-  /* Secondary colors */
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222.2 84% 4.9%;
+  /* Secondary colors - Sophisticated grays */
+  --secondary: 210 14% 97%;
+  --secondary-foreground: 210 11% 15%;
   
-  /* Muted backgrounds */
-  --muted: 210 40% 96%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  /* Muted backgrounds - Subtle and clean */
+  --muted: 210 14% 97%;
+  --muted-foreground: 210 11% 46%;
   
-  /* Accent colors */
-  --accent: 210 40% 96%;
-  --accent-foreground: 222.2 84% 4.9%;
+  /* Accent colors - Professional highlight */
+  --accent: 210 14% 97%;
+  --accent-foreground: 210 11% 15%;
   
-  /* Destructive/danger colors */
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  /* Destructive/danger colors - Clear but not alarming */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
   
-  /* Border and input styling */
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
+  /* Border and input styling - Clean lines */
+  --border: 210 20% 92%;
+  --input: 210 20% 92%;
   
   /* Ring/focus colors */
-  --ring: 221.2 83.2% 53.3%;
+  --ring: 213 94% 68%;
   
+  /* Enterprise status colors */
+  --success: 142 69% 45%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 26 83% 14%;
+  --info: 199 89% 48%;
+  --info-foreground: 0 0% 100%;
   
-  /* Additional enterprise colors */
-  --success: 142.1 76.2% 36.3%;
-  --success-foreground: 210 40% 98%;
-  --warning: 47.9 95.8% 53.1%;
-  --warning-foreground: 26 83.3% 14.1%;
-  --info: 199.1 89.1% 47.8%;
-  --info-foreground: 210 40% 98%;
+  /* Enterprise semantic colors */
+  --surface-1: 0 0% 99%;
+  --surface-2: 210 14% 97%;
+  --surface-3: 210 20% 95%;
+  --text-primary: 210 11% 15%;
+  --text-secondary: 210 11% 46%;
+  --text-tertiary: 210 11% 64%;
   
-  /* Chart colors for data visualization */
-  --chart-1: 12 76% 61%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  /* Chart colors for data visualization - Professional palette */
+  --chart-1: 213 94% 68%;
+  --chart-2: 142 69% 45%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
   
-  /* Radius values */
+  /* Enterprise spacing system */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  
+  /* Enterprise typography scale */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  
+  /* Radius values - Consistent rounding */
   --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-lg: 0.75rem;
 }
 
-/* Dark theme */
+/* Dark theme - Enterprise Professional */
 [data-theme="dark"] {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
+  --background: 210 11% 4%;
+  --foreground: 210 17% 98%;
   
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
+  --card: 210 11% 6%;
+  --card-foreground: 210 17% 98%;
   
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 210 11% 6%;
+  --popover-foreground: 210 17% 98%;
   
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 84% 4.9%;
+  --primary: 213 94% 68%;
+  --primary-foreground: 210 11% 4%;
   
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 210 11% 10%;
+  --secondary-foreground: 210 17% 98%;
   
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 210 11% 10%;
+  --muted-foreground: 210 11% 65%;
   
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 210 11% 10%;
+  --accent-foreground: 210 17% 98%;
   
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 210 17% 98%;
   
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --border: 210 11% 15%;
+  --input: 210 11% 15%;
+  --ring: 213 94% 68%;
   
-  --success: 142.1 70.6% 45.3%;
-  --success-foreground: 144.9 80.4% 10%;
-  --warning: 47.9 95.8% 53.1%;
-  --warning-foreground: 26 83.3% 14.1%;
-  --info: 199.1 89.1% 47.8%;
-  --info-foreground: 210 40% 98%;
+  --success: 142 69% 45%;
+  --success-foreground: 210 11% 4%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 26 83% 14%;
+  --info: 199 89% 48%;
+  --info-foreground: 210 11% 4%;
   
-  --chart-1: 220 70% 50%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
+  /* Enterprise semantic colors - Dark mode */
+  --surface-1: 210 11% 4%;
+  --surface-2: 210 11% 6%;
+  --surface-3: 210 11% 10%;
+  --text-primary: 210 17% 98%;
+  --text-secondary: 210 11% 65%;
+  --text-tertiary: 210 11% 46%;
+  
+  --chart-1: 213 94% 68%;
+  --chart-2: 142 69% 45%;
+  --chart-3: 38 92% 50%;
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
 }

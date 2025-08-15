@@ -129,9 +129,10 @@ export function VirtualizedList<T>({
   // Expose scroll methods
   useEffect(() => {
     if (containerRef.current) {
-      // Add methods to ref for external access
-      ;(containerRef.current as any).scrollToTop = scrollToTop
-      ;(containerRef.current as any).scrollToItem = scrollToItem
+      // Add methods to ref for external access  
+      const container = containerRef.current as any
+      container.scrollToTop = scrollToTop
+      container.scrollToItem = scrollToItem
     }
   }, [scrollToTop, scrollToItem])
 
