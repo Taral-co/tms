@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from 'react'
-import { Ticket, AlertCircle, Clock, CheckCircle } from 'lucide-react'
+import { Ticket, AlertCircle, Clock, CheckCircle, Inbox } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 
@@ -129,13 +129,36 @@ export const DashboardPage: FC = () => {
   ]
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Welcome back, {user?.name}! Here's what's happening with your support team.
-        </p>
+    <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-slate-50/20 dark:to-slate-950/20">
+      {/* Enhanced Header with gradient and glass effect */}
+      <div className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 shadow-sm">
+        <div className="px-6 py-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg blur opacity-25"></div>
+                <div className="relative p-3 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 rounded-lg border border-blue-200/50 dark:border-blue-800/50">
+                  <Inbox className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Dashboard
+                </h1>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-sm text-muted-foreground">
+                    Welcome back, {user?.name}! Here's what's happening with your support team.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-7xl mx-auto">
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -219,6 +242,8 @@ export const DashboardPage: FC = () => {
               Team metrics and performance charts will appear here...
             </p>
           </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>

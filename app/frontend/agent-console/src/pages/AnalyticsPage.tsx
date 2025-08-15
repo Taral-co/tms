@@ -1,15 +1,38 @@
 import { FC } from 'react'
-import { TrendingUp, Clock, Users, CheckCircle } from 'lucide-react'
+import { TrendingUp, Clock, Users, CheckCircle, BarChart3 } from 'lucide-react'
 
 export const AnalyticsPage: FC = () => {
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
-        <p className="text-muted-foreground mt-2">
-          Insights and metrics for your support operations.
-        </p>
+    <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-slate-50/20 dark:to-slate-950/20">
+      {/* Enhanced Header with gradient and glass effect */}
+      <div className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 shadow-sm">
+        <div className="px-6 py-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg blur opacity-25"></div>
+                <div className="relative p-3 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 rounded-lg border border-purple-200/50 dark:border-purple-800/50">
+                  <BarChart3 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Analytics
+                </h1>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-sm text-muted-foreground">
+                    Insights and metrics for your support operations
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-7xl mx-auto">
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -127,6 +150,8 @@ export const AnalyticsPage: FC = () => {
             <li>Ticket categorization insights</li>
             <li>Peak hours and workload distribution</li>
           </ul>
+        </div>
+      </div>
         </div>
       </div>
     </div>
