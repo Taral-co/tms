@@ -307,11 +307,7 @@ export function TicketDetailPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium">
-                          {message.author_type === 'customer' 
-                            ? ticket.customer_name 
-                            : message.author_type === 'agent'
-                            ? 'Agent'
-                            : 'System'
+                          {message.user_info.name
                           }
                         </span>
                         {message.is_private && (

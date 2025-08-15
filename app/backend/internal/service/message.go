@@ -12,26 +12,43 @@ import (
 
 // MessageService handles ticket message operations
 type MessageService struct {
-	messageRepo repo.TicketMessageRepository
-	ticketRepo  repo.TicketRepository
-	rbacService *rbac.Service
+	messageRepo  repo.TicketMessageRepository
+	ticketRepo   repo.TicketRepository
+	rbacService  *rbac.Service
+	customerRepo repo.CustomerRepository
+	agentRepo    repo.AgentRepository
+}
+
+type MessageUserInfo struct {
+	ID    uuid.UUID `json:"id"`
+	Name  string    `json:"name"`
+	Email string    `json:"email"`
+}
+
+type MessageWithDetails struct {
+	*db.TicketMessage
+	MessageUserInfo *MessageUserInfo `json:"user_info,omitempty"`
 }
 
 // NewMessageService creates a new message service
 func NewMessageService(
 	messageRepo repo.TicketMessageRepository,
 	ticketRepo repo.TicketRepository,
+	customerRepo repo.CustomerRepository,
+	agentRepo repo.AgentRepository,
 	rbacService *rbac.Service,
 ) *MessageService {
 	return &MessageService{
-		messageRepo: messageRepo,
-		ticketRepo:  ticketRepo,
-		rbacService: rbacService,
+		messageRepo:  messageRepo,
+		ticketRepo:   ticketRepo,
+		rbacService:  rbacService,
+		customerRepo: customerRepo,
+		agentRepo:    agentRepo,
 	}
 }
 
 // GetTicketMessages retrieves messages for a ticket
-func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID, includePrivate bool, cursor string, limit int) ([]*db.TicketMessage, string, error) {
+func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID, includePrivate bool, cursor string, limit int) ([]*MessageWithDetails, string, error) {
 	// Check base permissions
 	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketRead)
 	if err != nil {
@@ -69,7 +86,71 @@ func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projec
 		return nil, "", fmt.Errorf("failed to get messages: %w", err)
 	}
 
-	return messages, nextCursor, nil
+	// Enrich messages with author/customer details
+	// Collect unique IDs
+	customerIDs := make(map[uuid.UUID]struct{})
+	agentIDs := make(map[uuid.UUID]struct{})
+
+	for _, m := range messages {
+		if m.AuthorID == nil {
+			continue
+		}
+		switch m.AuthorType {
+		case "customer":
+			customerIDs[*m.AuthorID] = struct{}{}
+		case "agent":
+			agentIDs[*m.AuthorID] = struct{}{}
+		}
+	}
+
+	// Fetch customers
+	customerMap := make(map[uuid.UUID]*db.Customer)
+	for id := range customerIDs {
+		c, err := s.customerRepo.GetByID(ctx, tenantID, id)
+		if err == nil && c != nil {
+			customerMap[id] = c
+		}
+	}
+
+	// Fetch agents
+	agentMap := make(map[uuid.UUID]*db.Agent)
+	for id := range agentIDs {
+		a, err := s.agentRepo.GetByID(ctx, tenantID, id)
+		if err == nil && a != nil {
+			agentMap[id] = a
+		}
+	}
+
+	// Populate message CustomerName/CustomerEmail fields
+	messageWithDetails := make([]*MessageWithDetails, len(messages))
+	for i, m := range messages {
+		messageWithDetails[i] = &MessageWithDetails{
+			TicketMessage: m,
+		}
+		if m.AuthorID == nil {
+			continue
+		}
+		switch m.AuthorType {
+		case "customer":
+			if c, ok := customerMap[*m.AuthorID]; ok {
+				messageWithDetails[i].MessageUserInfo = &MessageUserInfo{
+					Name:  c.Name,
+					Email: c.Email,
+					ID:    c.ID,
+				}
+			}
+		case "agent":
+			if a, ok := agentMap[*m.AuthorID]; ok {
+				messageWithDetails[i].MessageUserInfo = &MessageUserInfo{
+					Name:  a.Name,
+					Email: a.Email,
+					ID:    a.ID,
+				}
+			}
+		}
+	}
+
+	return messageWithDetails, nextCursor, nil
 }
 
 // UpdateMessageRequest represents a message update request

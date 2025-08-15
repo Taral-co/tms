@@ -80,7 +80,7 @@ func main() {
 	agentService := service.NewAgentService(agentRepo, projectRepo, rbacService)
 	tenantService := service.NewTenantService(tenantRepo, agentRepo, rbacService)
 	// customerService := service.NewCustomerService(customerRepo, rbacService) // Reserved for future use
-	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
+	messageService := service.NewMessageService(messageRepo, ticketRepo, customerRepo, agentRepo, rbacService)
 	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
 	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo, emailRepo, mailService, mailLogger)

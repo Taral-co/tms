@@ -105,17 +105,15 @@ type Ticket struct {
 
 // TicketMessage represents a message on a ticket
 type TicketMessage struct {
-	ID            uuid.UUID  `db:"id" json:"id"`
-	TenantID      uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	ProjectID     uuid.UUID  `db:"project_id" json:"project_id"`
-	TicketID      uuid.UUID  `db:"ticket_id" json:"ticket_id"`
-	AuthorType    string     `db:"author_type" json:"author_type" validate:"oneof=agent customer system"`
-	AuthorID      *uuid.UUID `db:"author_id" json:"author_id,omitempty"`
-	Body          string     `db:"body" json:"body" validate:"required"`
-	IsPrivate     bool       `db:"is_private" json:"is_private"`
-	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
-	CustomerName  string     `db:"customer_name" json:"customer_name"`
-	CustomerEmail string     `db:"customer_email" json:"customer_email"`
+	ID         uuid.UUID  `db:"id" json:"id"`
+	TenantID   uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	ProjectID  uuid.UUID  `db:"project_id" json:"project_id"`
+	TicketID   uuid.UUID  `db:"ticket_id" json:"ticket_id"`
+	AuthorType string     `db:"author_type" json:"author_type" validate:"oneof=agent customer system"`
+	AuthorID   *uuid.UUID `db:"author_id" json:"author_id,omitempty"`
+	Body       string     `db:"body" json:"body" validate:"required"`
+	IsPrivate  bool       `db:"is_private" json:"is_private"`
+	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
 }
 
 // TicketTag represents a tag on a ticket

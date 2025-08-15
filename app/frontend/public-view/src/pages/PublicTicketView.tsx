@@ -25,6 +25,11 @@ interface PublicMessage {
   body: string
   is_private: boolean
   created_at: string
+  user_info: {
+    id: string
+    name: string
+    email: string
+  }
 }
 
 interface PublicTicket {

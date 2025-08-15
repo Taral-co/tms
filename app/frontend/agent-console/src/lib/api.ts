@@ -158,7 +158,12 @@ export interface Message {
   author_id: string
   body: string
   is_private: boolean
-  created_at: string
+  created_at: string,
+  user_info: {
+    id: string
+    name: string
+    email: string
+  }
   attachments?: {
     id: string
     filename: string
