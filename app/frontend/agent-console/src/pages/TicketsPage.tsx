@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Search, MoreHorizontal, Clock, User, AlertCircle, X } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Clock, User, AlertCircle, X, Ticket as TicketIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient, Ticket, CreateTicketRequest } from '../lib/api'
 
@@ -47,11 +47,11 @@ export const TicketsPage: React.FC = () => {
     }
   }
 
-  const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = searchTerm === '' || 
-      ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.id.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredTickets = tickets.filter(ticket => {
+    const matchesSearch = !searchTerm || 
+      ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.number.toString().includes(searchTerm)
     
     const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter
     const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter
@@ -112,7 +112,31 @@ export const TicketsPage: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Tickets</h1>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-r from-green-600 to-blue-600 rounded-lg blur opacity-25"></div>
+            <div className="relative p-3 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950 rounded-lg border border-green-200/50 dark:border-green-800/50">
+              <TicketIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+              Tickets
+            </h1>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-sm text-muted-foreground">
+                Manage and track customer support requests
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-950/50 rounded-full border border-green-200 dark:border-green-800">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                  <span className="font-medium text-green-700 dark:text-green-300">{tickets.length} total</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <button 
           onClick={handleCreateTicket}
           className="flex items-center space-x-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
@@ -209,7 +233,7 @@ export const TicketsPage: React.FC = () => {
                     <div className="mt-1 flex items-center space-x-4 text-xs text-muted-foreground">
                       <span className="flex items-center space-x-1">
                         <User className="h-3 w-3" />
-                        <span>{ticket.customer_name}</span>
+                        <span>{ticket.customer?.name || 'Unknown Customer'}</span>
                       </span>
                       {ticket.assigned_agent?.name && (
                         <span>Assigned to {ticket.assigned_agent.name}</span>
