@@ -205,6 +205,7 @@ export interface MagicLinkResult {
 export interface EmailInbox {
   id: string
   message_id: string
+  thread_id?: string
   from_address: string
   from_name?: string
   to_addresses: string[]
@@ -236,6 +237,7 @@ export interface EmailFilter {
   has_attachments?: boolean
   from_date?: string
   to_date?: string
+  thread_id?: string
   page?: number
   limit?: number
 }
@@ -818,6 +820,7 @@ class APIClient {
     if (filter.has_attachments !== undefined) params.append('has_attachments', filter.has_attachments.toString())
     if (filter.from_date) params.append('from_date', filter.from_date)
     if (filter.to_date) params.append('to_date', filter.to_date)
+    if (filter.thread_id) params.append('thread_id', filter.thread_id)
     if (filter.page) params.append('page', filter.page.toString())
     if (filter.limit) params.append('limit', filter.limit.toString())
 
@@ -842,8 +845,13 @@ class APIClient {
     await this.client.post(`/email/inbox/${emailId}/mark-read`)
   }
 
-  async replyToEmail(emailId: string, body: string): Promise<void> {
-    await this.client.post(`/email/inbox/${emailId}/reply`, { body })
+  async replyToEmail(emailId: string, replyData: {
+    body: string;
+    subject?: string;
+    cc_addresses?: string[];
+    is_private?: boolean;
+  }): Promise<void> {
+    await this.client.post(`/email/inbox/${emailId}/reply`, replyData)
   }
 
   // Analytics endpoints

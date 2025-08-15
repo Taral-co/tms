@@ -45,6 +45,11 @@ func (s *Service) GetIMAPClient() *IMAPClient {
 	return s.imapClient
 }
 
+// GetSMTPClient returns the configured SMTP client
+func (s *Service) GetSMTPClient() *SMTPClient {
+	return s.smtpClient
+}
+
 // ProcessInboundEmail processes an inbound email and determines what to do with it
 func (s *Service) ProcessInboundEmail(ctx context.Context, msg *ParsedMessage, mailbox *models.EmailMailbox) (*InboundResult, error) {
 	if msg == nil {

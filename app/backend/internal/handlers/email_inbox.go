@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bareuptime/tms/internal/middleware"
@@ -90,8 +91,10 @@ type ConvertToTicketRequest struct {
 
 // ReplyToEmailRequest represents request to reply to an email
 type ReplyToEmailRequest struct {
-	Body      string `json:"body" binding:"required"`
-	IsPrivate bool   `json:"is_private"`
+	Body        string   `json:"body" binding:"required"`
+	Subject     *string  `json:"subject,omitempty"`      // Optional custom subject, defaults to "Re: original subject"
+	CCAddresses []string `json:"cc_addresses,omitempty"` // Additional CC recipients
+	IsPrivate   bool     `json:"is_private"`             // Whether this is an internal reply
 }
 
 // SyncEmailsResponse represents the response for sync operation
@@ -143,9 +146,9 @@ func (h *EmailInboxHandler) GetEmail(c *gin.Context) {
 	tenantUUID := middleware.GetTenantID(c)
 	projectUUID := middleware.GetProjectID(c)
 
-	emailID, err := uuid.Parse(c.Param("email_id"))
+	emailID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 	email, attachments, err := h.emailInboxService.GetEmailWithAttachments(c.Request.Context(), tenantUUID, projectUUID, emailID)
@@ -180,7 +183,7 @@ func (h *EmailInboxHandler) MarkAsRead(c *gin.Context) {
 
 	emailID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
@@ -201,7 +204,7 @@ func (h *EmailInboxHandler) ConvertToTicket(c *gin.Context) {
 
 	emailID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
@@ -228,10 +231,11 @@ func (h *EmailInboxHandler) ConvertToTicket(c *gin.Context) {
 func (h *EmailInboxHandler) ReplyToEmail(c *gin.Context) {
 
 	tenantUUID := middleware.GetTenantID(c)
+	projectUUID := middleware.GetProjectID(c)
 
 	emailID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email_id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
@@ -241,13 +245,30 @@ func (h *EmailInboxHandler) ReplyToEmail(c *gin.Context) {
 		return
 	}
 
-	err = h.emailInboxService.ReplyToEmail(c.Request.Context(), tenantUUID, emailID, req.Body, req.IsPrivate)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send reply"})
+	// Validate the request
+	if strings.TrimSpace(req.Body) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reply body cannot be empty"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "reply sent successfully"})
+	// Verify the email exists and belongs to this tenant/project
+	originalEmail, _, err := h.emailInboxService.GetEmailWithAttachments(c.Request.Context(), tenantUUID, projectUUID, emailID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "email not found"})
+		return
+	}
+
+	err = h.emailInboxService.ReplyToEmail(c.Request.Context(), tenantUUID, emailID, projectUUID, originalEmail, req.Body, req.Subject, req.CCAddresses, req.IsPrivate)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "reply sent successfully",
+		"email_id":   emailID,
+		"is_private": req.IsPrivate,
+	})
 }
 
 // SyncEmails handles POST /emails/sync

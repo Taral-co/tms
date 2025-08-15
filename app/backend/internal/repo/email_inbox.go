@@ -26,6 +26,7 @@ type EmailInboxRepository interface {
 
 	// Email threading
 	GetEmailThread(ctx context.Context, tenantID uuid.UUID, threadID string) ([]*models.EmailInbox, error)
+	UpdateEmailThreadID(ctx context.Context, tenantID, emailID uuid.UUID, threadID string) error
 
 	// Attachment operations
 	CreateAttachment(ctx context.Context, attachment *models.EmailAttachment) error
@@ -186,6 +187,13 @@ func (r *emailInboxRepository) UpdateEmail(ctx context.Context, email *models.Em
 		email.IsConvertedToTicket, email.Headers, email.UpdatedAt,
 	)
 
+	return err
+}
+
+// UpdateEmailThreadID updates just the thread_id for an email
+func (r *emailInboxRepository) UpdateEmailThreadID(ctx context.Context, tenantID, emailID uuid.UUID, threadID string) error {
+	query := `UPDATE email_inbox SET thread_id = $3, updated_at = NOW() WHERE tenant_id = $1 AND id = $2`
+	_, err := r.db.ExecContext(ctx, query, tenantID, emailID, threadID)
 	return err
 }
 

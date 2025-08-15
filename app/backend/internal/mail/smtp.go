@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/smtp"
+	"regexp"
 	"strings"
 	"time"
 
@@ -64,8 +65,31 @@ func (c *SMTPClient) sendWithTLS(addr string, connector *models.EmailConnector, 
 	}
 	defer client.Close()
 
-	// Start TLS if configured
-	if connector.SMTPUseTLS != nil && *connector.SMTPUseTLS {
+	// Start TLS - Auto-enable for secure ports regardless of connector setting
+	needsTLS := false
+	if connector.SMTPPort != nil {
+		// Auto-enable TLS for common secure SMTP ports
+		switch *connector.SMTPPort {
+		case 587, 465: // Gmail, Outlook, and other modern SMTP providers always need TLS
+			needsTLS = true
+		case 25:
+			// Port 25 may use STARTTLS for modern providers
+			if connector.SMTPHost != nil && (strings.Contains(*connector.SMTPHost, "gmail") || strings.Contains(*connector.SMTPHost, "outlook")) {
+				needsTLS = true
+			} else if connector.SMTPUseTLS != nil && *connector.SMTPUseTLS {
+				needsTLS = true
+			}
+		default:
+			// For other ports, respect the connector setting
+			if connector.SMTPUseTLS != nil && *connector.SMTPUseTLS {
+				needsTLS = true
+			}
+		}
+	} else if connector.SMTPUseTLS != nil && *connector.SMTPUseTLS {
+		needsTLS = true
+	}
+
+	if needsTLS {
 		tlsConfig := &tls.Config{ServerName: *connector.SMTPHost}
 		if err = client.StartTLS(tlsConfig); err != nil {
 			return fmt.Errorf("failed to start TLS: %w", err)
@@ -93,10 +117,12 @@ func (c *SMTPClient) sendWithTLS(addr string, connector *models.EmailConnector, 
 		return fmt.Errorf("failed to set sender: %w", err)
 	}
 
-	// Set recipients
+	// Set recipients - extract bare email addresses for SMTP protocol
 	for _, recipient := range to {
-		if err = client.Rcpt(recipient); err != nil {
-			return fmt.Errorf("failed to set recipient %s: %w", recipient, err)
+		// Extract email address from "Display Name <email@domain.com>" format
+		email := extractEmailAddress(recipient)
+		if err = client.Rcpt(email); err != nil {
+			return fmt.Errorf("failed to set recipient %s: %w", email, err)
 		}
 	}
 
@@ -231,4 +257,18 @@ func (c *SMTPClient) TestConnection(ctx context.Context, connector *models.Email
 		Msg("SMTP connection test successful")
 
 	return nil
+}
+
+// extractEmailAddress extracts the bare email address from formats like:
+// "Display Name <email@domain.com>" -> "email@domain.com"
+// "email@domain.com" -> "email@domain.com"
+func extractEmailAddress(address string) string {
+	// Use regex to extract email from "Display Name <email@domain.com>" format
+	re := regexp.MustCompile(`<([^>]+)>`)
+	matches := re.FindStringSubmatch(address)
+	if len(matches) > 1 {
+		return strings.TrimSpace(matches[1])
+	}
+	// If no angle brackets found, assume it's already a bare email
+	return strings.TrimSpace(address)
 }

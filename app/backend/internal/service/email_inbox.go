@@ -109,7 +109,7 @@ func (s *EmailInboxService) SyncEmails(ctx context.Context, tenantID, projectID 
 
 	// Get all active IMAP connectors for the tenant
 	imapType := models.ConnectorTypeInboundIMAP
-	connectors, err := s.emailRepo.ListConnectorsByTenant(ctx, tenantID, projectID, &imapType)
+	connectors, err := s.emailRepo.ListConnectors(ctx, tenantID, projectID, &imapType)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("Failed to get IMAP connectors")
 		return fmt.Errorf("failed to get IMAP connectors: %w", err)
@@ -531,10 +531,196 @@ func (s *EmailInboxService) ConvertEmailToTicket(ctx context.Context, tenantID, 
 	return ticket, nil
 }
 
-// ReplyToEmail sends a reply to an email (placeholder implementation)
-func (s *EmailInboxService) ReplyToEmail(ctx context.Context, tenantID, emailID uuid.UUID, replyBody string, isPrivate bool) error {
-	// TODO: Implement actual email reply logic
-	// This would need SMTP configuration and email sending
+// ReplyToEmail sends a reply to an email
+func (s *EmailInboxService) ReplyToEmail(ctx context.Context, tenantID, emailID, projectID uuid.UUID, originalEmail *models.EmailInbox, replyBody string, customSubject *string, ccAddresses []string, isPrivate bool) error {
+
+	// If this is a private reply, don't send an external email
+	if isPrivate {
+		s.logger.Info().
+			Str("email_id", emailID.String()).
+			Msg("Private reply logged, no external email sent")
+		return nil
+	}
+
+	// Get the connector used by the original email for reply
+	activeConnector, err := s.emailRepo.GetConnector(ctx, tenantID, projectID, originalEmail.ConnectorID)
+	if err != nil {
+		return fmt.Errorf("failed to get connector for email reply: %w", err)
+	}
+
+	// Verify this connector has SMTP settings
+	if activeConnector.SMTPHost == nil || activeConnector.SMTPPort == nil {
+		return fmt.Errorf("connector does not have SMTP configuration for sending replies")
+	}
+
+	// Build reply message
+	msg := &mail.Message{
+		From:    originalEmail.MailboxAddress,        // Reply from the original recipient address
+		To:      []string{originalEmail.FromAddress}, // Reply to the original sender
+		CC:      ccAddresses,
+		Headers: make(map[string]string),
+	}
+
+	// Build subject line
+	if customSubject != nil && *customSubject != "" {
+		msg.Subject = *customSubject
+	} else {
+		// Default reply subject
+		if !strings.HasPrefix(strings.ToLower(originalEmail.Subject), "re:") {
+			msg.Subject = "Re: " + originalEmail.Subject
+		} else {
+			msg.Subject = originalEmail.Subject
+		}
+	}
+
+	// Set message body (support both text and HTML)
+	msg.TextBody = replyBody
+	if strings.Contains(replyBody, "<") && strings.Contains(replyBody, ">") {
+		// Basic HTML detection - in production, this should be more sophisticated
+		msg.HTMLBody = replyBody
+	}
+
+	// Set threading headers for proper email reply threading
+	msg.InReplyTo = originalEmail.MessageID
+	if originalEmail.ThreadID != nil && *originalEmail.ThreadID != "" {
+		// If original email was part of a thread, continue the thread
+		msg.References = *originalEmail.ThreadID + " " + originalEmail.MessageID
+	} else {
+		// Start new thread with original message
+		msg.References = originalEmail.MessageID
+	}
+
+	// Generate unique Message-ID for this reply
+	msg.MessageID = s.generateMessageID(tenantID)
+
+	// Add metadata headers (not threading headers as those are set above)
+	msg.Headers["X-Tenant-ID"] = tenantID.String()
+	msg.Headers["X-Project-ID"] = projectID.String()
+	msg.Headers["X-Original-Email-ID"] = emailID.String()
+	msg.Headers["X-Reply-Type"] = "manual"
+
+	// Anti-loop headers
+	msg.Headers["Auto-Submitted"] = "no"
+
+	// Send the email via SMTP
+	err = s.mailService.GetSMTPClient().SendMessage(ctx, activeConnector, msg)
+	if err != nil {
+		s.logger.Error().
+			Err(err).
+			Str("email_id", emailID.String()).
+			Str("tenant_id", tenantID.String()).
+			Msg("Failed to send email reply")
+		return fmt.Errorf("failed to send reply email: %w", err)
+	}
+
+	// Store the outbound reply in our email_inbox table for threading
+	if !isPrivate {
+		replyEmail := &models.EmailInbox{
+			ID:              uuid.New(),
+			TenantID:        tenantID,
+			ProjectID:       &projectID,
+			MessageID:       msg.MessageID,
+			ThreadID:        originalEmail.ThreadID, // Maintain thread continuity
+			MailboxAddress:  originalEmail.MailboxAddress,
+			FromAddress:     msg.From,
+			ToAddresses:     msg.To,
+			CcAddresses:     msg.CC,
+			Subject:         msg.Subject,
+			BodyText:        &msg.TextBody,
+			BodyHTML:        &msg.HTMLBody,
+			IsRead:          true, // Outbound messages are "read" by default
+			IsReply:         true, // Mark as reply
+			HasAttachments:  false,
+			AttachmentCount: 0,
+			SentAt:          &[]time.Time{time.Now()}[0],
+			ReceivedAt:      time.Now(),
+			SyncStatus:      "synced",
+			ConnectorID:     activeConnector.ID,
+			CreatedAt:       time.Now(),
+			UpdatedAt:       time.Now(),
+		}
+
+		// If original email didn't have a thread_id, create one using original message_id
+		if originalEmail.ThreadID == nil || *originalEmail.ThreadID == "" {
+			threadID := originalEmail.MessageID
+			replyEmail.ThreadID = &threadID
+			
+			// Also update the original email to have the same thread_id
+			if err := s.emailInboxRepo.UpdateEmailThreadID(ctx, tenantID, emailID, threadID); err != nil {
+				s.logger.Warn().
+					Err(err).
+					Str("email_id", emailID.String()).
+					Msg("Failed to update original email thread_id")
+			}
+		}
+
+		// Store the reply email
+		if err := s.emailInboxRepo.CreateEmail(ctx, replyEmail); err != nil {
+			s.logger.Warn().
+				Err(err).
+				Str("reply_message_id", msg.MessageID).
+				Msg("Failed to store outbound reply in inbox (email still sent)")
+		} else {
+			s.logger.Info().
+				Str("reply_message_id", msg.MessageID).
+				Str("thread_id", *replyEmail.ThreadID).
+				Msg("Stored outbound reply in email inbox")
+		}
+	}
+
+	// Create outbound email log for audit purposes
+	if err := s.createOutboundEmailLog(ctx, tenantID, projectID, emailID, msg, activeConnector.ID); err != nil {
+		s.logger.Warn().
+			Err(err).
+			Str("email_id", emailID.String()).
+			Msg("Failed to create outbound email log (reply still sent)")
+	}
+
+	s.logger.Info().
+		Str("email_id", emailID.String()).
+		Str("tenant_id", tenantID.String()).
+		Str("reply_to", originalEmail.FromAddress).
+		Str("subject", msg.Subject).
+		Msg("Email reply sent successfully")
+
+	return nil
+}
+
+// generateMessageID generates a unique Message-ID for the email
+func (s *EmailInboxService) generateMessageID(tenantID uuid.UUID) string {
+	// Generate a unique message ID in the format: <uuid@domain>
+	id := uuid.New()
+	return fmt.Sprintf("<%s@tms.local>", id.String())
+}
+
+// createOutboundEmailLog creates an audit log entry for sent emails
+func (s *EmailInboxService) createOutboundEmailLog(ctx context.Context, tenantID, projectID, originalEmailID uuid.UUID, msg *mail.Message, connectorID uuid.UUID) error {
+	// This is a simplified implementation - in a full system you'd want to create
+	// a proper outbound email log entry. For now, we'll just log the action.
+	s.logger.Info().
+		Str("tenant_id", tenantID.String()).
+		Str("project_id", projectID.String()).
+		Str("original_email_id", originalEmailID.String()).
+		Str("connector_id", connectorID.String()).
+		Str("to", strings.Join(msg.To, ", ")).
+		Str("subject", msg.Subject).
+		Str("message_id", msg.MessageID).
+		Msg("Outbound email reply sent")
+
+	// TODO: In a complete implementation, create an entry in email_outbound_log table
+	// outboundLog := &models.EmailOutboundLog{
+	//     ID:          uuid.New(),
+	//     TenantID:    tenantID,
+	//     ConnectorID: connectorID,
+	//     MessageID:   &msg.MessageID,
+	//     ToAddresses: msg.To,
+	//     Subject:     &msg.Subject,
+	//     SentAt:      &time.Now(),
+	//     Status:      models.EmailStatusSent,
+	//     CreatedAt:   time.Now(),
+	// }
+	// return s.emailRepo.CreateOutboundEmailLog(ctx, outboundLog)
+
 	return nil
 }
 
@@ -542,7 +728,7 @@ func (s *EmailInboxService) ReplyToEmail(ctx context.Context, tenantID, emailID 
 func (s *EmailInboxService) GetSyncStatus(ctx context.Context, tenantID, projectID uuid.UUID) ([]*models.EmailSyncStatus, error) {
 	// Get all IMAP connectors for the tenant
 	imapType := models.ConnectorTypeInboundIMAP
-	connectors, err := s.emailRepo.ListConnectorsByTenant(ctx, tenantID, projectID, &imapType)
+	connectors, err := s.emailRepo.ListConnectors(ctx, tenantID, projectID, &imapType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IMAP connectors: %w", err)
 	}

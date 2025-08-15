@@ -51,11 +51,20 @@ export function EmailDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [email, setEmail] = useState<EmailInbox | null>(null)
+  const [threadEmails, setThreadEmails] = useState<EmailInbox[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [toggling, setToggling] = useState(false)
   const [converting, setConverting] = useState(false)
   const [showConvertDialog, setShowConvertDialog] = useState(false)
+  const [showReplyDialog, setShowReplyDialog] = useState(false)
+  const [replyForm, setReplyForm] = useState({
+    body: '',
+    subject: '',
+    cc_addresses: [] as string[],
+    is_private: false
+  })
+  const [replying, setReplying] = useState(false)
   const [convertForm, setConvertForm] = useState<ConvertToTicketRequest>({
     type: 'question',
     priority: 'normal'
@@ -72,10 +81,27 @@ export function EmailDetailPage() {
       setLoading(true)
       setError(null)
       
-      // Load email by ID - using getEmailInbox with no filter to get all emails, then find the one we need
+      // First load the specific email to get its thread_id
       const foundEmail = await apiClient.getEmailFromId(emailId)
-      
       setEmail(foundEmail)
+      
+      // If the email has a thread_id, load all emails in the thread
+      if (foundEmail.thread_id) {
+        const threadResponse = await apiClient.getEmailInbox({ 
+          thread_id: foundEmail.thread_id,
+          limit: 100 // Get all emails in thread
+        })
+        // Sort by sent_at/received_at to show chronological order
+        const sortedEmails = threadResponse.emails.sort((a, b) => {
+          const aTime = new Date(a.sent_at || a.received_at).getTime()
+          const bTime = new Date(b.sent_at || b.received_at).getTime()
+          return aTime - bTime
+        })
+        setThreadEmails(sortedEmails)
+      } else {
+        // If no thread_id, just show the single email
+        setThreadEmails([foundEmail])
+      }
     } catch (err) {
       console.error('Failed to load email:', err)
       setError('Failed to load email. Please try again.')
@@ -120,6 +146,56 @@ export function EmailDetailPage() {
     } finally {
       setConverting(false)
     }
+  }
+
+  const handleReply = async () => {
+    if (!email) return
+    
+    try {
+      setReplying(true)
+      await apiClient.replyToEmail(email.id, {
+        body: replyForm.body,
+        subject: replyForm.subject || undefined,
+        cc_addresses: replyForm.cc_addresses.length > 0 ? replyForm.cc_addresses : undefined,
+        is_private: replyForm.is_private
+      })
+      
+      setShowReplyDialog(false)
+      setReplyForm({
+        body: '',
+        subject: '',
+        cc_addresses: [],
+        is_private: false
+      })
+      
+      // Refresh the thread to show the new reply
+      await loadEmailData(email.id)
+      
+      // Show success message
+      alert('Reply sent successfully!')
+    } catch (err) {
+      console.error('Failed to send reply:', err)
+      alert('Failed to send reply')
+    } finally {
+      setReplying(false)
+    }
+  }
+
+  const openReplyDialog = () => {
+    if (!email) return
+    
+    // Set default reply subject
+    const defaultSubject = email.subject.toLowerCase().startsWith('re:') 
+      ? email.subject 
+      : `Re: ${email.subject}`
+    
+    setReplyForm({
+      body: '',
+      subject: defaultSubject,
+      cc_addresses: [],
+      is_private: false
+    })
+    setShowReplyDialog(true)
   }
 
   const formatEmailDate = (dateString: string) => {
@@ -300,10 +376,6 @@ export function EmailDetailPage() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Mail className="w-4 h-4" />
-              <span>Email ID: {email.id}</span>
-            </div>
           </div>
           
           <PageHeaderActions>
@@ -337,7 +409,7 @@ export function EmailDetailPage() {
               </Button>
             )}
             
-            <Button variant="default" size="sm">
+            <Button variant="default" size="sm" onClick={openReplyDialog}>
               <Reply className="w-4 h-4 mr-2" />
               Reply
             </Button>
@@ -352,60 +424,69 @@ export function EmailDetailPage() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-        {/* Email Content */}
+        {/* Email Conversation */}
         <div className="lg:col-span-2">
-          <DataCard>
-            <DataCardHeader>
-              <div className="flex items-start justify-between w-full">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="w-5 h-5 text-primary" />
+          <div className="space-y-4">
+            {threadEmails.map((threadEmail) => (
+              <DataCard key={threadEmail.id} className={threadEmail.id === email?.id ? 'ring-2 ring-primary/20' : ''}>
+                <DataCardHeader>
+                  <div className="flex items-start justify-between w-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-card-foreground">{getFromDisplay(threadEmail)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          to {threadEmail.mailbox_address}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span>{formatEmailDate(threadEmail.sent_at || threadEmail.received_at)}</span>
+                      {threadEmail.is_reply && (
+                        <StatusIndicator status="default" size="sm" showDot={false}>
+                          <Reply className="w-3 h-3 ml-1" />
+                        </StatusIndicator>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-card-foreground">{getFromDisplay(email)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      to {email.mailbox_address}
-                    </p>
-                  </div>
-                </div>
+                </DataCardHeader>
                 
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>{formatEmailDate(email.sent_at || email.received_at)}</span>
-                </div>
-              </div>
-            </DataCardHeader>
-            
-            <DataCardContent>
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                {email.body_html ? (
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: email.body_html }}
-                    className="email-content"
-                  />
-                ) : (
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-card-foreground">
-                    {email.body_text || email.snippet}
-                  </pre>
-                )}
-              </div>
-              
-              {/* Attachments */}
-              {email.has_attachments && (
-                <div className="mt-8 pt-6 border-t border-border/40">
-                  <div className="flex items-center gap-2 text-sm font-medium mb-4">
-                    <Paperclip className="w-4 h-4" />
-                    Attachments ({email.attachment_count})
+                <DataCardContent>
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    {threadEmail.body_html ? (
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: threadEmail.body_html }}
+                        className="email-content"
+                      />
+                    ) : (
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-card-foreground">
+                        {threadEmail.body_text || threadEmail.snippet}
+                      </pre>
+                    )}
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-4">
-                    <p className="text-sm text-muted-foreground">
-                      This email has {email.attachment_count} attachment(s).
-                    </p>
-                  </div>
-                </div>
-              )}
-            </DataCardContent>
-          </DataCard>
+                  
+                  {/* Attachments */}
+                  {threadEmail.has_attachments && (
+                    <div className="mt-8 pt-6 border-t border-border/40">
+                      <div className="flex items-center gap-2 text-sm font-medium mb-4">
+                        <Paperclip className="w-4 h-4" />
+                        Attachments ({threadEmail.attachment_count})
+                      </div>
+                      <div className="rounded-lg bg-muted/50 p-4">
+                        <p className="text-sm text-muted-foreground">
+                          This email has {threadEmail.attachment_count} attachment(s).
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </DataCardContent>
+              </DataCard>
+            ))}
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -434,17 +515,7 @@ export function EmailDetailPage() {
                   value={format(new Date(email.sent_at), 'MMM d, yyyy h:mm a')}
                 />
               )}
-              {email.message_id && (
-                <DetailItem
-                  label="Message ID"
-                  value={
-                    <span className="font-mono text-xs break-all">
-                      {email.message_id}
-                    </span>
-                  }
-                  vertical
-                />
-              )}
+              
             </DetailSectionContent>
           </DetailSection>
 
@@ -524,6 +595,87 @@ export function EmailDetailPage() {
                 disabled={converting}
               >
                 {converting ? 'Converting...' : 'Convert to Ticket'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reply Dialog */}
+      <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Reply to Email</DialogTitle>
+            {email && (
+              <p className="text-sm text-muted-foreground">
+                Replying to: <span className="font-medium">{getFromDisplay(email)}</span>
+              </p>
+            )}
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Subject</label>
+              <input
+                type="text"
+                value={replyForm.subject}
+                onChange={(e) => setReplyForm(prev => ({ ...prev, subject: e.target.value }))}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                placeholder="Reply subject"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">CC Addresses (optional)</label>
+              <input
+                type="text"
+                value={replyForm.cc_addresses.join(', ')}
+                onChange={(e) => setReplyForm(prev => ({ 
+                  ...prev, 
+                  cc_addresses: e.target.value.split(',').map(addr => addr.trim()).filter(Boolean)
+                }))}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                placeholder="email1@example.com, email2@example.com"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reply Message</label>
+              <textarea
+                value={replyForm.body}
+                onChange={(e) => setReplyForm(prev => ({ ...prev, body: e.target.value }))}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm min-h-[200px] resize-y"
+                placeholder="Type your reply message here..."
+                required
+              />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_private"
+                checked={replyForm.is_private}
+                onChange={(e) => setReplyForm(prev => ({ ...prev, is_private: e.target.checked }))}
+                className="rounded border-input"
+              />
+              <label htmlFor="is_private" className="text-sm">
+                Private reply (internal note, won't send external email)
+              </label>
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
+              <Button
+                variant="outline"
+                onClick={() => setShowReplyDialog(false)}
+                disabled={replying}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleReply}
+                disabled={replying || !replyForm.body.trim()}
+              >
+                {replying ? 'Sending...' : 'Send Reply'}
               </Button>
             </div>
           </div>

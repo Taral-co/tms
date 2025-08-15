@@ -93,24 +93,6 @@ func (r *EmailRepo) ListConnectors(ctx context.Context, tenantID, projectID uuid
 	return connectors, err
 }
 
-// ListConnectorsByTenant retrieves all email connectors for a tenant (across all projects)
-func (r *EmailRepo) ListConnectorsByTenant(ctx context.Context, tenantID, projectID uuid.UUID, connectorType *models.EmailConnectorType) ([]*models.EmailConnector, error) {
-	var connectors []*models.EmailConnector
-
-	query := `SELECT * FROM email_connectors WHERE tenant_id = $1 AND project_id = $2`
-	args := []interface{}{tenantID, projectID}
-
-	if connectorType != nil {
-		query += ` AND type = $3`
-		args = append(args, *connectorType)
-	}
-
-	query += ` ORDER BY created_at DESC`
-
-	err := r.db.SelectContext(ctx, &connectors, query, args...)
-	return connectors, err
-}
-
 // UpdateConnector updates an email connector
 func (r *EmailRepo) UpdateConnector(ctx context.Context, connector *models.EmailConnector) error {
 	query := `

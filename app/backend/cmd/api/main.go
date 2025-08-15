@@ -329,10 +329,10 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				inbox := email.Group("/inbox")
 				{
 					inbox.GET("", emailInboxHandler.ListEmails)
-					inbox.GET("/:email_id", emailInboxHandler.GetEmail)
-					inbox.POST("/:email_id/convert-to-ticket", emailInboxHandler.ConvertToTicket)
-					inbox.POST("/:email_id/reply", emailInboxHandler.ReplyToEmail)
-					inbox.POST("/:email_id/mark-read", emailInboxHandler.MarkAsRead)
+					inbox.GET("/:id", emailInboxHandler.GetEmail)
+					inbox.POST("/:id/convert-to-ticket", emailInboxHandler.ConvertToTicket)
+					inbox.POST("/:id/reply", emailInboxHandler.ReplyToEmail)
+					inbox.POST("/:id/mark-read", emailInboxHandler.MarkAsRead)
 					inbox.POST("/sync", emailInboxHandler.SyncEmails)
 					inbox.GET("/sync-status", emailInboxHandler.GetSyncStatus)
 				}

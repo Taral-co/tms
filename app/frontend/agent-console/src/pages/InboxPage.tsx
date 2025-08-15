@@ -255,6 +255,11 @@ export function InboxPage() {
       }
       
       const response = await apiClient.getEmailInbox(emailFilter)
+      response.emails.sort((a, b) => {
+        const aTime = new Date(a.sent_at || a.received_at).getTime()
+        const bTime = new Date(b.sent_at || b.received_at).getTime()
+        return bTime - aTime
+      })
       setEmails(response.emails || [])
       setTotal(response.total || 0)
     } catch (error) {
