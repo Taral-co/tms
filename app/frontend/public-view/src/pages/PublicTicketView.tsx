@@ -293,7 +293,7 @@ export function PublicTicketView() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-medium text-sm">
-                        {message.author_type === 'agent' ? 'Support Team' : 
+                        {message.author_type === 'agent' ? 'Support Team11' : 
                          message.author_type === 'system' ? 'System' : 'Customer'}
                       </span>
                       <span className="text-xs text-muted-foreground">
