@@ -84,9 +84,8 @@ type EmailResponse struct {
 
 // ConvertToTicketRequest represents request to convert email to ticket
 type ConvertToTicketRequest struct {
-	ProjectID uuid.UUID `json:"project_id" binding:"required"`
-	Type      string    `json:"type" binding:"required,oneof=question incident problem task"`
-	Priority  string    `json:"priority" binding:"required,oneof=low normal high urgent"`
+	Type     string `json:"type" binding:"required,oneof=question incident problem task"`
+	Priority string `json:"priority" binding:"required,oneof=low normal high urgent"`
 }
 
 // ReplyToEmailRequest represents request to reply to an email
@@ -216,7 +215,7 @@ func (h *EmailInboxHandler) ConvertToTicket(c *gin.Context) {
 
 	ticket, err := h.emailInboxService.ConvertEmailToTicket(c.Request.Context(), tenantUUID, emailID, projectUUID, req.Type, req.Priority)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to convert email to ticket"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

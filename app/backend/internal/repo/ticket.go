@@ -23,7 +23,7 @@ func NewTicketRepository(database *sql.DB) TicketRepository {
 func (r *ticketRepository) Create(ctx context.Context, ticket *db.Ticket) error {
 	query := `
 		INSERT INTO tickets (id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, assignee_agent_id, created_at, updated_at)
-		VALUES ($1, $2, $3, (SELECT COALESCE(MAX(number), 0) + 1 FROM tickets WHERE tenant_id = $2 AND project_id = $3), $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+		VALUES ($1, $2, $3, (SELECT COALESCE(MAX(number), 0) + 1 FROM tickets WHERE tenant_id = $2 AND project_id = $3), $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
 	`
 
 	_, err := r.db.ExecContext(ctx, query,

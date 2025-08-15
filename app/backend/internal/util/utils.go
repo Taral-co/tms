@@ -3,6 +3,8 @@ package util
 import (
 	"crypto/rand"
 	"math/big"
+	"regexp"
+	"strings"
 )
 
 func GenerateOTP(length int) (string, error) {
@@ -18,4 +20,18 @@ func GenerateOTP(length int) (string, error) {
 	}
 
 	return string(result), nil
+}
+
+// extractEmailAddress extracts the bare email address from formats like:
+// "Display Name <email@domain.com>" -> "email@domain.com"
+// "email@domain.com" -> "email@domain.com"
+func ExtractEmailAddress(address string) string {
+	// Use regex to extract email from "Display Name <email@domain.com>" format
+	re := regexp.MustCompile(`<([^>]+)>`)
+	matches := re.FindStringSubmatch(address)
+	if len(matches) > 1 {
+		return strings.TrimSpace(matches[1])
+	}
+	// If no angle brackets found, assume it's already a bare email
+	return strings.TrimSpace(address)
 }

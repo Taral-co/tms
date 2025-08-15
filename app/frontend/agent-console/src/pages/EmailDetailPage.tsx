@@ -213,9 +213,6 @@ export function EmailDetailPage() {
   }
 
   const getFromDisplay = (email: EmailInbox) => {
-    if (email.from_name && email.from_name.trim()) {
-      return `${email.from_name} <${email.from_address}>`
-    }
     return email.from_address
   }
 

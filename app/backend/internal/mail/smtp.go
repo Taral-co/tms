@@ -5,12 +5,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/smtp"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/bareuptime/tms/internal/crypto"
 	"github.com/bareuptime/tms/internal/models"
+	"github.com/bareuptime/tms/internal/util"
 	"github.com/rs/zerolog"
 )
 
@@ -120,7 +120,7 @@ func (c *SMTPClient) sendWithTLS(addr string, connector *models.EmailConnector, 
 	// Set recipients - extract bare email addresses for SMTP protocol
 	for _, recipient := range to {
 		// Extract email address from "Display Name <email@domain.com>" format
-		email := extractEmailAddress(recipient)
+		email := util.ExtractEmailAddress(recipient)
 		if err = client.Rcpt(email); err != nil {
 			return fmt.Errorf("failed to set recipient %s: %w", email, err)
 		}
@@ -257,18 +257,4 @@ func (c *SMTPClient) TestConnection(ctx context.Context, connector *models.Email
 		Msg("SMTP connection test successful")
 
 	return nil
-}
-
-// extractEmailAddress extracts the bare email address from formats like:
-// "Display Name <email@domain.com>" -> "email@domain.com"
-// "email@domain.com" -> "email@domain.com"
-func extractEmailAddress(address string) string {
-	// Use regex to extract email from "Display Name <email@domain.com>" format
-	re := regexp.MustCompile(`<([^>]+)>`)
-	matches := re.FindStringSubmatch(address)
-	if len(matches) > 1 {
-		return strings.TrimSpace(matches[1])
-	}
-	// If no angle brackets found, assume it's already a bare email
-	return strings.TrimSpace(address)
 }

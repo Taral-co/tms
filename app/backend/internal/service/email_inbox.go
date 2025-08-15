@@ -10,6 +10,7 @@ import (
 	"github.com/bareuptime/tms/internal/mail"
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/repo"
+	"github.com/bareuptime/tms/internal/util"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -425,7 +426,7 @@ func (s *EmailInboxService) extractThreadID(msg *mail.ParsedMessage, tenantID uu
 		// Fallback to using InReplyTo as thread_id
 		return inReplyTo
 	}
-	
+
 	if len(msg.References) > 0 {
 		// Check each reference to find an existing thread
 		for _, ref := range msg.References {
@@ -664,7 +665,7 @@ func (s *EmailInboxService) ReplyToEmail(ctx context.Context, tenantID, emailID,
 		if originalEmail.ThreadID == nil || *originalEmail.ThreadID == "" {
 			threadID := originalEmail.MessageID
 			replyEmail.ThreadID = &threadID
-			
+
 			// Also update the original email to have the same thread_id
 			if err := s.emailInboxRepo.UpdateEmailThreadID(ctx, tenantID, emailID, threadID); err != nil {
 				s.logger.Warn().
@@ -795,13 +796,14 @@ func (s *EmailInboxService) GetSyncStatus(ctx context.Context, tenantID, project
 // findOrCreateCustomer finds an existing customer by email or creates a new one
 func (s *EmailInboxService) findOrCreateCustomer(ctx context.Context, tenantID uuid.UUID, email string, name *string) (*db.Customer, error) {
 	// Try to find existing customer
-	customer, err := s.customerRepo.GetByEmail(ctx, tenantID, email)
+	parsedEmail := util.ExtractEmailAddress(email)
+	customer, err := s.customerRepo.GetByEmail(ctx, tenantID, parsedEmail)
 	if err == nil {
 		return customer, nil
 	}
 
 	// Create new customer
-	customerName := email
+	customerName := parsedEmail // Use extracted email as fallback
 	if name != nil && *name != "" {
 		customerName = *name
 	}
@@ -809,7 +811,7 @@ func (s *EmailInboxService) findOrCreateCustomer(ctx context.Context, tenantID u
 	newCustomer := &db.Customer{
 		ID:        uuid.New(),
 		TenantID:  tenantID,
-		Email:     email,
+		Email:     parsedEmail, // Use extracted email consistently
 		Name:      customerName,
 		Metadata:  make(map[string]string),
 		CreatedAt: time.Now(),
