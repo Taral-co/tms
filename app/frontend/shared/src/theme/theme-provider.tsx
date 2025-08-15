@@ -123,7 +123,8 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme()
 
   const toggleTheme = () => {
-    const themes: Theme[] = ['light', 'dark', 'hc', 'system']
+    // const themes: Theme[] = ['light', 'dark', 'hc', 'system']
+    const themes: Theme[] = ['light', 'dark']
     const currentIndex = themes.indexOf(theme)
     const nextIndex = (currentIndex + 1) % themes.length
     setTheme(themes[nextIndex])

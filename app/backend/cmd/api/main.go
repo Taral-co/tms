@@ -174,12 +174,12 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 	router.Use(middleware.TenantMiddleware(database))
 
 	// Public routes
-	publicRoutes := router.Group("/v1/public")
+	publicRoutes := router.Group("/api/public")
 	{
 		publicRoutes.GET("/health", publicHandler.Health)
-		publicRoutes.GET("/ticket", publicHandler.GetTicketByMagicLink)
-		publicRoutes.GET("/ticket/messages", publicHandler.GetTicketMessagesByMagicLink)
-		publicRoutes.POST("/ticket/messages", publicHandler.AddMessageByMagicLink)
+		publicRoutes.GET("/tickets/:token", publicHandler.GetTicketByMagicLink)
+		publicRoutes.GET("/tickets/:token/messages", publicHandler.GetTicketMessagesByMagicLink)
+		publicRoutes.POST("/tickets/:token/messages", publicHandler.AddMessageByMagicLink)
 		// Testing endpoint - remove in production
 		publicRoutes.POST("/generate-magic-link", publicHandler.GenerateMagicLink)
 	}

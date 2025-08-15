@@ -27,7 +27,7 @@ func NewPublicHandler(publicService *service.PublicService) *PublicHandler {
 
 // GetTicketByMagicLink handles public ticket access via magic link
 func (h *PublicHandler) GetTicketByMagicLink(c *gin.Context) {
-	magicToken := c.Query("token")
+	magicToken := c.Param("token")
 	if magicToken == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Magic token is required"})
 		return
@@ -39,12 +39,28 @@ func (h *PublicHandler) GetTicketByMagicLink(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ticket)
+	// Also get messages for the combined response that the frontend expects
+	messages, _, err := h.publicService.GetTicketMessagesByMagicLink(c.Request.Context(), magicToken, "", 50)
+	if err != nil {
+		// If messages fail, just return the ticket without them
+		c.JSON(http.StatusOK, gin.H{
+			"valid":    true,
+			"ticket":   ticket,
+			"messages": []interface{}{},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"valid":    true,
+		"ticket":   ticket,
+		"messages": messages,
+	})
 }
 
 // GetTicketMessagesByMagicLink handles public ticket messages access via magic link
 func (h *PublicHandler) GetTicketMessagesByMagicLink(c *gin.Context) {
-	magicToken := c.Query("token")
+	magicToken := c.Param("token")
 	if magicToken == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Magic token is required"})
 		return
@@ -79,7 +95,7 @@ func (h *PublicHandler) GetTicketMessagesByMagicLink(c *gin.Context) {
 
 // AddMessageByMagicLink handles adding a public message via magic link
 func (h *PublicHandler) AddMessageByMagicLink(c *gin.Context) {
-	magicToken := c.Query("token")
+	magicToken := c.Param("token")
 	if magicToken == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Magic token is required"})
 		return
