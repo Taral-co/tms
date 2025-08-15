@@ -47,6 +47,14 @@ func (s *Service) GetIMAPClient() *IMAPClient {
 
 // ProcessInboundEmail processes an inbound email and determines what to do with it
 func (s *Service) ProcessInboundEmail(ctx context.Context, msg *ParsedMessage, mailbox *models.EmailMailbox) (*InboundResult, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("message is nil")
+	}
+
+	if mailbox == nil {
+		return nil, fmt.Errorf("mailbox is nil")
+	}
+
 	result := &InboundResult{
 		MessageID: msg.MessageID,
 		From:      msg.From,
@@ -70,7 +78,7 @@ func (s *Service) ProcessInboundEmail(ctx context.Context, msg *ParsedMessage, m
 		// Reply to existing ticket
 		result.Action = "reply"
 		result.TicketID = *ticketID
-		result.ProjectID = *mailbox.ProjectID // TODO: Get actual project from ticket
+		result.ProjectID = mailbox.ProjectID
 	} else if mailbox.AllowNewTicket {
 		// Create new ticket
 		projectID, err := s.routeToProject(msg, mailbox)
@@ -279,7 +287,7 @@ func (s *Service) routeToProject(msg *ParsedMessage, mailbox *models.EmailMailbo
 	}
 
 	// Default to mailbox project
-	return *mailbox.ProjectID, nil
+	return mailbox.ProjectID, nil
 }
 
 // matchesRule checks if a message matches a routing rule

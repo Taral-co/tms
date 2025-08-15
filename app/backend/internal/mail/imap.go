@@ -29,8 +29,13 @@ func NewIMAPClient(logger zerolog.Logger, encryption *crypto.PasswordEncryption)
 	}
 }
 
-// FetchMessages fetches new messages from IMAP server
+// FetchMessages fetches new messages from IMAP server for specific mailbox addresses
 func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailConnector, lastUID uint32, includeSeen bool) ([]*ParsedMessage, error) {
+	return c.FetchMessagesForMailboxes(ctx, connector, lastUID, includeSeen, nil)
+}
+
+// FetchMessagesForMailboxes fetches new messages from IMAP server filtered by mailbox addresses
+func (c *IMAPClient) FetchMessagesForMailboxes(ctx context.Context, connector *models.EmailConnector, lastUID uint32, includeSeen bool, mailboxAddresses []string) ([]*ParsedMessage, error) {
 	if connector.IMAPHost == nil || connector.IMAPPort == nil {
 		return nil, fmt.Errorf("IMAP configuration incomplete")
 	}
@@ -67,11 +72,26 @@ func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailC
 			Uid: &imap.SeqSet{},
 		}
 		searchCriteria.Uid.AddRange(lastUID+1, 0) // 0 means no upper limit
+		// Also apply unseen filter if requested
+		if !includeSeen {
+			searchCriteria.WithoutFlags = []string{imap.SeenFlag}
+		}
 	} else {
 		searchCriteria = &imap.SearchCriteria{}
 		if !includeSeen {
 			searchCriteria.WithoutFlags = []string{imap.SeenFlag}
 		}
+	}
+
+	// Add TO filter for specific mailbox addresses if provided
+	if len(mailboxAddresses) > 0 {
+		// IMAP search for To field - we'll filter multiple addresses post-fetch
+		// Use OR criteria for multiple To addresses
+		if len(mailboxAddresses) == 1 {
+			searchCriteria.Header = make(map[string][]string)
+			searchCriteria.Header["To"] = []string{mailboxAddresses[0]}
+		}
+		// For multiple addresses, we'll filter post-fetch since IMAP OR is complex
 	}
 
 	uids, err := client.UidSearch(searchCriteria)
@@ -82,6 +102,17 @@ func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailC
 	if len(uids) == 0 {
 		c.logger.Debug().Msg("No new messages found")
 		return nil, nil
+	}
+
+	// Limit the number of messages to process to avoid overwhelming the system
+	const maxMessagesToFetch = 10
+	if len(uids) > maxMessagesToFetch {
+		c.logger.Warn().
+			Int("total_found", len(uids)).
+			Int("limiting_to", maxMessagesToFetch).
+			Msg("Too many messages found, limiting fetch")
+		// Take the most recent messages (highest UIDs)
+		uids = uids[len(uids)-maxMessagesToFetch:]
 	}
 
 	c.logger.Info().
@@ -98,14 +129,76 @@ func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailC
 	go func() {
 		done <- client.UidFetch(seqset, []imap.FetchItem{
 			imap.FetchEnvelope,
-			imap.FetchRFC822Header,
-			imap.FetchRFC822Text,
 			imap.FetchRFC822,
 		}, messages)
 	}()
 
 	var parsedMessages []*ParsedMessage
+	messageMap := make(map[uint32]*imap.Message)
+	messageCount := 0
+
+	// Collect all message parts first
 	for msg := range messages {
+		messageCount++
+		if msg == nil {
+			c.logger.Warn().Msg("Received nil message from IMAP fetch")
+			continue
+		}
+
+		c.logger.Debug().
+			Uint32("uid", msg.Uid).
+			Int("items_count", len(msg.Items)).
+			Bool("has_envelope", msg.Envelope != nil).
+			Int("body_parts", len(msg.Body)).
+			Strs("flags", msg.Flags).
+			Msgf("Processing IMAP message part %d", messageCount)
+
+		// Merge messages with the same UID
+		if existing, exists := messageMap[msg.Uid]; exists {
+			// Merge envelope if missing
+			if existing.Envelope == nil && msg.Envelope != nil {
+				existing.Envelope = msg.Envelope
+			}
+			// Merge body sections
+			if existing.Body == nil {
+				existing.Body = msg.Body
+			} else {
+				for k, v := range msg.Body {
+					existing.Body[k] = v
+				}
+			}
+			// Merge items
+			for k, v := range msg.Items {
+				existing.Items[k] = v
+			}
+		} else {
+			messageMap[msg.Uid] = msg
+		}
+	}
+
+	c.logger.Debug().
+		Int("total_message_parts", messageCount).
+		Int("unique_messages", len(messageMap)).
+		Msg("IMAP fetch completed")
+
+	// Parse collected messages (optionally skip seen ones)
+	for _, msg := range messageMap {
+		if !includeSeen {
+			// Skip messages that have the Seen flag
+			skip := false
+			for _, f := range msg.Flags {
+				if strings.EqualFold(f, imap.SeenFlag) {
+					skip = true
+					break
+				}
+			}
+			if skip {
+				c.logger.Debug().
+					Uint32("uid", msg.Uid).
+					Msg("Skipping seen message")
+				continue
+			}
+		}
 		parsed, err := c.parseMessage(msg)
 		if err != nil {
 			c.logger.Error().
@@ -114,8 +207,38 @@ func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailC
 				Msg("Failed to parse message")
 			continue
 		}
-		parsedMessages = append(parsedMessages, parsed)
+
+		if parsed != nil {
+			// Filter by mailbox addresses if specified
+			if len(mailboxAddresses) > 0 {
+				matchesMailbox := false
+				for _, to := range parsed.To {
+					for _, mailboxAddr := range mailboxAddresses {
+						if strings.Contains(strings.ToLower(to), strings.ToLower(mailboxAddr)) {
+							matchesMailbox = true
+							break
+						}
+					}
+					if matchesMailbox {
+						break
+					}
+				}
+				if !matchesMailbox {
+					c.logger.Debug().
+						Uint32("uid", msg.Uid).
+						Strs("to", parsed.To).
+						Strs("mailbox_addresses", mailboxAddresses).
+						Msg("Skipping message not addressed to configured mailboxes")
+					continue
+				}
+			}
+			parsedMessages = append(parsedMessages, parsed)
+		}
 	}
+
+	c.logger.Debug().
+		Int("parsed_messages", len(parsedMessages)).
+		Msg("Message parsing completed")
 
 	if err := <-done; err != nil {
 		return nil, fmt.Errorf("IMAP fetch failed: %w", err)
@@ -190,12 +313,19 @@ func (c *IMAPClient) authenticate(client *client.Client, connector *models.Email
 
 // parseMessage parses an IMAP message into our internal format
 func (c *IMAPClient) parseMessage(msg *imap.Message) (*ParsedMessage, error) {
-	if msg == nil || msg.Envelope == nil {
+	if msg == nil {
+		return nil, fmt.Errorf("message is nil")
+	}
+
+	if msg.Envelope == nil {
+		c.logger.Warn().
+			Uint32("uid", msg.Uid).
+			Msg("Message has nil envelope, skipping")
 		return nil, fmt.Errorf("invalid message or envelope")
 	}
 
 	parsed := &ParsedMessage{
-		MessageID: msg.Envelope.MessageId,
+		MessageID: strings.Trim(msg.Envelope.MessageId, "<>"), // Remove angle brackets from message ID
 		From:      formatAddress(msg.Envelope.From),
 		To:        formatAddresses(msg.Envelope.To),
 		CC:        formatAddresses(msg.Envelope.Cc),

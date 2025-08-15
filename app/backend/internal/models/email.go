@@ -147,16 +147,16 @@ type EmailConnector struct {
 
 // EmailMailbox represents logical inbound email addresses
 type EmailMailbox struct {
-	ID                 uuid.UUID  `json:"id" db:"id"`
-	TenantID           uuid.UUID  `json:"tenant_id" db:"tenant_id"`
-	ProjectID          *uuid.UUID `json:"project_id,omitempty" db:"project_id"`
-	Address            string     `json:"address" db:"address"`
-	DisplayName        *string    `json:"display_name,omitempty" db:"display_name"`
-	InboundConnectorID uuid.UUID  `json:"inbound_connector_id" db:"inbound_connector_id"`
-	RoutingRules       JSONMap    `json:"routing_rules" db:"routing_rules"`
-	AllowNewTicket     bool       `json:"allow_new_ticket" db:"allow_new_ticket"`
-	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
+	ID                 uuid.UUID `json:"id" db:"id"`
+	TenantID           uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	ProjectID          uuid.UUID `json:"project_id" db:"project_id"`
+	Address            string    `json:"address" db:"address"`
+	DisplayName        *string   `json:"display_name,omitempty" db:"display_name"`
+	InboundConnectorID uuid.UUID `json:"inbound_connector_id" db:"inbound_connector_id"`
+	RoutingRules       JSONMap   `json:"routing_rules" db:"routing_rules"`
+	AllowNewTicket     bool      `json:"allow_new_ticket" db:"allow_new_ticket"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // EmailTransport represents outbound email configuration
@@ -251,39 +251,39 @@ type RoutingRule struct {
 
 // EmailInbox represents an email in the inbox
 type EmailInbox struct {
-	ID                  uuid.UUID         `json:"id" db:"id"`
-	TenantID            uuid.UUID         `json:"tenant_id" db:"tenant_id"`
-	ProjectID           *uuid.UUID        `json:"project_id,omitempty" db:"project_id"`
-	MessageID           string            `json:"message_id" db:"message_id"`
-	ThreadID            *string           `json:"thread_id,omitempty" db:"thread_id"`
-	UID                 *int              `json:"uid,omitempty" db:"uid"`
-	MailboxAddress      string            `json:"mailbox_address" db:"mailbox_address"`
-	FromAddress         string            `json:"from_address" db:"from_address"`
-	FromName            *string           `json:"from_name,omitempty" db:"from_name"`
-	ToAddresses         pq.StringArray    `json:"to_addresses" db:"to_addresses"`
-	CcAddresses         pq.StringArray    `json:"cc_addresses,omitempty" db:"cc_addresses"`
-	BccAddresses        pq.StringArray    `json:"bcc_addresses,omitempty" db:"bcc_addresses"`
-	ReplyToAddresses    pq.StringArray    `json:"reply_to_addresses,omitempty" db:"reply_to_addresses"`
-	Subject             string            `json:"subject" db:"subject"`
-	BodyText            *string           `json:"body_text,omitempty" db:"body_text"`
-	BodyHTML            *string           `json:"body_html,omitempty" db:"body_html"`
-	Snippet             *string           `json:"snippet,omitempty" db:"snippet"`
-	IsRead              bool              `json:"is_read" db:"is_read"`
-	IsReply             bool              `json:"is_reply" db:"is_reply"`
-	HasAttachments      bool              `json:"has_attachments" db:"has_attachments"`
-	AttachmentCount     int               `json:"attachment_count" db:"attachment_count"`
-	SizeBytes           *int              `json:"size_bytes,omitempty" db:"size_bytes"`
-	SentAt              *time.Time        `json:"sent_at,omitempty" db:"sent_at"`
-	ReceivedAt          time.Time         `json:"received_at" db:"received_at"`
-	SyncStatus          string            `json:"sync_status" db:"sync_status"`
-	ProcessingError     *string           `json:"processing_error,omitempty" db:"processing_error"`
-	TicketID            *uuid.UUID        `json:"ticket_id,omitempty" db:"ticket_id"`
-	IsConvertedToTicket bool              `json:"is_converted_to_ticket" db:"is_converted_to_ticket"`
-	ConnectorID         uuid.UUID         `json:"connector_id" db:"connector_id"`
-	Headers             map[string]string `json:"headers,omitempty" db:"headers"`
-	RawEmail            []byte            `json:"raw_email,omitempty" db:"raw_email"`
-	CreatedAt           time.Time         `json:"created_at" db:"created_at"`
-	UpdatedAt           time.Time         `json:"updated_at" db:"updated_at"`
+	ID                  uuid.UUID      `json:"id" db:"id"`
+	TenantID            uuid.UUID      `json:"tenant_id" db:"tenant_id"`
+	ProjectID           *uuid.UUID     `json:"project_id,omitempty" db:"project_id"`
+	MessageID           string         `json:"message_id" db:"message_id"`
+	ThreadID            *string        `json:"thread_id,omitempty" db:"thread_id"`
+	UID                 *int           `json:"uid,omitempty" db:"uid"`
+	MailboxAddress      string         `json:"mailbox_address" db:"mailbox_address"`
+	FromAddress         string         `json:"from_address" db:"from_address"`
+	FromName            *string        `json:"from_name,omitempty" db:"from_name"`
+	ToAddresses         pq.StringArray `json:"to_addresses" db:"to_addresses"`
+	CcAddresses         pq.StringArray `json:"cc_addresses,omitempty" db:"cc_addresses"`
+	BccAddresses        pq.StringArray `json:"bcc_addresses,omitempty" db:"bcc_addresses"`
+	ReplyToAddresses    pq.StringArray `json:"reply_to_addresses,omitempty" db:"reply_to_addresses"`
+	Subject             string         `json:"subject" db:"subject"`
+	BodyText            *string        `json:"body_text,omitempty" db:"body_text"`
+	BodyHTML            *string        `json:"body_html,omitempty" db:"body_html"`
+	Snippet             *string        `json:"snippet,omitempty" db:"snippet"`
+	IsRead              bool           `json:"is_read" db:"is_read"`
+	IsReply             bool           `json:"is_reply" db:"is_reply"`
+	HasAttachments      bool           `json:"has_attachments" db:"has_attachments"`
+	AttachmentCount     int            `json:"attachment_count" db:"attachment_count"`
+	SizeBytes           *int           `json:"size_bytes,omitempty" db:"size_bytes"`
+	SentAt              *time.Time     `json:"sent_at,omitempty" db:"sent_at"`
+	ReceivedAt          time.Time      `json:"received_at" db:"received_at"`
+	SyncStatus          string         `json:"sync_status" db:"sync_status"`
+	ProcessingError     *string        `json:"processing_error,omitempty" db:"processing_error"`
+	TicketID            *uuid.UUID     `json:"ticket_id,omitempty" db:"ticket_id"`
+	IsConvertedToTicket bool           `json:"is_converted_to_ticket" db:"is_converted_to_ticket"`
+	ConnectorID         uuid.UUID      `json:"connector_id" db:"connector_id"`
+	Headers             JSONMap        `json:"headers,omitempty" db:"headers"`
+	RawEmail            []byte         `json:"raw_email,omitempty" db:"raw_email"`
+	CreatedAt           time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 // EmailAttachment represents an email attachment

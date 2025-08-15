@@ -208,6 +208,12 @@ func (s *EmailInboxService) syncConnector(ctx context.Context, connector *models
 	}
 
 	// For each mailbox, update sync status and fetch new messages
+	var mailboxAddresses []string
+	for _, mailbox := range connectorMailboxes {
+		mailboxAddresses = append(mailboxAddresses, mailbox.Address)
+	}
+
+	// Process messages for each mailbox
 	for _, mailbox := range connectorMailboxes {
 		if err := s.syncMailbox(ctx, connector, mailbox, imapClient); err != nil {
 			s.logger.Error().
@@ -262,8 +268,8 @@ func (s *EmailInboxService) syncMailbox(ctx context.Context, connector *models.E
 		}
 	}()
 
-	// Fetch new messages since last UID
-	messages, err := imapClient.FetchMessages(ctx, connector, uint32(syncStatus.LastUID), false)
+	// Fetch new messages since last UID (unseen only)
+	messages, err := imapClient.FetchMessagesForMailboxes(ctx, connector, uint32(syncStatus.LastUID), true, []string{mailbox.Address})
 	if err != nil {
 		syncStatus.SyncStatus = "error"
 		errorMsg := err.Error()
@@ -274,7 +280,7 @@ func (s *EmailInboxService) syncMailbox(ctx context.Context, connector *models.E
 	if len(messages) == 0 {
 		s.logger.Debug().
 			Str("mailbox_address", mailbox.Address).
-			Msg("No new messages found")
+			Msg("No new messages found12")
 		syncStatus.SyncStatus = "idle"
 		return nil
 	}
@@ -351,7 +357,7 @@ func (s *EmailInboxService) convertMessageToEmailInbox(msg *mail.ParsedMessage, 
 	email := &models.EmailInbox{
 		ID:              uuid.New(),
 		TenantID:        connector.TenantID,
-		ProjectID:       mailbox.ProjectID,
+		ProjectID:       &mailbox.ProjectID,
 		MessageID:       msg.MessageID,
 		MailboxAddress:  mailbox.Address,
 		FromAddress:     msg.From,
@@ -385,6 +391,19 @@ func (s *EmailInboxService) convertMessageToEmailInbox(msg *mail.ParsedMessage, 
 	// Create snippet from text body
 	if snippet := s.createSnippet(msg.TextBody); snippet != "" {
 		email.Snippet = &snippet
+	}
+
+	// Convert headers from map[string][]string to JSONMap for JSONB storage
+	if msg.Headers != nil {
+		h := models.JSONMap{}
+		for key, values := range msg.Headers {
+			if len(values) == 1 {
+				h[key] = values[0]
+			} else if len(values) > 1 {
+				h[key] = values
+			}
+		}
+		email.Headers = h
 	}
 
 	return email

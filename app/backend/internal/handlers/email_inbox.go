@@ -54,26 +54,26 @@ type ListEmailsResponse struct {
 
 // EmailResponse represents an email in the response
 type EmailResponse struct {
-	ID                  uuid.UUID         `json:"id"`
-	MessageID           string            `json:"message_id"`
-	ThreadID            *string           `json:"thread_id,omitempty"`
-	MailboxAddress      string            `json:"mailbox_address"`
-	FromAddress         string            `json:"from_address"`
-	FromName            *string           `json:"from_name,omitempty"`
-	ToAddresses         []string          `json:"to_addresses"`
-	CcAddresses         []string          `json:"cc_addresses,omitempty"`
-	Subject             string            `json:"subject"`
-	Snippet             *string           `json:"snippet,omitempty"`
-	IsRead              bool              `json:"is_read"`
-	IsReply             bool              `json:"is_reply"`
-	HasAttachments      bool              `json:"has_attachments"`
-	AttachmentCount     int               `json:"attachment_count"`
-	SentAt              *time.Time        `json:"sent_at,omitempty"`
-	ReceivedAt          time.Time         `json:"received_at"`
-	TicketID            *uuid.UUID        `json:"ticket_id,omitempty"`
-	IsConvertedToTicket bool              `json:"is_converted_to_ticket"`
-	Headers             map[string]string `json:"headers,omitempty"`
-	CreatedAt           time.Time         `json:"created_at"`
+	ID                  uuid.UUID      `json:"id"`
+	MessageID           string         `json:"message_id"`
+	ThreadID            *string        `json:"thread_id,omitempty"`
+	MailboxAddress      string         `json:"mailbox_address"`
+	FromAddress         string         `json:"from_address"`
+	FromName            *string        `json:"from_name,omitempty"`
+	ToAddresses         []string       `json:"to_addresses"`
+	CcAddresses         []string       `json:"cc_addresses,omitempty"`
+	Subject             string         `json:"subject"`
+	Snippet             *string        `json:"snippet,omitempty"`
+	IsRead              bool           `json:"is_read"`
+	IsReply             bool           `json:"is_reply"`
+	HasAttachments      bool           `json:"has_attachments"`
+	AttachmentCount     int            `json:"attachment_count"`
+	SentAt              *time.Time     `json:"sent_at,omitempty"`
+	ReceivedAt          time.Time      `json:"received_at"`
+	TicketID            *uuid.UUID     `json:"ticket_id,omitempty"`
+	IsConvertedToTicket bool           `json:"is_converted_to_ticket"`
+	Headers             models.JSONMap `json:"headers,omitempty"`
+	CreatedAt           time.Time      `json:"created_at"`
 }
 
 // ConvertToTicketRequest represents request to convert email to ticket

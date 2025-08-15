@@ -88,7 +88,7 @@ func (m *IMAPPollerManager) AddConnector(connector *models.EmailConnector) error
 	m.pollers[connector.ID] = poller
 
 	// Start the poller
-	go poller.Start(m.ctx)
+	// go poller.Start(m.ctx)
 
 	m.logger.Info().
 		Str("connector_id", connector.ID.String()).
@@ -201,7 +201,7 @@ func (p *IMAPPoller) Start(parentCtx context.Context) {
 	defer ticker.Stop()
 
 	// Initial poll
-	p.poll()
+	// p.poll()
 
 	for {
 		select {
@@ -212,7 +212,8 @@ func (p *IMAPPoller) Start(parentCtx context.Context) {
 			p.logger.Info().Msg("IMAP poller stopped")
 			return
 		case <-ticker.C:
-			p.poll()
+			return
+			// p.poll()
 		}
 	}
 }
