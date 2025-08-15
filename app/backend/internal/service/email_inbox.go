@@ -371,7 +371,7 @@ func (s *EmailInboxService) convertMessageToEmailInbox(msg *mail.ParsedMessage, 
 	}
 
 	// Set thread ID if available (simplified implementation)
-	if threadID := s.extractThreadID(msg); threadID != "" {
+	if threadID := s.extractThreadID(msg, connector.TenantID, mailbox.Address); threadID != "" {
 		email.ThreadID = &threadID
 	}
 
@@ -410,14 +410,34 @@ func (s *EmailInboxService) isReplyMessage(msg *mail.ParsedMessage) bool {
 		strings.Contains(subject, "reply")
 }
 
-// extractThreadID extracts thread ID from message headers
-func (s *EmailInboxService) extractThreadID(msg *mail.ParsedMessage) string {
-	// Look for common thread identification headers
+// extractThreadID extracts thread ID from message headers and existing database records
+func (s *EmailInboxService) extractThreadID(msg *mail.ParsedMessage, tenantID uuid.UUID, mailboxAddress string) string {
+	// Look for common thread identification headers first
 	if inReplyTo := msg.InReplyTo; inReplyTo != "" {
+		// Try to find existing email with this message_id to get its thread_id
+		if existingEmail, err := s.emailInboxRepo.GetEmailByMessageID(context.Background(), tenantID, inReplyTo, mailboxAddress); err == nil && existingEmail != nil {
+			if existingEmail.ThreadID != nil && *existingEmail.ThreadID != "" {
+				return *existingEmail.ThreadID
+			}
+			// If existing email has no thread_id, use its message_id as thread_id
+			return existingEmail.MessageID
+		}
+		// Fallback to using InReplyTo as thread_id
 		return inReplyTo
 	}
+	
 	if len(msg.References) > 0 {
-		// Take the first reference as thread ID
+		// Check each reference to find an existing thread
+		for _, ref := range msg.References {
+			if existingEmail, err := s.emailInboxRepo.GetEmailByMessageID(context.Background(), tenantID, ref, mailboxAddress); err == nil && existingEmail != nil {
+				if existingEmail.ThreadID != nil && *existingEmail.ThreadID != "" {
+					return *existingEmail.ThreadID
+				}
+				// If existing email has no thread_id, use its message_id as thread_id
+				return existingEmail.MessageID
+			}
+		}
+		// Fallback to first reference as thread ID
 		return msg.References[0]
 	}
 	return ""
