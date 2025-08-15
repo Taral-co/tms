@@ -73,14 +73,7 @@ export function EmailDetailPage() {
       setError(null)
       
       // Load email by ID - using getEmailInbox with no filter to get all emails, then find the one we need
-      const response = await apiClient.getEmailInbox({})
-      
-      // Find the specific email by ID
-      const foundEmail = response.emails.find((e: EmailInbox) => e.id === emailId)
-      if (!foundEmail) {
-        setError('Email not found')
-        return
-      }
+      const foundEmail = await apiClient.getEmailFromId(emailId)
       
       setEmail(foundEmail)
     } catch (err) {

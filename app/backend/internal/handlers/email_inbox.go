@@ -101,12 +101,8 @@ type SyncEmailsResponse struct {
 
 // ListEmails handles GET /emails
 func (h *EmailInboxHandler) ListEmails(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
+
+	tenantUUID := middleware.GetTenantID(c)
 
 	var req ListEmailsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -141,20 +137,16 @@ func (h *EmailInboxHandler) ListEmails(c *gin.Context) {
 
 // GetEmail handles GET /emails/:id
 func (h *EmailInboxHandler) GetEmail(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
 
-	emailID, err := uuid.Parse(c.Param("id"))
+	tenantUUID := middleware.GetTenantID(c)
+	projectUUID := middleware.GetProjectID(c)
+
+	emailID, err := uuid.Parse(c.Param("email_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email_id"})
 		return
 	}
-
-	email, attachments, err := h.emailInboxService.GetEmailWithAttachments(c.Request.Context(), tenantUUID, emailID)
+	email, attachments, err := h.emailInboxService.GetEmailWithAttachments(c.Request.Context(), tenantUUID, projectUUID, emailID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "email not found"})
 		return
@@ -162,7 +154,7 @@ func (h *EmailInboxHandler) GetEmail(c *gin.Context) {
 
 	// Mark email as read
 	if !email.IsRead {
-		err = h.emailInboxService.MarkEmailAsRead(c.Request.Context(), tenantUUID, emailID)
+		err = h.emailInboxService.MarkEmailAsRead(c.Request.Context(), tenantUUID, projectUUID, emailID)
 		if err != nil {
 			// Log error but don't fail the request
 		}
@@ -180,12 +172,9 @@ func (h *EmailInboxHandler) GetEmail(c *gin.Context) {
 
 // MarkAsRead handles PUT /emails/:id/read
 func (h *EmailInboxHandler) MarkAsRead(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
+
+	tenantUUID := middleware.GetTenantID(c)
+	projectUUID := middleware.GetProjectID(c)
 
 	emailID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -193,7 +182,7 @@ func (h *EmailInboxHandler) MarkAsRead(c *gin.Context) {
 		return
 	}
 
-	err = h.emailInboxService.MarkEmailAsRead(c.Request.Context(), tenantUUID, emailID)
+	err = h.emailInboxService.MarkEmailAsRead(c.Request.Context(), tenantUUID, projectUUID, emailID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to mark email as read"})
 		return
@@ -204,12 +193,9 @@ func (h *EmailInboxHandler) MarkAsRead(c *gin.Context) {
 
 // ConvertToTicket handles POST /emails/:id/convert-to-ticket
 func (h *EmailInboxHandler) ConvertToTicket(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
+
+	tenantUUID := middleware.GetTenantID(c)
+	projectUUID := middleware.GetProjectID(c)
 
 	emailID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -223,7 +209,7 @@ func (h *EmailInboxHandler) ConvertToTicket(c *gin.Context) {
 		return
 	}
 
-	ticket, err := h.emailInboxService.ConvertEmailToTicket(c.Request.Context(), tenantUUID, emailID, req.ProjectID, req.Type, req.Priority)
+	ticket, err := h.emailInboxService.ConvertEmailToTicket(c.Request.Context(), tenantUUID, emailID, projectUUID, req.Type, req.Priority)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to convert email to ticket"})
 		return
@@ -238,12 +224,8 @@ func (h *EmailInboxHandler) ConvertToTicket(c *gin.Context) {
 
 // ReplyToEmail handles POST /emails/:id/reply
 func (h *EmailInboxHandler) ReplyToEmail(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
+
+	tenantUUID := middleware.GetTenantID(c)
 
 	emailID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

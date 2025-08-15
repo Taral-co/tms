@@ -15,7 +15,7 @@ import (
 type EmailInboxRepository interface {
 	// Email CRUD operations
 	CreateEmail(ctx context.Context, email *models.EmailInbox) error
-	GetEmailByID(ctx context.Context, tenantID, emailID uuid.UUID) (*models.EmailInbox, error)
+	GetEmailByID(ctx context.Context, tenantID, projectID, emailID uuid.UUID) (*models.EmailInbox, error)
 	GetEmailByMessageID(ctx context.Context, tenantID uuid.UUID, messageID, mailboxAddress string) (*models.EmailInbox, error)
 	UpdateEmail(ctx context.Context, email *models.EmailInbox) error
 	DeleteEmail(ctx context.Context, tenantID, emailID uuid.UUID) error
@@ -29,7 +29,7 @@ type EmailInboxRepository interface {
 
 	// Attachment operations
 	CreateAttachment(ctx context.Context, attachment *models.EmailAttachment) error
-	GetEmailAttachments(ctx context.Context, tenantID, emailID uuid.UUID) ([]*models.EmailAttachment, error)
+	GetEmailAttachments(ctx context.Context, tenantID, projectID, emailID uuid.UUID) ([]*models.EmailAttachment, error)
 	DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error
 
 	// Sync status operations
@@ -106,7 +106,7 @@ func (r *emailInboxRepository) CreateEmail(ctx context.Context, email *models.Em
 }
 
 // GetEmailByID retrieves an email by ID
-func (r *emailInboxRepository) GetEmailByID(ctx context.Context, tenantID, emailID uuid.UUID) (*models.EmailInbox, error) {
+func (r *emailInboxRepository) GetEmailByID(ctx context.Context, tenantID, projectID, emailID uuid.UUID) (*models.EmailInbox, error) {
 	query := `
 		SELECT id, tenant_id, project_id, message_id, thread_id, uid, mailbox_address,
 			   from_address, from_name, to_addresses, cc_addresses, bcc_addresses,
@@ -116,10 +116,10 @@ func (r *emailInboxRepository) GetEmailByID(ctx context.Context, tenantID, email
 			   is_converted_to_ticket, connector_id, headers, raw_email,
 			   created_at, updated_at
 		FROM email_inbox
-		WHERE tenant_id = $1 AND id = $2`
+		WHERE tenant_id = $1 AND project_id = $2 AND id = $3`
 
 	email := &models.EmailInbox{}
-	err := r.db.QueryRowContext(ctx, query, tenantID, emailID).Scan(
+	err := r.db.QueryRowContext(ctx, query, tenantID, projectID, emailID).Scan(
 		&email.ID, &email.TenantID, &email.ProjectID, &email.MessageID, &email.ThreadID,
 		&email.UID, &email.MailboxAddress, &email.FromAddress, &email.FromName,
 		&email.ToAddresses, &email.CcAddresses, &email.BccAddresses, &email.ReplyToAddresses,
@@ -451,15 +451,15 @@ func (r *emailInboxRepository) CreateAttachment(ctx context.Context, attachment 
 }
 
 // GetEmailAttachments retrieves all attachments for an email
-func (r *emailInboxRepository) GetEmailAttachments(ctx context.Context, tenantID, emailID uuid.UUID) ([]*models.EmailAttachment, error) {
+func (r *emailInboxRepository) GetEmailAttachments(ctx context.Context, tenantID, projectID, emailID uuid.UUID) ([]*models.EmailAttachment, error) {
 	query := `
 		SELECT id, email_id, tenant_id, filename, content_type, size_bytes,
 			   content_id, is_inline, storage_path, storage_url, created_at
 		FROM email_attachments
-		WHERE tenant_id = $1 AND email_id = $2
+		WHERE tenant_id = $1 AND project_id = $2 AND email_id = $3
 		ORDER BY created_at ASC`
 
-	rows, err := r.db.QueryContext(ctx, query, tenantID, emailID)
+	rows, err := r.db.QueryContext(ctx, query, tenantID, projectID, emailID)
 	if err != nil {
 		return nil, err
 	}

@@ -65,7 +65,8 @@ CREATE TABLE email_attachments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email_id UUID NOT NULL REFERENCES email_inbox(id) ON DELETE CASCADE,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+
     filename TEXT NOT NULL,
     content_type TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,

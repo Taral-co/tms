@@ -825,6 +825,11 @@ class APIClient {
     return response.data
   }
 
+  async getEmailFromId(emailId: string): Promise<EmailInbox> {
+    const response: AxiosResponse<EmailInbox> = await this.client.get(`/email/inbox/${emailId}`)
+    return response.data
+  }
+
   async syncEmails(): Promise<void> {
     await this.client.post('/email/inbox/sync')
   }

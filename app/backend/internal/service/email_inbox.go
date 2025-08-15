@@ -61,25 +61,17 @@ func (s *EmailInboxService) ListEmails(ctx context.Context, tenantID uuid.UUID, 
 	return emails, count, nil
 }
 
-// GetEmail retrieves a single email by ID
-func (s *EmailInboxService) GetEmail(ctx context.Context, tenantID, emailID uuid.UUID) (*models.EmailInbox, error) {
-	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, emailID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get email: %w", err)
-	}
-
-	return email, nil
-}
-
 // GetEmailWithAttachments retrieves an email with its attachments
-func (s *EmailInboxService) GetEmailWithAttachments(ctx context.Context, tenantID, emailID uuid.UUID) (*models.EmailInbox, []*models.EmailAttachment, error) {
-	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, emailID)
+func (s *EmailInboxService) GetEmailWithAttachments(ctx context.Context, tenantID, projectUUID, emailID uuid.UUID) (*models.EmailInbox, []*models.EmailAttachment, error) {
+	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, projectUUID, emailID)
 	if err != nil {
+		fmt.Println("Error getting email:", err)
 		return nil, nil, fmt.Errorf("failed to get email: %w", err)
 	}
 
-	attachments, err := s.emailInboxRepo.GetEmailAttachments(ctx, tenantID, emailID)
+	attachments, err := s.emailInboxRepo.GetEmailAttachments(ctx, tenantID, projectUUID, emailID)
 	if err != nil {
+		fmt.Println("Error getting email attachments:", err)
 		return nil, nil, fmt.Errorf("failed to get attachments: %w", err)
 	}
 
@@ -87,8 +79,8 @@ func (s *EmailInboxService) GetEmailWithAttachments(ctx context.Context, tenantI
 }
 
 // MarkEmailAsRead marks an email as read
-func (s *EmailInboxService) MarkEmailAsRead(ctx context.Context, tenantID, emailID uuid.UUID) error {
-	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, emailID)
+func (s *EmailInboxService) MarkEmailAsRead(ctx context.Context, tenantID, projectID, emailID uuid.UUID) error {
+	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, projectID, emailID)
 	if err != nil {
 		return fmt.Errorf("failed to get email: %w", err)
 	}
@@ -470,7 +462,7 @@ func (s *EmailInboxService) createSnippet(textBody string) string {
 
 // ConvertEmailToTicket converts an email to a ticket
 func (s *EmailInboxService) ConvertEmailToTicket(ctx context.Context, tenantID, emailID, projectID uuid.UUID, ticketType, priority string) (*db.Ticket, error) {
-	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, emailID)
+	email, err := s.emailInboxRepo.GetEmailByID(ctx, tenantID, projectID, emailID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get email: %w", err)
 	}
