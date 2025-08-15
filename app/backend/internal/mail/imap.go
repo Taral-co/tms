@@ -84,17 +84,52 @@ func (c *IMAPClient) FetchMessagesForMailboxes(ctx context.Context, connector *m
 	}
 
 	// Add TO filter for specific mailbox addresses if provided
+	var uids []uint32
+	
 	if len(mailboxAddresses) > 0 {
-		// IMAP search for To field - we'll filter multiple addresses post-fetch
-		// Use OR criteria for multiple To addresses
-		if len(mailboxAddresses) == 1 {
-			searchCriteria.Header = make(map[string][]string)
-			searchCriteria.Header["To"] = []string{mailboxAddresses[0]}
+		// Create OR criteria for multiple To addresses using IMAP search
+		// Since go-imap doesn't support complex OR queries well, we'll search for each address separately
+		var allUIDs []uint32
+		for _, mailboxAddr := range mailboxAddresses {
+			addressCriteria := *searchCriteria // Copy the base criteria
+			if addressCriteria.Header == nil {
+				addressCriteria.Header = make(map[string][]string)
+			}
+			addressCriteria.Header["To"] = []string{mailboxAddr}
+			
+			// Search for messages to this specific address
+			addressUIDs, searchErr := client.UidSearch(&addressCriteria)
+			if searchErr != nil {
+				c.logger.Error().
+					Err(searchErr).
+					Str("mailbox_address", mailboxAddr).
+					Msg("Failed to search for mailbox address")
+				continue
+			}
+			allUIDs = append(allUIDs, addressUIDs...)
 		}
-		// For multiple addresses, we'll filter post-fetch since IMAP OR is complex
+		
+		// Remove duplicates and use the combined UID list
+		if len(allUIDs) > 0 {
+			uidMap := make(map[uint32]bool)
+			for _, uid := range allUIDs {
+				uidMap[uid] = true
+			}
+			uids = make([]uint32, 0, len(uidMap))
+			for uid := range uidMap {
+				uids = append(uids, uid)
+			}
+		} else {
+			uids = nil // No messages found for any of the mailbox addresses
+		}
+	} else {
+		// Search without mailbox filtering
+		var searchErr error
+		uids, searchErr = client.UidSearch(searchCriteria)
+		if searchErr != nil {
+			return nil, fmt.Errorf("IMAP search failed: %w", searchErr)
+		}
 	}
-
-	uids, err := client.UidSearch(searchCriteria)
 	if err != nil {
 		return nil, fmt.Errorf("IMAP search failed: %w", err)
 	}
@@ -129,7 +164,9 @@ func (c *IMAPClient) FetchMessagesForMailboxes(ctx context.Context, connector *m
 	go func() {
 		done <- client.UidFetch(seqset, []imap.FetchItem{
 			imap.FetchEnvelope,
-			imap.FetchRFC822,
+			imap.FetchBodyStructure,
+			imap.FetchBody,
+			"BODY.PEEK[]", // Fetch full message body without marking as seen
 		}, messages)
 	}()
 
@@ -209,29 +246,6 @@ func (c *IMAPClient) FetchMessagesForMailboxes(ctx context.Context, connector *m
 		}
 
 		if parsed != nil {
-			// Filter by mailbox addresses if specified
-			if len(mailboxAddresses) > 0 {
-				matchesMailbox := false
-				for _, to := range parsed.To {
-					for _, mailboxAddr := range mailboxAddresses {
-						if strings.Contains(strings.ToLower(to), strings.ToLower(mailboxAddr)) {
-							matchesMailbox = true
-							break
-						}
-					}
-					if matchesMailbox {
-						break
-					}
-				}
-				if !matchesMailbox {
-					c.logger.Debug().
-						Uint32("uid", msg.Uid).
-						Strs("to", parsed.To).
-						Strs("mailbox_addresses", mailboxAddresses).
-						Msg("Skipping message not addressed to configured mailboxes")
-					continue
-				}
-			}
 			parsedMessages = append(parsedMessages, parsed)
 		}
 	}
@@ -354,6 +368,24 @@ func (c *IMAPClient) parseMessage(msg *imap.Message) (*ParsedMessage, error) {
 				if err := c.parseMessageEntity(entity, parsed); err != nil {
 					c.logger.Error().Err(err).Msg("Failed to parse message entity")
 				}
+			}
+		}
+	}
+
+	// Also check for RFC822 body if no body sections were processed and we have empty text/html body
+	if parsed.TextBody == "" && parsed.HTMLBody == "" {
+		for sectionName, reader := range msg.Body {
+			if sectionName != nil && sectionName.Specifier == imap.EntireSpecifier {
+				entity, err := message.Read(reader)
+				if err != nil {
+					c.logger.Error().Err(err).Msg("Failed to read RFC822 message entity")
+					continue
+				}
+
+				if err := c.parseMessageEntity(entity, parsed); err != nil {
+					c.logger.Error().Err(err).Msg("Failed to parse RFC822 message entity")
+				}
+				break
 			}
 		}
 	}

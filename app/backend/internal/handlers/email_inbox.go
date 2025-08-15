@@ -66,6 +66,8 @@ type EmailResponse struct {
 	ToAddresses         []string       `json:"to_addresses"`
 	CcAddresses         []string       `json:"cc_addresses,omitempty"`
 	Subject             string         `json:"subject"`
+	BodyText            *string        `json:"body_text,omitempty"`
+	BodyHTML            *string        `json:"body_html,omitempty"`
 	Snippet             *string        `json:"snippet,omitempty"`
 	IsRead              bool           `json:"is_read"`
 	IsReply             bool           `json:"is_reply"`
@@ -370,6 +372,8 @@ func (h *EmailInboxHandler) convertToEmailResponse(email *models.EmailInbox) Ema
 		ToAddresses:         []string(email.ToAddresses),
 		CcAddresses:         []string(email.CcAddresses),
 		Subject:             email.Subject,
+		BodyText:            email.BodyText,
+		BodyHTML:            email.BodyHTML,
 		Snippet:             email.Snippet,
 		IsRead:              email.IsRead,
 		IsReply:             email.IsReply,
