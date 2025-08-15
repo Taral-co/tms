@@ -70,7 +70,7 @@ func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projec
 	}
 
 	// Verify ticket exists
-	_, err = s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	_, err = s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, "", fmt.Errorf("ticket not found: %w", err)
 	}
@@ -80,11 +80,22 @@ func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projec
 		Limit:  limit,
 	}
 
-	messages, nextCursor, err := s.messageRepo.GetByTicketID(ctx, tenantID, projectID, ticketID, includePrivate, pagination)
+	messages, nextCursor, err := s.messageRepo.GetByTenantProjectAndTicketID(ctx, tenantID, projectID, ticketID, includePrivate, pagination)
 
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get messages: %w", err)
 	}
+
+	messageWithDetails, err := s.UpdateMessageWithDetails(ctx, tenantID, messages)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to update message details: %w", err)
+	}
+
+	return messageWithDetails, nextCursor, nil
+}
+
+func (s *MessageService) UpdateMessageWithDetails(ctx context.Context, tenantID uuid.UUID, messages []*db.TicketMessage) ([]*MessageWithDetails, error) {
+	// Update the message
 
 	// Enrich messages with author/customer details
 	// Collect unique IDs
@@ -149,8 +160,7 @@ func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projec
 			}
 		}
 	}
-
-	return messageWithDetails, nextCursor, nil
+	return messageWithDetails, nil
 }
 
 // UpdateMessageRequest represents a message update request
@@ -171,7 +181,7 @@ func (s *MessageService) UpdateMessage(ctx context.Context, tenantID, projectID,
 	}
 
 	// Get existing message
-	message, err := s.messageRepo.GetByID(ctx, tenantID, projectID, ticketID, messageID)
+	message, err := s.messageRepo.GetByTenantProjectTicketAndMessageID(ctx, tenantID, projectID, ticketID, messageID)
 	if err != nil {
 		return nil, fmt.Errorf("message not found: %w", err)
 	}
@@ -220,7 +230,7 @@ func (s *MessageService) DeleteMessage(ctx context.Context, tenantID, projectID,
 	}
 
 	// Get existing message
-	message, err := s.messageRepo.GetByID(ctx, tenantID, projectID, ticketID, messageID)
+	message, err := s.messageRepo.GetByTenantProjectTicketAndMessageID(ctx, tenantID, projectID, ticketID, messageID)
 	if err != nil {
 		return fmt.Errorf("message not found: %w", err)
 	}
@@ -260,7 +270,7 @@ func (s *MessageService) GetMessage(ctx context.Context, tenantID, projectID, ti
 		return nil, fmt.Errorf("insufficient permissions")
 	}
 
-	message, err := s.messageRepo.GetByID(ctx, tenantID, projectID, ticketID, messageID)
+	message, err := s.messageRepo.GetByTenantProjectTicketAndMessageID(ctx, tenantID, projectID, ticketID, messageID)
 	if err != nil {
 		return nil, fmt.Errorf("message not found: %w", err)
 	}

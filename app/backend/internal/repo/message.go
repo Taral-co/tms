@@ -43,8 +43,79 @@ func (r *ticketMessageRepository) Create(ctx context.Context, message *db.Ticket
 	return err
 }
 
+func (r *ticketMessageRepository) GetByTicketID(ctx context.Context, ticketID uuid.UUID, includePrivate bool, pagination PaginationParams) ([]*db.TicketMessage, string, error) {
+	baseQuery := `
+		SELECT id, tenant_id, project_id, ticket_id, author_type, author_id, body, is_private, created_at
+		FROM ticket_messages
+		WHERE ticket_id = $1
+	`
+
+	args := []interface{}{ticketID}
+	argIndex := 2
+
+	if !includePrivate {
+		baseQuery += " AND is_private = false"
+	}
+
+	if pagination.Cursor != "" {
+		baseQuery += fmt.Sprintf(" AND id > $%d", argIndex)
+		cursorID, err := uuid.Parse(pagination.Cursor)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid cursor: %w", err)
+		}
+		args = append(args, cursorID)
+		argIndex++
+	}
+
+	baseQuery += " ORDER BY created_at ASC"
+
+	limit := pagination.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	baseQuery += fmt.Sprintf(" LIMIT $%d", argIndex)
+	args = append(args, limit+1)
+
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, "", err
+	}
+	defer rows.Close()
+
+	var messages []*db.TicketMessage
+	for rows.Next() {
+		message := &db.TicketMessage{}
+
+		err := rows.Scan(
+			&message.ID,
+			&message.TenantID,
+			&message.ProjectID,
+			&message.TicketID,
+			&message.AuthorType,
+			&message.AuthorID,
+			&message.Body,
+			&message.IsPrivate,
+			&message.CreatedAt,
+		)
+		if err != nil {
+			return nil, "", err
+		}
+
+		messages = append(messages, message)
+	}
+
+	var nextCursor string
+	if len(messages) > limit {
+		nextCursor = messages[limit-1].ID.String()
+		messages = messages[:limit]
+	}
+
+	return messages, nextCursor, nil
+}
+
 // GetByID retrieves a message by ID
-func (r *ticketMessageRepository) GetByID(ctx context.Context, tenantID, projectID, ticketID, messageID uuid.UUID) (*db.TicketMessage, error) {
+func (r *ticketMessageRepository) GetByTenantProjectTicketAndMessageID(ctx context.Context, tenantID, projectID, ticketID, messageID uuid.UUID) (*db.TicketMessage, error) {
 	query := `
 		SELECT id, tenant_id, project_id, ticket_id, author_type, author_id, body, is_private, created_at
 		FROM ticket_messages
@@ -73,7 +144,7 @@ func (r *ticketMessageRepository) GetByID(ctx context.Context, tenantID, project
 }
 
 // GetByTicketID retrieves messages for a ticket with pagination
-func (r *ticketMessageRepository) GetByTicketID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID, includePrivate bool, pagination PaginationParams) ([]*db.TicketMessage, string, error) {
+func (r *ticketMessageRepository) GetByTenantProjectAndTicketID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID, includePrivate bool, pagination PaginationParams) ([]*db.TicketMessage, string, error) {
 	baseQuery := `
 		SELECT id, tenant_id, project_id, ticket_id, author_type, author_id, body, is_private, created_at
 		FROM ticket_messages

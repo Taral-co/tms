@@ -297,13 +297,12 @@ func (c *JWTClaims) GetAudience() (jwt.ClaimStrings, error) {
 
 // Public Token Claims for unauthenticated access
 type PublicTokenClaims struct {
-	Sub       string    `json:"sub"`
-	TenantID  uuid.UUID `json:"tenant_id"`
-	ProjectID uuid.UUID `json:"project_id"`
-	TicketID  uuid.UUID `json:"ticket_id"`
-	Scope     []string  `json:"scope"`
-	Exp       int64     `json:"exp"`
-	JTI       string    `json:"jti"`
+	Sub        string    `json:"sub"`
+	CustomerID uuid.UUID `json:"customer_id"`
+	TicketID   uuid.UUID `json:"ticket_id"`
+	Scope      []string  `json:"scope"`
+	Exp        int64     `json:"exp"`
+	JTI        string    `json:"jti"`
 }
 
 // GetExpirationTime implements jwt.Claims

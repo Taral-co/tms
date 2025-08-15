@@ -173,38 +173,6 @@ type GenerateMagicLinkResponse struct {
 	ExpiresIn int    `json:"expires_in"`
 }
 
-// GenerateMagicLink handles magic link generation
-func (h *AuthHandler) GenerateMagicLink(c *gin.Context) {
-	var req GenerateMagicLinkRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	if err := h.validator.Struct(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed", "details": err.Error()})
-		return
-	}
-
-	tenantID := middleware.GetTenantID(c)
-	projectID := c.Param("project_id")
-	agentID := middleware.GetAgentID(c)
-
-	req.TicketID = uuid.MustParse(req.TicketID.String())
-	projectUUID := uuid.MustParse(projectID)
-
-	magicLink, err := h.publicService.GenerateMagicLinkToken(tenantID, projectUUID, req.TicketID, agentID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, GenerateMagicLinkResponse{
-		MagicLink: magicLink,
-		ExpiresIn: 86400, // 24 hours
-	})
-}
-
 // LogoutResponse represents a logout response
 type LogoutResponse struct {
 	Message string `json:"message"`

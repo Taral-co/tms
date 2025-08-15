@@ -157,26 +157,6 @@ export function useTicket(
   })
 }
 
-export function useTicketMessages(
-  ticketId: string,
-  params?: BaseQueryParams,
-  options?: UseQueryOptions<PaginatedResponse<Message>, ApiClientError>
-) {
-  return useQuery({
-    queryKey: queryKeys.ticketMessages(ticketId, params),
-    queryFn: async () => {
-      const response = await apiClient.get<PaginatedResponse<Message>>(
-        `/tickets/${ticketId}/messages`,
-        { params }
-      )
-      return response.data
-    },
-    enabled: !!ticketId,
-    staleTime: 30 * 1000, // 30 seconds
-    ...options,
-  })
-}
-
 export function useCreateTicket(
   options?: UseMutationOptions<Ticket, ApiClientError, CreateTicketRequest>
 ) {
@@ -211,31 +191,6 @@ export function useUpdateTicket(
       
       // Invalidate tickets list
       queryClient.invalidateQueries({ queryKey: queryKeys.tickets })
-    },
-    ...options,
-  })
-}
-
-export function useCreateMessage(
-  options?: UseMutationOptions<Message, ApiClientError, { ticketId: string; data: CreateMessageRequest }>
-) {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async ({ ticketId, data }: { ticketId: string; data: CreateMessageRequest }) => {
-      const response = await apiClient.post<Message>(`/tickets/${ticketId}/messages`, data)
-      return response.data
-    },
-    onSuccess: (data) => {
-      // Invalidate ticket messages
-      queryClient.invalidateQueries({ 
-        queryKey: [...queryKeys.tickets, data.ticket_id, 'messages'] 
-      })
-      
-      // Update ticket detail to reflect new message
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.ticketDetail(data.ticket_id) 
-      })
     },
     ...options,
   })

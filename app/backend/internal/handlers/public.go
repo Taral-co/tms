@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/bareuptime/tms/internal/service"
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,40 @@ import (
 type PublicHandler struct {
 	publicService *service.PublicService
 	validator     *validator.Validate
+}
+
+// PublicMessage is the external representation of a ticket message returned
+// by public endpoints. It intentionally omits TenantID and ProjectID which
+// must not be exposed to public clients.
+type PublicMessage struct {
+	ID              uuid.UUID                `json:"id"`
+	TicketID        uuid.UUID                `json:"ticket_id"`
+	AuthorType      string                   `json:"author_type"`
+	AuthorID        *uuid.UUID               `json:"author_id,omitempty"`
+	Body            string                   `json:"body"`
+	IsPrivate       bool                     `json:"is_private"`
+	CreatedAt       time.Time                `json:"created_at"`
+	MessageUserInfo *service.MessageUserInfo `json:"user_info,omitempty"`
+}
+
+func toPublicMessages(msgs []*service.MessageWithDetails) []PublicMessage {
+	out := make([]PublicMessage, 0, len(msgs))
+	for _, m := range msgs {
+		if m == nil {
+			continue
+		}
+		out = append(out, PublicMessage{
+			ID:              m.ID,
+			TicketID:        m.TicketID,
+			AuthorType:      m.AuthorType,
+			AuthorID:        m.AuthorID,
+			Body:            m.Body,
+			IsPrivate:       m.IsPrivate,
+			CreatedAt:       m.CreatedAt,
+			MessageUserInfo: m.MessageUserInfo,
+		})
+	}
+	return out
 }
 
 // NewPublicHandler creates a new public handler
@@ -51,10 +86,12 @@ func (h *PublicHandler) GetTicketByMagicLink(c *gin.Context) {
 		return
 	}
 
+	publicMsgs := toPublicMessages(messages)
+
 	c.JSON(http.StatusOK, gin.H{
 		"valid":    true,
 		"ticket":   ticket,
-		"messages": messages,
+		"messages": publicMsgs,
 	})
 }
 
@@ -83,7 +120,7 @@ func (h *PublicHandler) GetTicketMessagesByMagicLink(c *gin.Context) {
 	}
 
 	response := gin.H{
-		"messages": messages,
+		"messages": toPublicMessages(messages),
 	}
 
 	if nextCursor != "" {
@@ -118,15 +155,24 @@ func (h *PublicHandler) AddMessageByMagicLink(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, message)
+	// Map to public response shape
+	publicMsg := PublicMessage{
+		ID:         message.ID,
+		TicketID:   message.TicketID,
+		AuthorType: message.AuthorType,
+		AuthorID:   message.AuthorID,
+		Body:       message.Body,
+		IsPrivate:  message.IsPrivate,
+		CreatedAt:  message.CreatedAt,
+	}
+
+	c.JSON(http.StatusCreated, publicMsg)
 }
 
 // GenerateMagicLink generates a magic link for testing purposes
 // This endpoint should be removed in production
 func (h *PublicHandler) GenerateMagicLink(c *gin.Context) {
 	type GenerateMagicLinkRequest struct {
-		TenantID   string `json:"tenant_id" binding:"required"`
-		ProjectID  string `json:"project_id" binding:"required"`
 		TicketID   string `json:"ticket_id" binding:"required"`
 		CustomerID string `json:"customer_id" binding:"required"`
 	}
@@ -134,19 +180,6 @@ func (h *PublicHandler) GenerateMagicLink(c *gin.Context) {
 	var req GenerateMagicLinkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Parse UUIDs
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
-
-	projectID, err := uuid.Parse(req.ProjectID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid project_id"})
 		return
 	}
 
@@ -163,7 +196,7 @@ func (h *PublicHandler) GenerateMagicLink(c *gin.Context) {
 	}
 
 	// Generate magic link token
-	token, err := h.publicService.GenerateMagicLinkToken(tenantID, projectID, ticketID, customerID)
+	token, err := h.publicService.GenerateMagicLinkToken(ticketID, customerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate magic link"})
 		return

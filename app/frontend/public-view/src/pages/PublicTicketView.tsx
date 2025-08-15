@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { 
   Card, 
   CardContent, 
@@ -86,53 +86,87 @@ export function PublicTicketView() {
   })
 
   // Auto-refresh messages every 30 seconds
-  useEffect(() => {
-    if (!tokenData?.valid || !token) return
+  // Messages query handled by React Query so the UI updates automatically
+  const queryClient = useQueryClient()
 
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/public/tickets/${token}/messages`)
-        if (response.ok) {
-          // Update messages in query cache
-          await response.json()
-          // You would update the query cache here in a real implementation
-        }
-      } catch (error) {
-        console.error('Failed to refresh messages:', error)
-      }
-    }, 30000)
+  const { data: messagesData } = useQuery<PublicMessage[]>({
+    queryKey: ['public-messages', token],
+    queryFn: async () => {
+      if (!token) throw new Error('No token')
+      const resp = await fetch(`/api/public/tickets/${token}/messages`)
+      if (!resp.ok) throw new Error('Failed to load messages')
+  const json = await resp.json()
+  // API may return either an array or an object { messages: [...] }
+  if (Array.isArray(json)) return json
+  if (json && Array.isArray(json.messages)) return json.messages
+  return []
+    },
+    enabled: !!token && !!tokenData?.valid,
+    // Auto refetch every 30s and update the cache/UI
+    refetchInterval: 30000,
+  // Use messages included in token validation as initial data to avoid flash
+  initialData: Array.isArray(tokenData?.messages) ? tokenData?.messages : undefined,
+  })
 
-    return () => clearInterval(interval)
-  }, [token, tokenData?.valid])
-
-  const handleSubmitMessage = async () => {
-    if (!newMessage.trim() || !token || isSubmitting) return
-
-    setIsSubmitting(true)
-    try {
-      const response = await fetch(`/api/public/tickets/${token}/messages`, {
+  // Mutation for posting a message with optimistic update
+  const postMessage = useMutation({
+    mutationFn: async (body: string) => {
+      if (!token) throw new Error('No token')
+      const resp = await fetch(`/api/public/tickets/${token}/messages`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+      })
+      if (!resp.ok) throw new Error('Failed to send message')
+      return resp.json()
+    },
+    // Optimistic update: append a temp message immediately
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey: ['public-messages', token] })
+      const previous = queryClient.getQueryData<PublicMessage[]>(['public-messages', token])
+
+      const optimistic: PublicMessage = {
+        id: `optimistic-${Date.now()}`,
+        tenant_id: tokenData?.ticket?.tenant_id || '',
+        project_id: tokenData?.ticket?.project_id || '',
+        ticket_id: tokenData?.ticket?.id || '',
+        author_type: 'customer',
+        author_id: tokenData?.ticket?.customer_id || '',
+        body,
+        is_private: false,
+        created_at: new Date().toISOString(),
+        user_info: {
+          id: tokenData?.ticket?.customer_id || '',
+          name: tokenData?.ticket?.customer_name || 'You',
+          email: '',
         },
-        body: JSON.stringify({
-          body: newMessage.trim()
-        })
+      }
+
+      queryClient.setQueryData<PublicMessage[]>(['public-messages', token], (old) => {
+        if (!old) return [optimistic]
+        return [...old, optimistic]
       })
 
-      if (response.ok) {
-        setNewMessage('')
-        // Refresh the ticket data
-        // In a real implementation, you'd invalidate the query cache
-      } else {
-        throw new Error('Failed to send message')
+      return { previous }
+    },
+    onError: (_err, _vars, context: any) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['public-messages', token], context.previous)
       }
-    } catch (error) {
-      console.error('Error sending message:', error)
-      // In a real implementation, you'd show an error toast
-    } finally {
-      setIsSubmitting(false)
-    }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['public-messages', token] })
+      queryClient.invalidateQueries({ queryKey: ['public-ticket', token] })
+    },
+  })
+
+  const handleSubmitMessage = () => {
+    if (!newMessage.trim() || !token || isSubmitting) return
+    setIsSubmitting(true)
+    postMessage.mutate(newMessage.trim(), {
+      onSuccess: () => setNewMessage(''),
+      onSettled: () => setIsSubmitting(false),
+    })
   }
 
   // Redirect if no token
@@ -173,7 +207,8 @@ export function PublicTicketView() {
     )
   }
 
-  const { ticket, messages = [] } = tokenData
+  const ticket = tokenData?.ticket
+  const liveMessages = messagesData ?? tokenData?.messages ?? []
 
   if (!ticket) {
     return (
@@ -259,22 +294,22 @@ export function PublicTicketView() {
 
         {/* Messages Header */}
         <div className="shrink-0 p-4 border-b bg-card/50">
-          <h3 className="font-medium text-sm flex items-center gap-2">
+            <h3 className="font-medium text-sm flex items-center gap-2">
             <MessageCircle className="w-4 h-4" />
-            Conversation ({messages.length} messages)
+            Conversation ({liveMessages.length} messages)
           </h3>
         </div>
         
         {/* Messages - Scrollable Container */}
         <div className="flex-1 overflow-auto">
           <div className="p-4 space-y-4">
-            {messages.length === 0 ? (
+            {liveMessages.length === 0 ? (
               <div className="text-center py-12">
                 <MessageCircle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                 <p className="text-muted-foreground">No messages yet. Start the conversation below.</p>
               </div>
-            ) : (
-              messages.map((message, index) => (
+              ) : (
+              liveMessages.map((message, index) => (
                 <div
                   key={message.id || index}
                   className={cn(
@@ -298,8 +333,7 @@ export function PublicTicketView() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-medium text-sm">
-                        {message.author_type === 'agent' ? 'Support Team11' : 
-                         message.author_type === 'system' ? 'System' : 'Customer'}
+                        {message.user_info.name}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {new Date(message.created_at).toLocaleDateString()} at {new Date(message.created_at).toLocaleTimeString()}

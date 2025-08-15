@@ -81,7 +81,7 @@ func main() {
 	tenantService := service.NewTenantService(tenantRepo, agentRepo, rbacService)
 	// customerService := service.NewCustomerService(customerRepo, rbacService) // Reserved for future use
 	messageService := service.NewMessageService(messageRepo, ticketRepo, customerRepo, agentRepo, rbacService)
-	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
+	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth, messageService)
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
 	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo, emailRepo, mailService, mailLogger)
 	domainValidationService := service.NewDomainValidationService(domainValidationRepo, mailService)
@@ -282,8 +282,6 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				tickets.PATCH("/:ticket_id/messages/:message_id", ticketHandler.UpdateMessage)
 				tickets.DELETE("/:ticket_id/messages/:message_id", ticketHandler.DeleteMessage)
 
-				// Magic links
-				tickets.POST("/:ticket_id/magic-link", authHandler.GenerateMagicLink)
 			}
 
 			// Settings endpoints

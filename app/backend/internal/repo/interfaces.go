@@ -42,7 +42,8 @@ type PaginationParams struct {
 // TicketRepository interface
 type TicketRepository interface {
 	Create(ctx context.Context, ticket *db.Ticket) error
-	GetByID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*db.Ticket, error)
+	GetByTenantAndProjectID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*db.Ticket, error)
+	GetByID(ctx context.Context, ticketID uuid.UUID) (*db.Ticket, error)
 	Update(ctx context.Context, ticket *db.Ticket) error
 	Delete(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) error
 	List(ctx context.Context, tenantID, projectID uuid.UUID, filters TicketFilters, pagination PaginationParams) ([]*db.Ticket, string, error)
@@ -92,8 +93,9 @@ type TenantRepository interface {
 // TicketMessageRepository interface
 type TicketMessageRepository interface {
 	Create(ctx context.Context, message *db.TicketMessage) error
-	GetByID(ctx context.Context, tenantID, projectID, ticketID, messageID uuid.UUID) (*db.TicketMessage, error)
-	GetByTicketID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID, includePrivate bool, pagination PaginationParams) ([]*db.TicketMessage, string, error)
+	GetByTicketID(ctx context.Context, ticketID uuid.UUID, includePrivate bool, pagination PaginationParams) ([]*db.TicketMessage, string, error)
+	GetByTenantProjectTicketAndMessageID(ctx context.Context, tenantID, projectID, ticketID, messageID uuid.UUID) (*db.TicketMessage, error)
+	GetByTenantProjectAndTicketID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID, includePrivate bool, pagination PaginationParams) ([]*db.TicketMessage, string, error)
 	Update(ctx context.Context, message *db.TicketMessage) error
 	Delete(ctx context.Context, tenantID, projectID, ticketID, messageID uuid.UUID) error
 }

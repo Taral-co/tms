@@ -157,7 +157,7 @@ type UpdateTicketRequest struct {
 // UpdateTicket updates an existing ticket
 func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID, req UpdateTicketRequest) (*db.Ticket, error) {
 	// Get existing ticket
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -197,7 +197,7 @@ func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, t
 
 // GetTicket retrieves a ticket by ID
 func (s *TicketService) GetTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID) (*TicketWithDetails, error) {
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -351,7 +351,7 @@ func (s *TicketService) AddMessage(ctx context.Context, tenantID, projectID, tic
 	}
 
 	// Verify ticket exists
-	_, err = s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	_, err = s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -386,7 +386,7 @@ type ReassignTicketRequest struct {
 // ReassignTicket reassigns a ticket to another agent (only for tenant_admin and project_admin)
 func (s *TicketService) ReassignTicket(ctx context.Context, tenantID, projectID, ticketID, requestingAgentID uuid.UUID, req ReassignTicketRequest) (*db.Ticket, error) {
 	// Get existing ticket
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -473,7 +473,7 @@ type MagicLinkResult struct {
 // SendCustomerValidationOTP sends an OTP to the customer for validation
 func (s *TicketService) SendCustomerValidationOTP(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*CustomerValidationResult, error) {
 	// Get ticket first to validate access and get customer info
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ticket: %w", err)
 	}
@@ -522,7 +522,7 @@ func (s *TicketService) SendCustomerValidationOTP(ctx context.Context, tenantID,
 // SendMagicLinkToCustomer sends a magic link to the customer
 func (s *TicketService) SendMagicLinkToCustomer(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*MagicLinkResult, error) {
 	// Get ticket first to validate access and get customer info
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ticket: %w", err)
 	}
@@ -547,7 +547,7 @@ func (s *TicketService) SendMagicLinkToCustomer(ctx context.Context, tenantID, p
 	}
 
 	// Generate magic link token
-	magicToken, err := s.publicService.GenerateMagicLinkToken(tenantID, projectID, ticketID, customer.ID)
+	magicToken, err := s.publicService.GenerateMagicLinkToken(ticketID, customer.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate magic link: %w", err)
 	}

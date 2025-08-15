@@ -13,9 +13,10 @@ import (
 
 // PublicService handles public operations (magic link access, etc.)
 type PublicService struct {
-	ticketRepo  repo.TicketRepository
-	messageRepo repo.TicketMessageRepository
-	jwtAuth     *auth.Service
+	ticketRepo     repo.TicketRepository
+	messageRepo    repo.TicketMessageRepository
+	jwtAuth        *auth.Service
+	messageService *MessageService
 }
 
 // NewPublicService creates a new public service
@@ -23,11 +24,13 @@ func NewPublicService(
 	ticketRepo repo.TicketRepository,
 	messageRepo repo.TicketMessageRepository,
 	jwtAuth *auth.Service,
+	messageService *MessageService,
 ) *PublicService {
 	return &PublicService{
-		ticketRepo:  ticketRepo,
-		messageRepo: messageRepo,
-		jwtAuth:     jwtAuth,
+		ticketRepo:     ticketRepo,
+		messageRepo:    messageRepo,
+		jwtAuth:        jwtAuth,
+		messageService: messageService,
 	}
 }
 
@@ -55,12 +58,10 @@ func (s *PublicService) GetTicketByMagicLink(ctx context.Context, magicToken str
 	}
 
 	// Extract ticket information from claims
-	tenantID := claims.TenantID
-	projectID := claims.ProjectID
 	ticketID := claims.TicketID
 
 	// Get ticket
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByID(ctx, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -69,7 +70,7 @@ func (s *PublicService) GetTicketByMagicLink(ctx context.Context, magicToken str
 }
 
 // GetTicketMessagesByMagicLink retrieves public messages for a ticket using a magic link token
-func (s *PublicService) GetTicketMessagesByMagicLink(ctx context.Context, magicToken string, cursor string, limit int) ([]*db.TicketMessage, string, error) {
+func (s *PublicService) GetTicketMessagesByMagicLink(ctx context.Context, magicToken string, cursor string, limit int) ([]*MessageWithDetails, string, error) {
 	// Validate public ticket token
 	claims, err := s.jwtAuth.ValidatePublicToken(magicToken)
 	if err != nil {
@@ -86,13 +87,10 @@ func (s *PublicService) GetTicketMessagesByMagicLink(ctx context.Context, magicT
 		return nil, "", fmt.Errorf("magic link has expired")
 	}
 
-	// Extract ticket information from claims
-	tenantID := claims.TenantID
-	projectID := claims.ProjectID
 	ticketID := claims.TicketID
 
 	// Verify ticket exists
-	_, err = s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByID(ctx, ticketID)
 	if err != nil {
 		return nil, "", fmt.Errorf("ticket not found: %w", err)
 	}
@@ -103,12 +101,17 @@ func (s *PublicService) GetTicketMessagesByMagicLink(ctx context.Context, magicT
 	}
 
 	// Get public messages only (includePrivate = false)
-	messages, nextCursor, err := s.messageRepo.GetByTicketID(ctx, tenantID, projectID, ticketID, false, pagination)
+	messages, nextCursor, err := s.messageRepo.GetByTicketID(ctx, ticketID, false, pagination)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get messages: %w", err)
 	}
 
-	return messages, nextCursor, nil
+	messagesWithDetails, err := s.messageService.UpdateMessageWithDetails(ctx, ticket.TenantID, messages)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to update message details: %w", err)
+	}
+
+	return messagesWithDetails, nextCursor, nil
 }
 
 // AddMessageByMagicLink adds a public message to a ticket using a magic link token
@@ -130,12 +133,10 @@ func (s *PublicService) AddMessageByMagicLink(ctx context.Context, magicToken st
 	}
 
 	// Extract ticket information from claims
-	tenantID := claims.TenantID
-	projectID := claims.ProjectID
 	ticketID := claims.TicketID
 
 	// Verify ticket exists and get the requester (customer) ID
-	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
+	ticket, err := s.ticketRepo.GetByID(ctx, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
@@ -146,8 +147,8 @@ func (s *PublicService) AddMessageByMagicLink(ctx context.Context, magicToken st
 	// Create message from customer
 	message := &db.TicketMessage{
 		ID:         uuid.New(),
-		TenantID:   tenantID,
-		ProjectID:  projectID,
+		TenantID:   ticket.TenantID,
+		ProjectID:  ticket.ProjectID,
 		TicketID:   ticketID,
 		AuthorType: "customer",
 		AuthorID:   &customerID,
@@ -165,10 +166,10 @@ func (s *PublicService) AddMessageByMagicLink(ctx context.Context, magicToken st
 }
 
 // GenerateMagicLinkToken generates a magic link token for a ticket
-func (s *PublicService) GenerateMagicLinkToken(tenantID, projectID, ticketID, customerID uuid.UUID) (string, error) {
+func (s *PublicService) GenerateMagicLinkToken(ticketID, customerID uuid.UUID) (string, error) {
 
 	// For public ticket access, we don't need to include customer ID in the token
 	// The customer ownership is verified when the ticket is accessed
 	scope := []string{"read", "write"}
-	return s.jwtAuth.GeneratePublicToken(tenantID, projectID, ticketID, scope)
+	return s.jwtAuth.GeneratePublicToken(ticketID, customerID, scope)
 }

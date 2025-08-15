@@ -178,16 +178,15 @@ func (s *Service) GenerateMagicLinkToken(agentEmail string) (string, error) {
 }
 
 // GeneratePublicToken generates a token for unauthenticated ticket access
-func (s *Service) GeneratePublicToken(tenantID, projectID, ticketID uuid.UUID, scope []string) (string, error) {
+func (s *Service) GeneratePublicToken(customerID, ticketID uuid.UUID, scope []string) (string, error) {
 	now := time.Now()
 	claims := &models.PublicTokenClaims{
-		Sub:       "public-ticket",
-		TenantID:  tenantID,
-		ProjectID: projectID,
-		TicketID:  ticketID,
-		Scope:     scope,
-		Exp:       now.Add(s.unauthTokenExpiry).Unix(),
-		JTI:       uuid.New().String(),
+		Sub:        "public-ticket",
+		CustomerID: customerID,
+		TicketID:   ticketID,
+		Scope:      scope,
+		Exp:        now.Add(s.unauthTokenExpiry).Unix(),
+		JTI:        uuid.New().String(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

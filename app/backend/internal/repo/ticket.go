@@ -38,7 +38,31 @@ func (r *ticketRepository) Create(ctx context.Context, ticket *db.Ticket) error 
 }
 
 // GetByID retrieves a ticket by ID
-func (r *ticketRepository) GetByID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*db.Ticket, error) {
+func (r *ticketRepository) GetByID(ctx context.Context, ticketID uuid.UUID) (*db.Ticket, error) {
+	query := `
+		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, assignee_agent_id, created_at, updated_at
+		FROM tickets
+		WHERE id = $1
+	`
+
+	var ticket db.Ticket
+	err := r.db.QueryRowContext(ctx, query, ticketID).Scan(
+		&ticket.ID, &ticket.TenantID, &ticket.ProjectID, &ticket.Number,
+		&ticket.Subject, &ticket.Status, &ticket.Priority, &ticket.Type,
+		&ticket.Source, &ticket.CustomerID, &ticket.AssigneeAgentID,
+		&ticket.CreatedAt, &ticket.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("ticket not found")
+		}
+		return nil, fmt.Errorf("failed to get ticket: %w", err)
+	}
+
+	return &ticket, nil
+}
+
+// GetByTenantAndProjectID retrieves a ticket by ID
+func (r *ticketRepository) GetByTenantAndProjectID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*db.Ticket, error) {
 	query := `
 		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, assignee_agent_id, created_at, updated_at
 		FROM tickets
