@@ -85,7 +85,7 @@ func (c *IMAPClient) FetchMessagesForMailboxes(ctx context.Context, connector *m
 
 	// Add TO filter for specific mailbox addresses if provided
 	var uids []uint32
-	
+
 	if len(mailboxAddresses) > 0 {
 		// Create OR criteria for multiple To addresses using IMAP search
 		// Since go-imap doesn't support complex OR queries well, we'll search for each address separately
@@ -96,7 +96,7 @@ func (c *IMAPClient) FetchMessagesForMailboxes(ctx context.Context, connector *m
 				addressCriteria.Header = make(map[string][]string)
 			}
 			addressCriteria.Header["To"] = []string{mailboxAddr}
-			
+
 			// Search for messages to this specific address
 			addressUIDs, searchErr := client.UidSearch(&addressCriteria)
 			if searchErr != nil {
@@ -108,7 +108,7 @@ func (c *IMAPClient) FetchMessagesForMailboxes(ctx context.Context, connector *m
 			}
 			allUIDs = append(allUIDs, addressUIDs...)
 		}
-		
+
 		// Remove duplicates and use the combined UID list
 		if len(allUIDs) > 0 {
 			uidMap := make(map[uint32]bool)
