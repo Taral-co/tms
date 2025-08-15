@@ -781,29 +781,43 @@ export function IntegrationsPage() {
   )
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-6 bg-background border-b border-border">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-fg">Integrations</h1>
-              <p className="text-fg-muted">Connect with 100+ tools and services to streamline your workflow</p>
+    <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-slate-50/20 dark:to-slate-950/20">
+      {/* Enhanced Header with gradient and glass effect */}
+      <div className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 shadow-sm">
+        <div className="px-6 py-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-cyan-600 rounded-lg blur opacity-25"></div>
+                <div className="relative p-3 bg-gradient-to-br from-indigo-50 to-cyan-50 dark:from-indigo-950 dark:to-cyan-950 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50">
+                  <Zap className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent">
+                  Integrations
+                </h1>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-sm text-muted-foreground">
+                    Connect with 100+ tools and services to streamline your workflow
+                  </p>
+                </div>
+              </div>
             </div>
             
             {/* Quick stats */}
             <div className="flex items-center space-x-6 text-sm">
               <div className="text-center">
-                <div className="font-semibold text-lg text-fg">{categories.reduce((acc, cat) => acc + cat.templates.length, 0)}</div>
-                <div className="text-fg-muted">Available</div>
+                <div className="font-semibold text-lg text-foreground">{categories.reduce((acc, cat) => acc + cat.templates.length, 0)}</div>
+                <div className="text-muted-foreground">Available</div>
               </div>
               <div className="text-center">
-                <div className="font-semibold text-lg text-green-600">{installedIntegrations.filter(i => i.status === 'active').length}</div>
-                <div className="text-fg-muted">Active</div>
+                <div className="font-semibold text-lg text-green-600 dark:text-green-400">{installedIntegrations.filter(i => i.status === 'active').length}</div>
+                <div className="text-muted-foreground">Active</div>
               </div>
               <div className="text-center">
-                <div className="font-semibold text-lg text-fg">{installedIntegrations.length}</div>
-                <div className="text-fg-muted">Installed</div>
+                <div className="font-semibold text-lg text-foreground">{installedIntegrations.length}</div>
+                <div className="text-muted-foreground">Installed</div>
               </div>
             </div>
           </div>
@@ -848,25 +862,23 @@ export function IntegrationsPage() {
       </div>
 
       {/* Content - Scrollable */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto">
-          <div className="max-w-7xl mx-auto p-6">
-            {/* Tab content */}
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <RotateCw className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-                  <p className="text-fg-muted">Loading integrations...</p>
-                </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto p-6">
+          {/* Tab content */}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <RotateCw className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-fg-muted">Loading integrations...</p>
               </div>
-            ) : (
-              <div className="pb-6">
-                {activeTab === 'browse' && renderBrowseTab()}
-                {activeTab === 'installed' && renderInstalledTab()}
-                {activeTab === 'marketplace' && renderMarketplaceTab()}
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="pb-6">
+              {activeTab === 'browse' && renderBrowseTab()}
+              {activeTab === 'installed' && renderInstalledTab()}
+              {activeTab === 'marketplace' && renderMarketplaceTab()}
+            </div>
+          )}
         </div>
       </div>
 
