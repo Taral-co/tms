@@ -30,16 +30,19 @@ func NewEmailInboxHandler(emailInboxService *service.EmailInboxService) *EmailIn
 type ListEmailsRequest struct {
 	ProjectID      *string `form:"project_id"`
 	MailboxAddress *string `form:"mailbox_address"`
+	Mailbox        *string `form:"mailbox"` // Add mailbox field for frontend compatibility
 	IsRead         *bool   `form:"is_read"`
 	IsReply        *bool   `form:"is_reply"`
 	HasTicket      *bool   `form:"has_ticket"`
 	ThreadID       *string `form:"thread_id"`
 	FromAddress    *string `form:"from_address"`
 	Subject        *string `form:"subject"`
+	Search         *string `form:"search"` // Add search field
 	StartDate      *string `form:"start_date"`
 	EndDate        *string `form:"end_date"`
 	Limit          int     `form:"limit,default=50"`
 	Offset         int     `form:"offset,default=0"`
+	Page           int     `form:"page,default=1"` // Add page for frontend compatibility
 	OrderBy        string  `form:"order_by,default=received_at"`
 	OrderDir       string  `form:"order_dir,default=DESC"`
 }
@@ -312,14 +315,22 @@ func (h *EmailInboxHandler) convertToEmailFilter(req ListEmailsRequest) repo.Ema
 		OrderDir: req.OrderDir,
 	}
 
+	// Convert page to offset if provided
+	if req.Page > 0 {
+		filter.Offset = (req.Page - 1) * req.Limit
+	}
+
 	if req.ProjectID != nil {
 		if projectUUID, err := uuid.Parse(*req.ProjectID); err == nil {
 			filter.ProjectID = &projectUUID
 		}
 	}
 
+	// Handle both mailbox_address and mailbox parameters for frontend compatibility
 	if req.MailboxAddress != nil {
 		filter.MailboxAddress = req.MailboxAddress
+	} else if req.Mailbox != nil {
+		filter.MailboxAddress = req.Mailbox
 	}
 
 	if req.IsRead != nil {
@@ -344,6 +355,11 @@ func (h *EmailInboxHandler) convertToEmailFilter(req ListEmailsRequest) repo.Ema
 
 	if req.Subject != nil {
 		filter.Subject = req.Subject
+	}
+
+	// Handle search parameter - search across subject, from_address, and body
+	if req.Search != nil {
+		filter.Search = req.Search
 	}
 
 	if req.StartDate != nil {

@@ -19,27 +19,27 @@ type EmailInboxRepository interface {
 	GetEmailByMessageID(ctx context.Context, tenantID uuid.UUID, messageID, mailboxAddress string) (*models.EmailInbox, error)
 	UpdateEmail(ctx context.Context, email *models.EmailInbox) error
 	DeleteEmail(ctx context.Context, tenantID, emailID uuid.UUID) error
-	
+
 	// Email listing and filtering
 	ListEmails(ctx context.Context, tenantID uuid.UUID, filter EmailFilter) ([]*models.EmailInbox, error)
 	CountEmails(ctx context.Context, tenantID uuid.UUID, filter EmailFilter) (int, error)
-	
+
 	// Email threading
 	GetEmailThread(ctx context.Context, tenantID uuid.UUID, threadID string) ([]*models.EmailInbox, error)
-	
+
 	// Attachment operations
 	CreateAttachment(ctx context.Context, attachment *models.EmailAttachment) error
 	GetEmailAttachments(ctx context.Context, tenantID, emailID uuid.UUID) ([]*models.EmailAttachment, error)
 	DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error
-	
+
 	// Sync status operations
 	GetSyncStatus(ctx context.Context, tenantID, connectorID uuid.UUID, mailboxAddress string) (*models.EmailSyncStatus, error)
 	CreateOrUpdateSyncStatus(ctx context.Context, syncStatus *models.EmailSyncStatus) error
-	
+
 	// Ticket conversion
 	ConvertEmailToTicket(ctx context.Context, tenantID, emailID, ticketID uuid.UUID) error
 	GetEmailsForTicket(ctx context.Context, tenantID, ticketID uuid.UUID) ([]*models.EmailInbox, error)
-	
+
 	// Bulk operations
 	MarkEmailsAsRead(ctx context.Context, tenantID uuid.UUID, emailIDs []uuid.UUID) error
 	BulkCreateEmails(ctx context.Context, emails []*models.EmailInbox) error
@@ -55,6 +55,7 @@ type EmailFilter struct {
 	ThreadID       *string
 	FromAddress    *string
 	Subject        *string
+	Search         *string // Global search across subject, from_address, from_name, and snippet
 	StartDate      *time.Time
 	EndDate        *time.Time
 	Limit          int
@@ -262,6 +263,17 @@ func (r *emailInboxRepository) ListEmails(ctx context.Context, tenantID uuid.UUI
 		args = append(args, "%"+*filter.Subject+"%")
 	}
 
+	// Global search across multiple fields
+	if filter.Search != nil {
+		argCount++
+		searchTerm := "%" + *filter.Search + "%"
+		query += ` AND (subject ILIKE $` + fmt.Sprintf("%d", argCount) +
+			` OR from_address ILIKE $` + fmt.Sprintf("%d", argCount) +
+			` OR from_name ILIKE $` + fmt.Sprintf("%d", argCount) +
+			` OR snippet ILIKE $` + fmt.Sprintf("%d", argCount) + `)`
+		args = append(args, searchTerm)
+	}
+
 	if filter.StartDate != nil {
 		argCount++
 		query += ` AND received_at >= $` + fmt.Sprintf("%d", argCount)
@@ -381,6 +393,17 @@ func (r *emailInboxRepository) CountEmails(ctx context.Context, tenantID uuid.UU
 		argCount++
 		query += ` AND subject ILIKE $` + fmt.Sprintf("%d", argCount)
 		args = append(args, "%"+*filter.Subject+"%")
+	}
+
+	// Global search across multiple fields
+	if filter.Search != nil {
+		argCount++
+		searchTerm := "%" + *filter.Search + "%"
+		query += ` AND (subject ILIKE $` + fmt.Sprintf("%d", argCount) +
+			` OR from_address ILIKE $` + fmt.Sprintf("%d", argCount) +
+			` OR from_name ILIKE $` + fmt.Sprintf("%d", argCount) +
+			` OR snippet ILIKE $` + fmt.Sprintf("%d", argCount) + `)`
+		args = append(args, searchTerm)
 	}
 
 	if filter.StartDate != nil {

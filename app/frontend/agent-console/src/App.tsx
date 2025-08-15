@@ -6,6 +6,7 @@ import { AppShell } from './components/AppShell'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { InboxPage } from './pages/InboxPage'
+import { EmailDetailPage } from './pages/EmailDetailPage'
 import { AddInboxPage } from './pages/AddInboxPage'
 import { EmailConnectorsPage } from './pages/EmailConnectorsPage'
 import { EmailMailboxesPage } from './pages/EmailMailboxesPage'
@@ -58,6 +59,7 @@ function AppContent() {
             <Routes>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/inbox/emails/:id" element={<EmailDetailPage />} />
               <Route path="/inbox/add" element={<AddInboxPage />} />
               <Route path="/inbox/connectors" element={<EmailConnectorsPage />} />
               <Route path="/inbox/mailboxes" element={<EmailMailboxesPage />} />
