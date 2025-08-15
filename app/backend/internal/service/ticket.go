@@ -99,16 +99,15 @@ func (s *TicketService) CreateTicket(ctx context.Context, tenantID, projectID, a
 
 	// Create ticket
 	ticket := &db.Ticket{
-		ID:           uuid.New(),
-		TenantID:     tenantID,
-		ProjectID:    projectID,
-		Subject:      req.Subject,
-		Status:       "new",
-		Priority:     req.Priority,
-		Type:         req.Type,
-		Source:       req.Source,
-		RequesterID:  customer.ID,
-		CustomerName: customer.Name,
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		ProjectID:  projectID,
+		Subject:    req.Subject,
+		Status:     "new",
+		Priority:   req.Priority,
+		Type:       req.Type,
+		Source:     req.Source,
+		CustomerID: customer.ID,
 	}
 
 	// Set assignee if provided
@@ -197,27 +196,53 @@ func (s *TicketService) UpdateTicket(ctx context.Context, tenantID, projectID, t
 }
 
 // GetTicket retrieves a ticket by ID
-func (s *TicketService) GetTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID) (*db.Ticket, error) {
+func (s *TicketService) GetTicket(ctx context.Context, tenantID, projectID, ticketID, agentID uuid.UUID) (*TicketWithDetails, error) {
 	ticket, err := s.ticketRepo.GetByID(ctx, tenantID, projectID, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("ticket not found: %w", err)
 	}
 
-	return ticket, nil
+	ticketDetail := &TicketWithDetails{
+		Ticket: ticket,
+	}
+
+	// Fetch customer details and populate struct safely
+	customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.CustomerID)
+	if err == nil && customer != nil {
+		ticketDetail.Customer = &CustomerInfo{
+			ID:    customer.ID.String(),
+			Name:  customer.Name,
+			Email: customer.Email,
+		}
+	}
+
+	// Populate assigned agent safely if present
+	if ticket.AssigneeAgentID != nil && *ticket.AssigneeAgentID != uuid.Nil {
+		agent, err := s.agentRepo.GetByID(ctx, tenantID, *ticket.AssigneeAgentID)
+		if err == nil && agent != nil {
+			ticketDetail.AssignedAgent = &AgentInfo{
+				ID:    agent.ID.String(),
+				Name:  agent.Name,
+				Email: agent.Email,
+			}
+		}
+	}
+
+	return ticketDetail, nil
 }
 
 // ListTicketsRequest represents a ticket list request
 type ListTicketsRequest struct {
-	Status      []string `json:"status,omitempty"`
-	Priority    []string `json:"priority,omitempty"`
-	AssigneeID  *string  `json:"assignee_id,omitempty"`
-	RequesterID *string  `json:"requester_id,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
-	Search      string   `json:"search,omitempty"`
-	Source      []string `json:"source,omitempty"`
-	Type        []string `json:"type,omitempty"`
-	Cursor      string   `json:"cursor,omitempty"`
-	Limit       int      `json:"limit,omitempty"`
+	Status     []string `json:"status,omitempty"`
+	Priority   []string `json:"priority,omitempty"`
+	AssigneeID *string  `json:"assignee_id,omitempty"`
+	CustomerID *string  `json:"customer_id,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+	Search     string   `json:"search,omitempty"`
+	Source     []string `json:"source,omitempty"`
+	Type       []string `json:"type,omitempty"`
+	Cursor     string   `json:"cursor,omitempty"`
+	Limit      int      `json:"limit,omitempty"`
 }
 
 // ListTickets retrieves a list of tickets
@@ -240,8 +265,8 @@ func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, ag
 		filters.AssigneeID = &assigneeUUID
 	}
 
-	if req.RequesterID != nil {
-		requesterUUID, err := uuid.Parse(*req.RequesterID)
+	if req.CustomerID != nil {
+		requesterUUID, err := uuid.Parse(*req.CustomerID)
 		if err != nil {
 			return nil, "", fmt.Errorf("invalid requester ID")
 		}
@@ -266,11 +291,16 @@ func (s *TicketService) ListTickets(ctx context.Context, tenantID, projectID, ag
 		}
 
 		// Customer name is already in the ticket record
-		if ticket.CustomerName != "" {
-			ticketDetail.Customer = &CustomerInfo{
-				ID:    ticket.RequesterID.String(),
-				Name:  ticket.CustomerName,
-				Email: "", // Email not available in tickets table, could be added if needed
+		if ticket.CustomerID != uuid.Nil {
+			customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.CustomerID)
+			fmt.Println("Customer Id", ticket.CustomerID.String(), "tenantID ", tenantID.String())
+			fmt.Println(customer)
+			if err == nil && customer != nil {
+				ticketDetail.Customer = &CustomerInfo{
+					ID:    customer.ID.String(),
+					Email: customer.Email,
+					Name:  customer.Name,
+				}
 			}
 		}
 
@@ -449,7 +479,7 @@ func (s *TicketService) SendCustomerValidationOTP(ctx context.Context, tenantID,
 	}
 
 	// Get customer details
-	customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.RequesterID)
+	customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get customer: %w", err)
 	}
@@ -498,7 +528,7 @@ func (s *TicketService) SendMagicLinkToCustomer(ctx context.Context, tenantID, p
 	}
 
 	// Get customer details
-	customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.RequesterID)
+	customer, err := s.customerRepo.GetByID(ctx, tenantID, ticket.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get customer: %w", err)
 	}

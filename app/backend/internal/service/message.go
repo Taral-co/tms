@@ -64,6 +64,7 @@ func (s *MessageService) GetTicketMessages(ctx context.Context, tenantID, projec
 	}
 
 	messages, nextCursor, err := s.messageRepo.GetByTicketID(ctx, tenantID, projectID, ticketID, includePrivate, pagination)
+
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get messages: %w", err)
 	}

@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"github.com/bareuptime/tms/internal/db"
@@ -27,11 +28,17 @@ func (r *customerRepository) Create(ctx context.Context, customer *db.Customer) 
 		INSERT INTO customers (id, tenant_id, email, name, metadata, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 	`
-	
-	metadataJSON := "{}"
-	if customer.Metadata != nil {
-		// Convert map to JSON string - in production you'd use proper JSON marshaling
-		metadataJSON = "{}" // Simplified for now
+
+	// Marshal metadata map to JSON for storage. Store '{}' for nil/empty maps.
+	var metadataJSON string
+	if len(customer.Metadata) == 0 {
+		metadataJSON = "{}"
+	} else {
+		b, err := json.Marshal(customer.Metadata)
+		if err != nil {
+			return err
+		}
+		metadataJSON = string(b)
 	}
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -41,7 +48,7 @@ func (r *customerRepository) Create(ctx context.Context, customer *db.Customer) 
 		customer.Name,
 		metadataJSON,
 	)
-	
+
 	return err
 }
 
@@ -52,10 +59,13 @@ func (r *customerRepository) GetByID(ctx context.Context, tenantID, customerID u
 		FROM customers
 		WHERE tenant_id = $1 AND id = $2
 	`
-	
+
+	fmt.Println("Executing query:", query)
+	fmt.Println("With parameters:", tenantID, customerID)
+
 	customer := &db.Customer{}
-	var metadataJSON string
-	
+	var metadataJSON sql.NullString
+
 	err := r.db.QueryRowContext(ctx, query, tenantID, customerID).Scan(
 		&customer.ID,
 		&customer.TenantID,
@@ -65,14 +75,25 @@ func (r *customerRepository) GetByID(ctx context.Context, tenantID, customerID u
 		&customer.CreatedAt,
 		&customer.UpdatedAt,
 	)
-	
+
 	if err != nil {
+		fmt.Println("Error retrieving customer:", err)
 		return nil, err
 	}
-	
-	// Parse metadata JSON - simplified for now
+
+	// Parse metadata JSON
 	customer.Metadata = make(map[string]string)
-	
+	if metadataJSON.Valid && metadataJSON.String != "" {
+		var meta map[string]string
+		if err := json.Unmarshal([]byte(metadataJSON.String), &meta); err == nil {
+			customer.Metadata = meta
+		} else {
+			// Log parse error but continue with empty metadata
+			fmt.Println("Failed to parse metadata JSON for customer:", customer.ID, err)
+		}
+	}
+	fmt.Println("Customer:", customer)
+
 	return customer, nil
 }
 
@@ -83,10 +104,10 @@ func (r *customerRepository) GetByEmail(ctx context.Context, tenantID uuid.UUID,
 		FROM customers
 		WHERE tenant_id = $1 AND email = $2
 	`
-	
+
 	customer := &db.Customer{}
-	var metadataJSON string
-	
+	var metadataJSON sql.NullString
+
 	err := r.db.QueryRowContext(ctx, query, tenantID, email).Scan(
 		&customer.ID,
 		&customer.TenantID,
@@ -96,14 +117,20 @@ func (r *customerRepository) GetByEmail(ctx context.Context, tenantID uuid.UUID,
 		&customer.CreatedAt,
 		&customer.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
-	// Parse metadata JSON - simplified for now
+
+	// Parse metadata JSON
 	customer.Metadata = make(map[string]string)
-	
+	if metadataJSON.Valid && metadataJSON.String != "" {
+		var meta map[string]string
+		if err := json.Unmarshal([]byte(metadataJSON.String), &meta); err == nil {
+			customer.Metadata = meta
+		}
+	}
+
 	return customer, nil
 }
 
@@ -114,7 +141,7 @@ func (r *customerRepository) Update(ctx context.Context, customer *db.Customer) 
 		SET name = $3, metadata = $4, updated_at = NOW()
 		WHERE tenant_id = $1 AND id = $2
 	`
-	
+
 	metadataJSON := "{}"
 	if customer.Metadata != nil {
 		// Convert map to JSON string - in production you'd use proper JSON marshaling
@@ -127,7 +154,7 @@ func (r *customerRepository) Update(ctx context.Context, customer *db.Customer) 
 		customer.Name,
 		metadataJSON,
 	)
-	
+
 	return err
 }
 
@@ -145,24 +172,24 @@ func (r *customerRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		FROM customers
 		WHERE tenant_id = $1
 	`
-	
+
 	args := []interface{}{tenantID}
 	argIndex := 2
-	
+
 	// Add filters
 	if filters.Email != "" {
 		baseQuery += fmt.Sprintf(" AND email = $%d", argIndex)
 		args = append(args, filters.Email)
 		argIndex++
 	}
-	
+
 	if filters.Search != "" {
 		baseQuery += fmt.Sprintf(" AND (name ILIKE $%d OR email ILIKE $%d)", argIndex, argIndex)
 		searchTerm := "%" + filters.Search + "%"
 		args = append(args, searchTerm)
 		argIndex++
 	}
-	
+
 	// Add cursor-based pagination
 	if pagination.Cursor != "" {
 		baseQuery += fmt.Sprintf(" AND id > $%d", argIndex)
@@ -173,29 +200,29 @@ func (r *customerRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		args = append(args, cursorID)
 		argIndex++
 	}
-	
+
 	// Add ordering and limit
 	baseQuery += " ORDER BY id ASC"
-	
+
 	limit := pagination.Limit
 	if limit <= 0 || limit > 100 {
 		limit = 50 // Default limit
 	}
-	
+
 	baseQuery += fmt.Sprintf(" LIMIT $%d", argIndex)
 	args = append(args, limit+1) // Fetch one extra to determine if there's a next page
-	
+
 	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, "", err
 	}
 	defer rows.Close()
-	
+
 	var customers []*db.Customer
 	for rows.Next() {
 		customer := &db.Customer{}
-		var metadataJSON string
-		
+		var metadataJSON sql.NullString
+
 		err := rows.Scan(
 			&customer.ID,
 			&customer.TenantID,
@@ -208,18 +235,24 @@ func (r *customerRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		if err != nil {
 			return nil, "", err
 		}
-		
-		// Parse metadata JSON - simplified for now
+
+		// Parse metadata JSON
 		customer.Metadata = make(map[string]string)
+		if metadataJSON.Valid && metadataJSON.String != "" {
+			var meta map[string]string
+			if err := json.Unmarshal([]byte(metadataJSON.String), &meta); err == nil {
+				customer.Metadata = meta
+			}
+		}
 		customers = append(customers, customer)
 	}
-	
+
 	// Determine next cursor
 	var nextCursor string
 	if len(customers) > limit {
 		nextCursor = customers[limit-1].ID.String()
 		customers = customers[:limit] // Remove the extra record
 	}
-	
+
 	return customers, nextCursor, nil
 }

@@ -259,17 +259,17 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({ onSubmit, onClose
     priority: 'normal',
     type: 'question',
     source: 'web',
-    requester_id: '' // We'll need to get this from context or user data
+    customer_id: '' // We'll need to get this from context or user data
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.subject.trim()) return
     
-    // For now, use a dummy requester_id - in real app this would come from customer selection
+    // For now, use a dummy customer_id - in real app this would come from customer selection
     const ticketData = {
       ...formData,
-      requester_id: '550e8400-e29b-41d4-a716-446655440050' // Dummy customer ID
+      customer_id: '550e8400-e29b-41d4-a716-446655440050' // Dummy customer ID
     }
     
     onSubmit(ticketData)

@@ -141,7 +141,7 @@ func (s *PublicService) AddMessageByMagicLink(ctx context.Context, magicToken st
 	}
 
 	// Use the ticket's requester as the customer ID
-	customerID := ticket.RequesterID
+	customerID := ticket.CustomerID
 
 	// Create message from customer
 	message := &db.TicketMessage{

@@ -139,8 +139,8 @@ func (h *TicketHandler) ListTickets(c *gin.Context) {
 		req.AssigneeID = &assigneeID
 	}
 
-	if requesterID := c.Query("requester_id"); requesterID != "" {
-		req.RequesterID = &requesterID
+	if requesterID := c.Query("customer_id"); requesterID != "" {
+		req.CustomerID = &requesterID
 	}
 
 	if limitStr := c.Query("limit"); limitStr != "" {
@@ -218,6 +218,9 @@ func (h *TicketHandler) GetTicketMessages(c *gin.Context) {
 	ticketUUID, _ := uuid.Parse(ticketID)
 
 	messages, nextCursor, err := h.messageService.GetTicketMessages(c.Request.Context(), tenantID, projectUUID, ticketUUID, agentID, includePrivate, cursor, limit)
+
+	// get CustomerId and AgentId from messages in set and than fetch their details to be injected in tickets
+
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

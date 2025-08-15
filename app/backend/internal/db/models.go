@@ -97,8 +97,7 @@ type Ticket struct {
 	Priority        string     `db:"priority" json:"priority" validate:"oneof=low normal high urgent"`
 	Type            string     `db:"type" json:"type" validate:"oneof=question incident problem task"`
 	Source          string     `db:"source" json:"source" validate:"oneof=web email api phone chat"`
-	RequesterID     uuid.UUID  `db:"requester_id" json:"requester_id"`
-	CustomerName    string     `db:"customer_name" json:"customer_name"`
+	CustomerID      uuid.UUID  `db:"customer_id" json:"customer_id"`
 	AssigneeAgentID *uuid.UUID `db:"assignee_agent_id" json:"assignee_agent_id,omitempty"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
@@ -106,15 +105,17 @@ type Ticket struct {
 
 // TicketMessage represents a message on a ticket
 type TicketMessage struct {
-	ID         uuid.UUID  `db:"id" json:"id"`
-	TenantID   uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	ProjectID  uuid.UUID  `db:"project_id" json:"project_id"`
-	TicketID   uuid.UUID  `db:"ticket_id" json:"ticket_id"`
-	AuthorType string     `db:"author_type" json:"author_type" validate:"oneof=agent customer system"`
-	AuthorID   *uuid.UUID `db:"author_id" json:"author_id,omitempty"`
-	Body       string     `db:"body" json:"body" validate:"required"`
-	IsPrivate  bool       `db:"is_private" json:"is_private"`
-	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
+	ID            uuid.UUID  `db:"id" json:"id"`
+	TenantID      uuid.UUID  `db:"tenant_id" json:"tenant_id"`
+	ProjectID     uuid.UUID  `db:"project_id" json:"project_id"`
+	TicketID      uuid.UUID  `db:"ticket_id" json:"ticket_id"`
+	AuthorType    string     `db:"author_type" json:"author_type" validate:"oneof=agent customer system"`
+	AuthorID      *uuid.UUID `db:"author_id" json:"author_id,omitempty"`
+	Body          string     `db:"body" json:"body" validate:"required"`
+	IsPrivate     bool       `db:"is_private" json:"is_private"`
+	CreatedAt     time.Time  `db:"created_at" json:"created_at"`
+	CustomerName  string     `db:"customer_name" json:"customer_name"`
+	CustomerEmail string     `db:"customer_email" json:"customer_email"`
 }
 
 // TicketTag represents a tag on a ticket

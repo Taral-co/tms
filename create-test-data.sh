@@ -43,8 +43,8 @@ VALUES ('$AGENT_ID', 'Support Agent', 'agent@test.com', 'active', '$TENANT_ID', 
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert test ticket
-INSERT INTO tickets (id, tenant_id, project_id, number, subject, status, priority, type, source, requester_id, customer_name, created_at, updated_at) 
-VALUES ('$TICKET_ID', '$TENANT_ID', '$PROJECT_ID', 1, 'Test Support Ticket', 'open', 'normal', 'question', 'web', '$CUSTOMER_ID', 'John Doe', NOW(), NOW()) 
+INSERT INTO tickets (id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, created_at, updated_at) 
+VALUES ('$TICKET_ID', '$TENANT_ID', '$PROJECT_ID', 1, 'Test Support Ticket', 'open', 'normal', 'question', 'web', '$CUSTOMER_ID', NOW(), NOW()) 
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert test messages

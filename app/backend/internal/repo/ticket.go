@@ -22,14 +22,14 @@ func NewTicketRepository(database *sql.DB) TicketRepository {
 // Create creates a new ticket
 func (r *ticketRepository) Create(ctx context.Context, ticket *db.Ticket) error {
 	query := `
-		INSERT INTO tickets (id, tenant_id, project_id, number, subject, status, priority, type, source, requester_id, customer_name, assignee_agent_id, created_at, updated_at)
+		INSERT INTO tickets (id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, assignee_agent_id, created_at, updated_at)
 		VALUES ($1, $2, $3, (SELECT COALESCE(MAX(number), 0) + 1 FROM tickets WHERE tenant_id = $2 AND project_id = $3), $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		ticket.ID, ticket.TenantID, ticket.ProjectID, ticket.Subject,
 		ticket.Status, ticket.Priority, ticket.Type, ticket.Source,
-		ticket.RequesterID, ticket.CustomerName, ticket.AssigneeAgentID)
+		ticket.CustomerID, ticket.AssigneeAgentID)
 	if err != nil {
 		return fmt.Errorf("failed to create ticket: %w", err)
 	}
@@ -40,7 +40,7 @@ func (r *ticketRepository) Create(ctx context.Context, ticket *db.Ticket) error 
 // GetByID retrieves a ticket by ID
 func (r *ticketRepository) GetByID(ctx context.Context, tenantID, projectID, ticketID uuid.UUID) (*db.Ticket, error) {
 	query := `
-		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, requester_id, customer_name, assignee_agent_id, created_at, updated_at
+		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, assignee_agent_id, created_at, updated_at
 		FROM tickets
 		WHERE tenant_id = $1 AND project_id = $2 AND id = $3
 	`
@@ -49,7 +49,7 @@ func (r *ticketRepository) GetByID(ctx context.Context, tenantID, projectID, tic
 	err := r.db.QueryRowContext(ctx, query, tenantID, projectID, ticketID).Scan(
 		&ticket.ID, &ticket.TenantID, &ticket.ProjectID, &ticket.Number,
 		&ticket.Subject, &ticket.Status, &ticket.Priority, &ticket.Type,
-		&ticket.Source, &ticket.RequesterID, &ticket.CustomerName, &ticket.AssigneeAgentID,
+		&ticket.Source, &ticket.CustomerID, &ticket.AssigneeAgentID,
 		&ticket.CreatedAt, &ticket.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -64,7 +64,7 @@ func (r *ticketRepository) GetByID(ctx context.Context, tenantID, projectID, tic
 // GetByNumber retrieves a ticket by number
 func (r *ticketRepository) GetByNumber(ctx context.Context, tenantID uuid.UUID, number int) (*db.Ticket, error) {
 	query := `
-		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, requester_id, customer_name, assignee_agent_id, created_at, updated_at
+		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, assignee_agent_id, created_at, updated_at
 		FROM tickets
 		WHERE tenant_id = $1 AND number = $2
 	`
@@ -73,7 +73,7 @@ func (r *ticketRepository) GetByNumber(ctx context.Context, tenantID uuid.UUID, 
 	err := r.db.QueryRowContext(ctx, query, tenantID, number).Scan(
 		&ticket.ID, &ticket.TenantID, &ticket.ProjectID, &ticket.Number,
 		&ticket.Subject, &ticket.Status, &ticket.Priority, &ticket.Type,
-		&ticket.Source, &ticket.RequesterID, &ticket.CustomerName, &ticket.AssigneeAgentID,
+		&ticket.Source, &ticket.CustomerID, &ticket.AssigneeAgentID,
 		&ticket.CreatedAt, &ticket.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -136,7 +136,7 @@ func (r *ticketRepository) Delete(ctx context.Context, tenantID, projectID, tick
 // List retrieves a list of tickets with filtering and pagination
 func (r *ticketRepository) List(ctx context.Context, tenantID, projectID uuid.UUID, filters TicketFilters, pagination PaginationParams) ([]*db.Ticket, string, error) {
 	query := `
-		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, requester_id, customer_name, assignee_agent_id, created_at, updated_at
+		SELECT id, tenant_id, project_id, number, subject, status, priority, type, source, customer_id, assignee_agent_id, created_at, updated_at
 		FROM tickets
 		WHERE tenant_id = $1 AND project_id = $2
 	`
@@ -176,7 +176,7 @@ func (r *ticketRepository) List(ctx context.Context, tenantID, projectID uuid.UU
 
 	if filters.RequesterID != nil {
 		argCount++
-		query += fmt.Sprintf(" AND requester_id = $%d", argCount)
+		query += fmt.Sprintf(" AND customer_id = $%d", argCount)
 		args = append(args, *filters.RequesterID)
 	}
 
@@ -243,7 +243,7 @@ func (r *ticketRepository) List(ctx context.Context, tenantID, projectID uuid.UU
 		err := rows.Scan(
 			&ticket.ID, &ticket.TenantID, &ticket.ProjectID, &ticket.Number,
 			&ticket.Subject, &ticket.Status, &ticket.Priority, &ticket.Type,
-			&ticket.Source, &ticket.RequesterID, &ticket.CustomerName, &ticket.AssigneeAgentID,
+			&ticket.Source, &ticket.CustomerID, &ticket.AssigneeAgentID,
 			&ticket.CreatedAt, &ticket.UpdatedAt)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to scan ticket: %w", err)

@@ -8,7 +8,7 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255);
 UPDATE tickets 
 SET customer_name = customers.name 
 FROM customers 
-WHERE tickets.requester_id = customers.id;
+WHERE tickets.customer_id = customers.id;
 
 -- Make customer_name NOT NULL now that it's populated
 ALTER TABLE tickets ALTER COLUMN customer_name SET NOT NULL;

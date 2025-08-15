@@ -115,7 +115,7 @@ CREATE TABLE tickets (
     priority ticket_priority NOT NULL DEFAULT 'normal',
     type ticket_type NOT NULL DEFAULT 'question',
     source ticket_source NOT NULL DEFAULT 'web',
-    requester_id UUID NOT NULL REFERENCES customers(id),
+    customer_id UUID NOT NULL REFERENCES customers(id),
     assignee_agent_id UUID REFERENCES agents(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -225,7 +225,7 @@ CREATE INDEX idx_tickets_tenant_id ON tickets(tenant_id);
 CREATE INDEX idx_tickets_project_id ON tickets(project_id);
 CREATE INDEX idx_tickets_status ON tickets(status);
 CREATE INDEX idx_tickets_assignee_agent_id ON tickets(assignee_agent_id);
-CREATE INDEX idx_tickets_requester_id ON tickets(requester_id);
+CREATE INDEX idx_tickets_requester_id ON tickets(customer_id);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at);
 CREATE INDEX idx_ticket_messages_ticket_id ON ticket_messages(ticket_id);
 CREATE INDEX idx_ticket_messages_created_at ON ticket_messages(created_at);

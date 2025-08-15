@@ -487,17 +487,17 @@ func (s *EmailInboxService) ConvertEmailToTicket(ctx context.Context, tenantID, 
 
 	// Create ticket
 	ticket := &db.Ticket{
-		ID:          uuid.New(),
-		TenantID:    tenantID,
-		ProjectID:   projectID,
-		Subject:     email.Subject,
-		Status:      "new",
-		Priority:    priority,
-		Type:        ticketType,
-		Source:      "email",
-		RequesterID: customer.ID,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		ProjectID:  projectID,
+		Subject:    email.Subject,
+		Status:     "new",
+		Priority:   priority,
+		Type:       ticketType,
+		Source:     "email",
+		CustomerID: customer.ID,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 
 	err = s.ticketRepo.Create(ctx, ticket)

@@ -49,8 +49,12 @@ export interface Ticket {
   priority: 'low' | 'normal' | 'high' | 'urgent'
   type: 'question' | 'incident' | 'problem' | 'task'
   source: 'web' | 'email' | 'api' | 'phone' | 'chat'
-  requester_id: string
-  customer_name: string
+  customer_id: string
+  customer? : {
+    id: string
+    name: string
+    email: string
+  }
   assignee_agent_id?: string
   tenant_id: string
   project_id: string
@@ -69,7 +73,7 @@ export interface CreateTicketRequest {
   priority: 'low' | 'normal' | 'high' | 'urgent'
   type: 'question' | 'incident' | 'problem' | 'task'
   source: 'web' | 'email' | 'api' | 'phone' | 'chat'
-  requester_id: string
+  customer_id: string
 }
 
 export interface EmailSettings {

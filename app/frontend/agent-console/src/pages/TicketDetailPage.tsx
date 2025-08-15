@@ -394,11 +394,11 @@ export function TicketDetailPage() {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{ticket.customer_name}</span>
+                <span className="text-sm">{ticket.customer?.name}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Mail className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{ticket.customer_name}</span>
+                <span className="text-sm">{ticket.customer?.email}</span>
               </div>
             </div>
           </div>

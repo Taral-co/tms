@@ -80,7 +80,7 @@ export const TicketSchema = z.object({
   priority: TicketPrioritySchema,
   type: TicketTypeSchema,
   source: TicketSourceSchema,
-  requester_id: z.string().uuid(),
+  customer_id: z.string().uuid(),
   assignee_agent_id: z.string().uuid().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -180,7 +180,7 @@ export const CreateTicketRequestSchema = z.object({
   description: z.string().optional(),
   priority: TicketPrioritySchema.default('normal'),
   type: TicketTypeSchema.default('question'),
-  requester_id: z.string().uuid(),
+  customer_id: z.string().uuid(),
   project_id: z.string().uuid(),
   tags: z.array(z.string()).optional()
 })
@@ -215,7 +215,7 @@ export const TicketFiltersSchema = z.object({
   type: z.array(TicketTypeSchema).optional(),
   source: z.array(TicketSourceSchema).optional(),
   assignee_agent_id: z.string().uuid().optional(),
-  requester_id: z.string().uuid().optional(),
+  customer_id: z.string().uuid().optional(),
   project_id: z.string().uuid().optional(),
   created_after: z.string().datetime().optional(),
   created_before: z.string().datetime().optional(),

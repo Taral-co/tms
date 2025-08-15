@@ -105,7 +105,7 @@ INSERT INTO sla_policies (id, tenant_id, project_id, name, first_response_minute
     ('550e8400-e29b-41d4-a716-446655440041', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440002', 'Operations SLA', 60, 480);
 
 -- Insert sample tickets
-INSERT INTO tickets (id, tenant_id, project_id, subject, status, priority, type, source, requester_id, assignee_agent_id) VALUES
+INSERT INTO tickets (id, tenant_id, project_id, subject, status, priority, type, source, customer_id, assignee_agent_id) VALUES
     ('550e8400-e29b-41d4-a716-446655440050', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001', 'Login issues with mobile app', 'open', 'high', 'problem', 'email', '550e8400-e29b-41d4-a716-446655440020', '550e8400-e29b-41d4-a716-446655440031'),
     ('550e8400-e29b-41d4-a716-446655440051', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001', 'Feature request: Dark mode', 'open', 'low', 'task', 'web', '550e8400-e29b-41d4-a716-446655440021', NULL),
     ('550e8400-e29b-41d4-a716-446655440052', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440002', 'Server performance issues', 'open', 'urgent', 'incident', 'api', '550e8400-e29b-41d4-a716-446655440022', '550e8400-e29b-41d4-a716-446655440032'),

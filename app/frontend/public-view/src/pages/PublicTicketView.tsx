@@ -37,7 +37,7 @@ interface PublicTicket {
   priority: string
   type: string
   source: string
-  requester_id: string
+  customer_id: string
   customer_name: string
   created_at: string
   updated_at: string

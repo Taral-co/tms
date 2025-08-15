@@ -144,7 +144,7 @@ type Ticket struct {
 	Priority        string     `db:"priority" json:"priority"`
 	Type            string     `db:"type" json:"type"`
 	Source          string     `db:"source" json:"source"`
-	RequesterID     uuid.UUID  `db:"requester_id" json:"requester_id"`
+	RequesterID     uuid.UUID  `db:"customer_id" json:"customer_id"`
 	AssigneeAgentID *uuid.UUID `db:"assignee_agent_id" json:"assignee_agent_id,omitempty"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
