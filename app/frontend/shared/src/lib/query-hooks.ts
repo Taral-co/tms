@@ -7,7 +7,6 @@ import {
 } from '@tanstack/react-query'
 import { 
   Ticket, 
-  Message, 
   User, 
   Customer, 
   Agent, 
@@ -18,7 +17,6 @@ import {
   BaseQueryParams,
   CreateTicketRequest,
   UpdateTicketRequest,
-  CreateMessageRequest,
   LoginRequest,
   LoginResponse
 } from '../types/api'
