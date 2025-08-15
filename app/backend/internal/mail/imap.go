@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/bareuptime/tms/internal/crypto"
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
@@ -16,13 +17,15 @@ import (
 
 // IMAPClient handles IMAP email fetching
 type IMAPClient struct {
-	logger zerolog.Logger
+	logger     zerolog.Logger
+	encryption *crypto.PasswordEncryption
 }
 
 // NewIMAPClient creates a new IMAP client
-func NewIMAPClient(logger zerolog.Logger) *IMAPClient {
+func NewIMAPClient(logger zerolog.Logger, encryption *crypto.PasswordEncryption) *IMAPClient {
 	return &IMAPClient{
-		logger: logger,
+		logger:     logger,
+		encryption: encryption,
 	}
 }
 
@@ -175,8 +178,11 @@ func (c *IMAPClient) authenticate(client *client.Client, connector *models.Email
 		return fmt.Errorf("IMAP credentials not configured")
 	}
 
-	// TODO: Decrypt password using KMS/Vault
-	password := string(connector.IMAPPasswordEnc) // This should be decrypted
+	// Decrypt password
+	password, err := c.encryption.Decrypt(connector.IMAPPasswordEnc)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt IMAP password: %w", err)
+	}
 
 	return client.Login(*connector.IMAPUsername, password)
 }
@@ -188,13 +194,13 @@ func (c *IMAPClient) parseMessage(msg *imap.Message) (*ParsedMessage, error) {
 	}
 
 	parsed := &ParsedMessage{
-		MessageID:   msg.Envelope.MessageId,
-		From:        formatAddress(msg.Envelope.From),
-		To:          formatAddresses(msg.Envelope.To),
-		CC:          formatAddresses(msg.Envelope.Cc),
-		Subject:     msg.Envelope.Subject,
-		Date:        msg.Envelope.Date,
-		Headers:     make(map[string][]string),
+		MessageID: msg.Envelope.MessageId,
+		From:      formatAddress(msg.Envelope.From),
+		To:        formatAddresses(msg.Envelope.To),
+		CC:        formatAddresses(msg.Envelope.Cc),
+		Subject:   msg.Envelope.Subject,
+		Date:      msg.Envelope.Date,
+		Headers:   make(map[string][]string),
 	}
 
 	// Parse In-Reply-To and References
@@ -278,7 +284,7 @@ func formatAddresses(addrs []*imap.Address) []string {
 	if len(addrs) == 0 {
 		return nil
 	}
-	
+
 	result := make([]string, len(addrs))
 	for i, addr := range addrs {
 		if addr.PersonalName != "" {

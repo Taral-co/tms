@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/bareuptime/tms/internal/service"
@@ -262,18 +265,17 @@ func (h *EmailInboxHandler) ReplyToEmail(c *gin.Context) {
 
 // SyncEmails handles POST /emails/sync
 func (h *EmailInboxHandler) SyncEmails(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
+	tenantUUID := middleware.GetTenantID(c)
+	projectUUID := middleware.GetProjectID(c)
 
 	// Run sync in background
 	go func() {
-		err := h.emailInboxService.SyncEmails(c.Request.Context(), tenantUUID)
+		// Use background context instead of request context to avoid cancellation
+		ctx := context.Background()
+		err := h.emailInboxService.SyncEmails(ctx, tenantUUID, projectUUID)
 		if err != nil {
-			// Log error
+			// Log error - you might want to use a proper logger here
+			fmt.Printf("Email sync error for tenant %s: %v\n", tenantUUID, err)
 		}
 	}()
 
@@ -288,14 +290,10 @@ func (h *EmailInboxHandler) SyncEmails(c *gin.Context) {
 
 // GetSyncStatus handles GET /emails/sync-status
 func (h *EmailInboxHandler) GetSyncStatus(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	tenantUUID, err := uuid.Parse(tenantID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
-	}
+	tenantUUID := middleware.GetTenantID(c)
+	projectID := middleware.GetProjectID(c)
 
-	statuses, err := h.emailInboxService.GetSyncStatus(c.Request.Context(), tenantUUID)
+	statuses, err := h.emailInboxService.GetSyncStatus(c.Request.Context(), tenantUUID, projectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get sync status"})
 		return

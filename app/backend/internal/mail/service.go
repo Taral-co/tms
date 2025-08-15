@@ -34,10 +34,15 @@ func NewService(logger zerolog.Logger) *Service {
 	return &Service{
 		logger:     logger,
 		smtpClient: NewSMTPClient(logger, encryption),
-		imapClient: NewIMAPClient(logger),
+		imapClient: NewIMAPClient(logger, encryption),
 		templates:  make(map[string]*EmailTemplate),
 		encryption: encryption,
 	}
+}
+
+// GetIMAPClient returns the configured IMAP client
+func (s *Service) GetIMAPClient() *IMAPClient {
+	return s.imapClient
 }
 
 // ProcessInboundEmail processes an inbound email and determines what to do with it

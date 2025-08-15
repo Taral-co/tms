@@ -146,12 +146,13 @@ export function InboxPage() {
   
   // Load initial data
   useEffect(() => {
+    console.log("Loading Mailboxes")
     loadMailboxes()
-    loadEmails()
   }, [])
   
   // Reload emails when filters change
   useEffect(() => {
+    console.log("Filters changed, reloading emails...")
     loadEmails()
   }, [selectedMailbox, searchQuery, filter])
   

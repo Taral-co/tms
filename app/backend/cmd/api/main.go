@@ -83,7 +83,7 @@ func main() {
 	messageService := service.NewMessageService(messageRepo, ticketRepo, rbacService)
 	publicService := service.NewPublicService(ticketRepo, messageRepo, jwtAuth)
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
-	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo)
+	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo, emailRepo, mailService, mailLogger)
 	domainValidationService := service.NewDomainValidationService(domainValidationRepo, mailService)
 
 	// Integration services
@@ -358,6 +358,7 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 					inbox.POST("/:email_id/reply", emailInboxHandler.ReplyToEmail)
 					inbox.POST("/:email_id/mark-read", emailInboxHandler.MarkAsRead)
 					inbox.POST("/sync", emailInboxHandler.SyncEmails)
+					inbox.GET("/sync-status", emailInboxHandler.GetSyncStatus)
 				}
 
 				// Domain validation

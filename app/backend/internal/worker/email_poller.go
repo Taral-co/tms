@@ -26,7 +26,7 @@ type IMAPPollerManager struct {
 // NewIMAPPollerManager creates a new IMAP poller manager
 func NewIMAPPollerManager(logger zerolog.Logger, emailRepo *repo.EmailRepo, mailService *mail.Service) *IMAPPollerManager {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &IMAPPollerManager{
 		logger:      logger,
 		emailRepo:   emailRepo,
@@ -51,12 +51,12 @@ func (m *IMAPPollerManager) Start() error {
 // Stop stops all IMAP pollers
 func (m *IMAPPollerManager) Stop() {
 	m.logger.Info().Msg("Stopping IMAP poller manager")
-	
+
 	m.cancel()
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	for _, poller := range m.pollers {
 		poller.Stop()
 	}
@@ -86,7 +86,7 @@ func (m *IMAPPollerManager) AddConnector(connector *models.EmailConnector) error
 	)
 
 	m.pollers[connector.ID] = poller
-	
+
 	// Start the poller
 	go poller.Start(m.ctx)
 
@@ -106,7 +106,7 @@ func (m *IMAPPollerManager) RemoveConnector(connectorID uuid.UUID) {
 	if poller, exists := m.pollers[connectorID]; exists {
 		poller.Stop()
 		delete(m.pollers, connectorID)
-		
+
 		m.logger.Info().
 			Str("connector_id", connectorID.String()).
 			Msg("Removed IMAP poller")
@@ -117,14 +117,14 @@ func (m *IMAPPollerManager) RemoveConnector(connectorID uuid.UUID) {
 func (m *IMAPPollerManager) loadActiveConnectors() error {
 	// TODO: Get all tenants and load their connectors
 	// For now, we'll simulate this with a placeholder
-	
+
 	m.logger.Info().Msg("Loading active IMAP connectors")
-	
+
 	// In a real implementation, you would:
 	// 1. Get all tenants
 	// 2. For each tenant, get active IMAP connectors
 	// 3. Start pollers for each connector
-	
+
 	return nil
 }
 
@@ -146,7 +146,7 @@ func (m *IMAPPollerManager) monitorConnectors() {
 // refreshConnectors refreshes the list of active connectors
 func (m *IMAPPollerManager) refreshConnectors() {
 	m.logger.Debug().Msg("Refreshing IMAP connectors")
-	
+
 	// TODO: Implement connector refresh logic
 	// This would check for:
 	// - New active connectors
@@ -170,14 +170,14 @@ type IMAPPoller struct {
 // NewIMAPPoller creates a new IMAP poller for a connector
 func NewIMAPPoller(logger zerolog.Logger, connector *models.EmailConnector, emailRepo *repo.EmailRepo, mailService *mail.Service) *IMAPPoller {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &IMAPPoller{
 		logger:      logger,
 		connector:   connector,
 		emailRepo:   emailRepo,
 		mailService: mailService,
-		imapClient:  mail.NewIMAPClient(logger),
-		lastUID:     0, // TODO: Load from persistent storage
+		imapClient:  mailService.GetIMAPClient(),
+		lastUID:     0,                // TODO: Load from persistent storage
 		interval:    60 * time.Second, // Default polling interval
 		ctx:         ctx,
 		cancel:      cancel,
@@ -226,7 +226,7 @@ func (p *IMAPPoller) Stop() {
 // poll performs a single IMAP polling cycle
 func (p *IMAPPoller) poll() {
 	start := time.Now()
-	
+
 	p.logger.Debug().
 		Uint32("last_uid", p.lastUID).
 		Msg("Starting IMAP poll")
@@ -264,7 +264,7 @@ func (p *IMAPPoller) poll() {
 // processMessage processes a single inbound email message
 func (p *IMAPPoller) processMessage(msg *mail.ParsedMessage) error {
 	start := time.Now()
-	
+
 	p.logger.Info().
 		Str("message_id", msg.MessageID).
 		Str("from", msg.From).
@@ -327,7 +327,7 @@ func (p *IMAPPoller) processMessage(msg *mail.ParsedMessage) error {
 	if result.TicketID != uuid.Nil {
 		logEntry.TicketID = &result.TicketID
 	}
-	
+
 	if result.ProjectID != uuid.Nil {
 		logEntry.ProjectID = &result.ProjectID
 	}
@@ -353,7 +353,7 @@ func (p *IMAPPoller) processMessage(msg *mail.ParsedMessage) error {
 // containsAddress checks if an address contains the target address
 func containsAddress(fullAddress, targetAddress string) bool {
 	// Simple contains check - could be enhanced for proper email parsing
-	return fullAddress == targetAddress || 
-		   (len(fullAddress) > len(targetAddress) && 
-		   	fullAddress[len(fullAddress)-len(targetAddress):] == targetAddress)
+	return fullAddress == targetAddress ||
+		(len(fullAddress) > len(targetAddress) &&
+			fullAddress[len(fullAddress)-len(targetAddress):] == targetAddress)
 }
