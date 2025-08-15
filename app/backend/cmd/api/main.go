@@ -21,7 +21,6 @@ import (
 	"github.com/bareuptime/tms/internal/redis"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/bareuptime/tms/internal/service"
-	"github.com/bareuptime/tms/internal/worker"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -90,13 +89,6 @@ func main() {
 	webhookService := service.NewWebhookService(integrationRepo)
 	integrationService := service.NewIntegrationService(integrationRepo, webhookService)
 
-	// Initialize IMAP poller manager
-	imapPollerManager := worker.NewIMAPPollerManager(
-		mailLogger,
-		emailRepo,
-		mailService,
-	)
-
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, publicService)
 	projectHandler := handlers.NewProjectHandler(projectService)
@@ -113,15 +105,6 @@ func main() {
 
 	// Setup router
 	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler)
-
-	// Start background services
-	if cfg.Email.EnableEmailToTicket {
-		go func() {
-			if err := imapPollerManager.Start(); err != nil {
-				log.Printf("Failed to start IMAP poller manager: %v", err)
-			}
-		}()
-	}
 
 	// Create HTTP server
 	server := &http.Server{
@@ -142,11 +125,6 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
-
-	// Stop IMAP poller manager
-	if cfg.Email.EnableEmailToTicket {
-		imapPollerManager.Stop()
-	}
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

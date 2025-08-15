@@ -150,7 +150,7 @@ func (s *EmailInboxService) SyncEmails(ctx context.Context, tenantID, projectID 
 			Str("connector_name", connector.Name).
 			Msg("Starting sync for connector")
 
-		if err := s.syncConnector(ctx, connector); err != nil {
+		if err := s.syncConnector(ctx, connector, projectID); err != nil {
 			s.logger.Error().
 				Err(err).
 				Str("connector_id", connector.ID.String()).
@@ -177,9 +177,9 @@ func (s *EmailInboxService) SyncEmails(ctx context.Context, tenantID, projectID 
 }
 
 // syncConnector performs email synchronization for a single IMAP connector
-func (s *EmailInboxService) syncConnector(ctx context.Context, connector *models.EmailConnector) error {
+func (s *EmailInboxService) syncConnector(ctx context.Context, connector *models.EmailConnector, projectID uuid.UUID) error {
 	// Get mailboxes for this connector
-	mailboxes, err := s.emailRepo.ListMailboxes(ctx, connector.TenantID)
+	mailboxes, err := s.emailRepo.ListMailboxes(ctx, connector.TenantID, projectID)
 	if err != nil {
 		return fmt.Errorf("failed to get mailboxes: %w", err)
 	}
@@ -560,7 +560,7 @@ func (s *EmailInboxService) GetSyncStatus(ctx context.Context, tenantID, project
 	// For each connector, get sync statuses for its mailboxes
 	for _, connector := range connectors {
 		// Get mailboxes for this connector
-		mailboxes, err := s.emailRepo.ListMailboxes(ctx, connector.TenantID)
+		mailboxes, err := s.emailRepo.ListMailboxes(ctx, connector.TenantID, projectID)
 		if err != nil {
 			s.logger.Error().
 				Err(err).

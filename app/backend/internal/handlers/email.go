@@ -416,15 +416,11 @@ func (h *EmailHandler) CreateMailbox(c *gin.Context) {
 
 // ListMailboxes lists all email mailboxes for a tenant
 func (h *EmailHandler) ListMailboxes(c *gin.Context) {
-	tenantIDStr := c.MustGet("tenant_id").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid tenant ID format"})
-		return
-	}
+	tenantID := middleware.GetTenantID(c)
+	projectID := middleware.GetProjectID(c)
 
 	// Get all mailboxes for the tenant (not project-specific)
-	mailboxes, err := h.emailRepo.ListMailboxes(c.Request.Context(), tenantID)
+	mailboxes, err := h.emailRepo.ListMailboxes(c.Request.Context(), tenantID, projectID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list mailboxes"})
 		return

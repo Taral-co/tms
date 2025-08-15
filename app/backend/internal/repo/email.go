@@ -185,11 +185,11 @@ func (r *EmailRepo) GetMailbox(ctx context.Context, tenantID uuid.UUID, address 
 }
 
 // ListMailboxes retrieves all mailboxes for a tenant
-func (r *EmailRepo) ListMailboxes(ctx context.Context, tenantID uuid.UUID) ([]*models.EmailMailbox, error) {
+func (r *EmailRepo) ListMailboxes(ctx context.Context, tenantID, projectID uuid.UUID) ([]*models.EmailMailbox, error) {
 	var mailboxes []*models.EmailMailbox
 
-	query := `SELECT * FROM email_mailboxes WHERE tenant_id = $1 ORDER BY created_at DESC`
-	err := r.db.SelectContext(ctx, &mailboxes, query, tenantID)
+	query := `SELECT * FROM email_mailboxes WHERE tenant_id = $1 AND project_id = $2 ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &mailboxes, query, tenantID, projectID)
 	return mailboxes, err
 }
 
