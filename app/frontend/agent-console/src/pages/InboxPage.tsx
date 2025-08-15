@@ -27,41 +27,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  Separator,
   Card,
   CardHeader,
   CardContent
 } from '@tms/shared'
-import { apiClient, EmailInbox, EmailMailbox, EmailFilter, ConvertToTicketRequest } from '../lib/api'
+import { apiClient, EmailInbox, EmailMailbox, EmailConnector, EmailFilter, ConvertToTicketRequest } from '../lib/api'
 import { format, isToday, isYesterday } from 'date-fns'
-
-// Simple dropdown component since it's not in shared
-const DropdownMenu = ({ children }: { children: React.ReactNode }) => children
-const DropdownMenuTrigger = ({ children }: { children: React.ReactNode }) => children
-const DropdownMenuContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="absolute right-0 z-50 mt-1 w-48 rounded-md border bg-popover shadow-md">
-    <div className="p-1">{children}</div>
-  </div>
-)
-const DropdownMenuItem = ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-  <div
-    className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
-    onClick={onClick}
-  >
-    {children}
-  </div>
-)
-const DropdownMenuSeparator = () => <div className="mx-1 my-1 h-px bg-border" />
-
-// Simple tooltip component since it's not in shared
-const TooltipProvider = ({ children }: { children: React.ReactNode }) => children
-const Tooltip = ({ children }: { children: React.ReactNode }) => children
-const TooltipTrigger = ({ children }: { children: React.ReactNode }) => children
-const TooltipContent = ({ children }: { children: React.ReactNode }) => (
-  <div className="absolute z-50 rounded bg-popover px-2 py-1 text-xs shadow-md">
-    {children}
-  </div>
-)
 
 // Filter state type
 interface FilterState {
@@ -261,6 +232,7 @@ export function InboxPage() {
   // State management
   const [emails, setEmails] = useState<EmailInbox[]>([])
   const [mailboxes, setMailboxes] = useState<EmailMailbox[]>([])
+  const [connectors, setConnectors] = useState<EmailConnector[]>([])
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState<EmailInbox | null>(null)
@@ -275,14 +247,26 @@ export function InboxPage() {
   
   // Load initial data
   useEffect(() => {
+    loadConnectors()
     loadMailboxes()
   }, [])
-  
+
   // Reload emails when filters change
   useEffect(() => {
-    loadEmails()
-  }, [filters])
-  
+    if (connectors.length > 0 && mailboxes.length > 0) {
+      loadEmails()
+    }
+  }, [filters, connectors.length, mailboxes.length])
+
+  const loadConnectors = async () => {
+    try {
+      const response = await apiClient.getEmailConnectors()
+      setConnectors(response.connectors || [])
+    } catch (error) {
+      console.error('Failed to load connectors:', error)
+    }
+  }
+
   const loadMailboxes = async () => {
     try {
       const response = await apiClient.getEmailMailboxes()
@@ -371,33 +355,144 @@ export function InboxPage() {
   const unreadCount = useMemo(() => emails.filter(e => !e.is_read).length, [emails])
   const attachmentCount = useMemo(() => emails.filter(e => e.has_attachments).length, [emails])
   
-  // Show setup message if no mailboxes configured
-  if (mailboxes.length === 0) {
+  // Show setup messages if connectors or mailboxes are not configured
+  if (connectors.length === 0 || mailboxes.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <Card className="max-w-lg">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <Mail className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-2xl font-semibold">Email Setup Required</h2>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
+      <div className="h-full flex items-center justify-center p-6">
+        <div className="max-w-4xl w-full">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold mb-2">Email System Setup</h1>
             <p className="text-muted-foreground">
-              Configure email connectors and mailboxes to start receiving customer emails as tickets.
+              Complete these steps to start receiving customer emails
             </p>
-            <div className="space-y-2">
-              <Button onClick={() => navigate('/inbox/connectors')} className="w-full">
-                <Settings className="w-4 h-4 mr-2" />
-                Configure Email Setup
-              </Button>
-              <Button variant="outline" onClick={() => navigate('/inbox/mailboxes')} className="w-full">
-                <Mail className="w-4 h-4 mr-2" />
-                Manage Mailboxes
-              </Button>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Step 1: Email Connectors */}
+            <Card className={`relative ${connectors.length > 0 ? 'border-success/30 bg-success/5' : 'border-warning/30 bg-warning/5'}`}>
+              <CardHeader className="text-center">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                  connectors.length > 0 
+                    ? 'bg-success/10' 
+                    : 'bg-warning/10'
+                }`}>
+                  <Settings className={`w-8 h-8 ${
+                    connectors.length > 0 
+                      ? 'text-success' 
+                      : 'text-warning'
+                  }`} />
+                </div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-2xl font-bold text-muted-foreground">1.</span>
+                  <h2 className="text-xl font-semibold">Email Connectors</h2>
+                  {connectors.length > 0 && (
+                    <Badge variant="secondary" className="bg-success/10 text-success border-success/30">
+                      ✓ Complete
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="text-center space-y-4">
+                <p className="text-muted-foreground">
+                  {connectors.length > 0 
+                    ? `${connectors.length} email connector${connectors.length === 1 ? '' : 's'} configured successfully.`
+                    : 'Configure IMAP/SMTP connectors to connect your email accounts.'
+                  }
+                </p>
+                <Button 
+                  onClick={() => navigate('/inbox/connectors')} 
+                  className="w-full"
+                  variant={connectors.length > 0 ? 'outline' : 'default'}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  {connectors.length > 0 ? 'Manage Email Connectors' : 'Configure Email Connectors'}
+                </Button>
+              </CardContent>
+              {connectors.length > 0 && (
+                <div className="absolute top-3 right-3">
+                  <div className="w-6 h-6 bg-success rounded-full flex items-center justify-center">
+                    <span className="text-success-foreground text-sm">✓</span>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Step 2: Mailboxes */}
+            <Card className={`relative ${mailboxes.length > 0 ? 'border-success/30 bg-success/5' : connectors.length > 0 ? 'border-primary/30 bg-primary/5' : 'border-muted bg-muted/50'}`}>
+              <CardHeader className="text-center">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                  mailboxes.length > 0 
+                    ? 'bg-success/10'
+                    : connectors.length > 0 
+                      ? 'bg-primary/10'
+                      : 'bg-muted'
+                }`}>
+                  <Mail className={`w-8 h-8 ${
+                    mailboxes.length > 0 
+                      ? 'text-success'
+                      : connectors.length > 0 
+                        ? 'text-primary'
+                        : 'text-muted-foreground'
+                  }`} />
+                </div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-2xl font-bold text-muted-foreground">2.</span>
+                  <h2 className="text-xl font-semibold">Email Mailboxes</h2>
+                  {mailboxes.length > 0 && (
+                    <Badge variant="secondary" className="bg-success/10 text-success border-success/30">
+                      ✓ Complete
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="text-center space-y-4">
+                <p className="text-muted-foreground">
+                  {mailboxes.length > 0 
+                    ? `${mailboxes.length} mailbox${mailboxes.length === 1 ? '' : 'es'} configured and ready to receive emails.`
+                    : connectors.length > 0 
+                      ? 'Create mailboxes using your configured connectors to start receiving emails.'
+                      : 'First configure email connectors, then create mailboxes to receive emails.'
+                  }
+                </p>
+                <Button 
+                  onClick={() => navigate('/inbox/mailboxes')} 
+                  className="w-full"
+                  variant={mailboxes.length > 0 ? 'outline' : 'default'}
+                  disabled={connectors.length === 0}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  {mailboxes.length > 0 ? 'Manage Mailboxes' : 'Configure Mailboxes'}
+                </Button>
+                {connectors.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Configure connectors first to enable this step
+                  </p>
+                )}
+              </CardContent>
+              {mailboxes.length > 0 && (
+                <div className="absolute top-3 right-3">
+                  <div className="w-6 h-6 bg-success rounded-full flex items-center justify-center">
+                    <span className="text-success-foreground text-sm">✓</span>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Progress indicator */}
+          <div className="mt-8 text-center">
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <div className={`w-3 h-3 rounded-full ${connectors.length > 0 ? 'bg-success' : 'bg-muted-foreground/30'}`}></div>
+              <div className={`w-12 h-1 ${connectors.length > 0 ? 'bg-success' : 'bg-muted-foreground/30'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${mailboxes.length > 0 ? 'bg-success' : connectors.length > 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`}></div>
             </div>
-          </CardContent>
-        </Card>
+            <p className="text-sm text-muted-foreground">
+              {connectors.length === 0 && mailboxes.length === 0 && "Start by configuring your email connectors"}
+              {connectors.length > 0 && mailboxes.length === 0 && "Great! Now configure your mailboxes"}
+              {connectors.length > 0 && mailboxes.length > 0 && "Setup complete! You can now receive emails"}
+            </p>
+          </div>
+        </div>
       </div>
     )
   }
