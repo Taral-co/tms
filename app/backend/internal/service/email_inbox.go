@@ -263,7 +263,7 @@ func (s *EmailInboxService) syncMailbox(ctx context.Context, connector *models.E
 	}()
 
 	// Fetch new messages since last UID
-	messages, err := imapClient.FetchMessages(ctx, connector, uint32(syncStatus.LastUID))
+	messages, err := imapClient.FetchMessages(ctx, connector, uint32(syncStatus.LastUID), false)
 	if err != nil {
 		syncStatus.SyncStatus = "error"
 		errorMsg := err.Error()

@@ -30,7 +30,7 @@ func NewIMAPClient(logger zerolog.Logger, encryption *crypto.PasswordEncryption)
 }
 
 // FetchMessages fetches new messages from IMAP server
-func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailConnector, lastUID uint32) ([]*ParsedMessage, error) {
+func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailConnector, lastUID uint32, includeSeen bool) ([]*ParsedMessage, error) {
 	if connector.IMAPHost == nil || connector.IMAPPort == nil {
 		return nil, fmt.Errorf("IMAP configuration incomplete")
 	}
@@ -68,8 +68,9 @@ func (c *IMAPClient) FetchMessages(ctx context.Context, connector *models.EmailC
 		}
 		searchCriteria.Uid.AddRange(lastUID+1, 0) // 0 means no upper limit
 	} else {
-		searchCriteria = &imap.SearchCriteria{
-			WithoutFlags: []string{imap.SeenFlag},
+		searchCriteria = &imap.SearchCriteria{}
+		if !includeSeen {
+			searchCriteria.WithoutFlags = []string{imap.SeenFlag}
 		}
 	}
 

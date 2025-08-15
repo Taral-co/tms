@@ -231,7 +231,7 @@ func (p *IMAPPoller) poll() {
 		Uint32("last_uid", p.lastUID).
 		Msg("Starting IMAP poll")
 
-	messages, err := p.imapClient.FetchMessages(p.ctx, p.connector, p.lastUID)
+	messages, err := p.imapClient.FetchMessages(p.ctx, p.connector, p.lastUID, false)
 	if err != nil {
 		p.logger.Error().Err(err).Msg("Failed to fetch IMAP messages")
 		return
