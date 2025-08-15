@@ -251,9 +251,9 @@ export function EmailMailboxesPage() {
     <div className="h-full max-h-screen p-6 space-y-6 overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => navigate('/inbox/connectors')}>
+        <Button variant="outline" onClick={() => navigate('/inbox')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Connectors
+          Back to Inbox
         </Button>
         <div className="text-center">
           <h1 className="text-3xl font-bold">Email Mailboxes</h1>
