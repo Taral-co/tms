@@ -29,7 +29,7 @@ export function useAuth() {
         } else {
           apiClient.setProjectId('550e8400-e29b-41d4-a716-446655440001')
         }
-      } catch (err) {
+      } catch (_err) {
         // Clear corrupted data
         localStorage.removeItem('auth_token')
         localStorage.removeItem('refresh_token')
@@ -58,7 +58,7 @@ export function useAuth() {
           localStorage.removeItem('tenant_id')
           localStorage.removeItem('project_id')
         })
-      } catch (err) {
+      } catch (_err) {
         // Clear corrupted data
         localStorage.removeItem('auth_token')
         localStorage.removeItem('refresh_token')

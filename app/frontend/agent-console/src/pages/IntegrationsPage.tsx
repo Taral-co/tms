@@ -26,7 +26,6 @@ import {
   ShoppingCart,
   BarChart,
   Share2,
-  Slack
 } from 'lucide-react'
 import { 
   apiClient, 

@@ -48,6 +48,12 @@ pnpm run dev
 - **Components**: Reusable DataCard, DetailSection, PageHeader, and StatusIndicator components
 - **Inbox**: Virtualized list (5k+ tickets), advanced filters, infinite scroll
 - **Ticket View**: Professional status management, timeline, reply editor with AI assist
+- **Chat System**: Real-time messaging with tawk.to-like functionality
+  - Live chat sessions with customers
+  - Agent-initiated and customer-initiated chats
+  - Domain validation for secure widget embedding
+  - Professional chat interface with message history
+  - Session assignment and management
 - **Settings**: User management, tenant configuration
 - **Theme Support**: Professional light/dark/high-contrast themes with CSS variables
 
@@ -79,6 +85,16 @@ pnpm -w -r run lint
 # Type checking
 pnpm -w -r run type-check
 ```
+
+### Chat System
+
+The TMS platform includes a complete live chat solution. See [CHAT_SYSTEM_GUIDE.md](./CHAT_SYSTEM_GUIDE.md) for detailed documentation on:
+
+- Setting up chat widgets
+- Managing chat sessions
+- Embedding widgets on websites
+- Agent training and best practices
+- API reference and troubleshooting
 
 ### Performance
 

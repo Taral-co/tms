@@ -34,11 +34,6 @@ interface AgentProject {
   role: string
 }
 
-interface DnsMetaData {
-  dns_record: string
-  dns_value: string
-}
-
 // DomainValidation type is now imported from apiClient
 
 export function SettingsPage() {
@@ -134,11 +129,12 @@ export function SettingsPage() {
     
     try {
       switch (activeTab) {
-        case 'projects':
+        case 'projects': {
           const projectList = await apiClient.getProjects()
           setProjects(projectList)
           break
-        case 'roles':
+        }
+        case 'roles': {
           // Load agents with their roles
           const agentList = await apiClient.getAgents()
           setAgents(agentList)
@@ -156,7 +152,8 @@ export function SettingsPage() {
           }
           setAgentProjects(projectAssignments)
           break
-        case 'domains':
+        }
+        case 'domains': {
           // Load projects first, then load domains from all projects
           // const allProjects = await apiClient.getProjects()
           // setProjects(allProjects)
@@ -172,6 +169,7 @@ export function SettingsPage() {
             
           
           break
+        }
         case 'branding':
           try {
             const brandingConfig = await apiClient.getBrandingSettings()

@@ -2,12 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { 
   Plus, 
   Search, 
-  Filter, 
   MoreHorizontal, 
   Clock, 
   User, 
   AlertCircle, 
-  Ticket as TicketIcon,
   Download,
   RefreshCw,
   Inbox,

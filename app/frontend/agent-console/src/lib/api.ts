@@ -1018,6 +1018,11 @@ class APIClient {
     return response.data.sessions
   }
 
+  async createChatSession(data: { widget_id: string; customer_email: string; customer_name?: string }): Promise<ChatSession> {
+    const response: AxiosResponse<ChatSession> = await this.client.post('/chat/sessions', data)
+    return response.data
+  }
+
   async getChatSession(sessionId: string): Promise<ChatSession> {
     const response: AxiosResponse<ChatSession> = await this.client.get(`/chat/sessions/${sessionId}`)
     return response.data

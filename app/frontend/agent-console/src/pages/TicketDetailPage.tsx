@@ -36,7 +36,7 @@ import {
   useToast,
   Toaster
 } from '@tms/shared'
-import { apiClient, Ticket, Message, ReassignTicketRequest, CustomerValidationResult, MagicLinkResult } from '../lib/api'
+import { apiClient, Ticket, Message } from '../lib/api'
 
 const statusColors = {
   new: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',

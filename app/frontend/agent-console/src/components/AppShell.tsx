@@ -16,7 +16,8 @@ import {
   Home,
   Ticket,
   LogOut,
-  MessageCircle
+  MessageCircle,
+  Puzzle
 } from 'lucide-react'
 import { useTheme } from '../components/ThemeProvider'
 import { useAuth } from '../hooks/useAuth'
@@ -63,6 +64,7 @@ export function AppShell({ children }: AppShellProps) {
     { name: 'Inbox', icon: Inbox, href: '/inbox' },
     { name: 'Tickets', icon: Ticket, href: '/tickets' },
     { name: 'Chat', icon: MessageCircle, href: '/chat/sessions' },
+    { name: 'Chat Widgets', icon: Puzzle, href: '/chat/widgets' },
     { name: 'Analytics', icon: BarChart3, href: '/analytics' },
     { name: 'Integrations', icon: Mail, href: '/integrations' },
     { name: 'Settings', icon: Settings, href: '/settings' },

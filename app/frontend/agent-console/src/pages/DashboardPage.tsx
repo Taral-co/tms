@@ -36,7 +36,7 @@ export const DashboardPage: FC = () => {
         }
         
         const openTickets = tickets.filter(t => t.status === 'open').length
-        const inProgressTickets = tickets.filter(t => t.status === 'in_progress').length
+        const inProgressTickets = tickets.filter(t => t.status === 'pending').length
         const resolvedTickets = tickets.filter(t => t.status === 'resolved').length
         const urgentTickets = tickets.filter(t => t.priority === 'urgent').length
         
@@ -177,8 +177,8 @@ export const DashboardPage: FC = () => {
                 </p>
                 <p className={`text-sm mt-1 ${
                   stat.changeType === 'increase' ? 'text-green-600' :
-                  stat.changeType === 'decrease' ? 'text-red-600' :
-                  'text-muted-foreground'
+                  stat.changeType === 'neutral' ? 'text-muted-foreground' :
+                  'text-red-600'
                 }`}>
                   {stat.change} from last week
                 </p>

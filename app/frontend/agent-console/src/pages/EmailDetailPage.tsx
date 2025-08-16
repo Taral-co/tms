@@ -13,11 +13,6 @@ import {
   Clock,
   ExternalLink,
   AlertTriangle,
-  CheckCircle2,
-  MoreHorizontal,
-  Archive,
-  Tag,
-  Flag
 } from 'lucide-react'
 import { 
   Button, 
