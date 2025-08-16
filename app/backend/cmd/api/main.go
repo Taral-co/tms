@@ -64,6 +64,11 @@ func main() {
 	tenantRepo := repo.NewTenantRepository(database.DB.DB)
 	emailInboxRepo := repo.NewEmailInboxRepository(database.DB.DB)
 	domainValidationRepo := repo.NewDomainValidationRepo(database.DB)
+	
+	// Chat repositories
+	chatWidgetRepo := repo.NewChatWidgetRepo(database.DB)
+	chatSessionRepo := repo.NewChatSessionRepo(database.DB)
+	chatMessageRepo := repo.NewChatMessageRepo(database.DB)
 
 	// Initialize mail service
 	mailLogger := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -84,6 +89,10 @@ func main() {
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
 	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo, emailRepo, mailService, mailLogger)
 	domainValidationService := service.NewDomainValidationService(domainValidationRepo, mailService)
+	
+	// Chat services
+	chatWidgetService := service.NewChatWidgetService(chatWidgetRepo, domainValidationRepo)
+	chatSessionService := service.NewChatSessionService(chatSessionRepo, chatMessageRepo, chatWidgetRepo, customerRepo, ticketService)
 
 	// Integration services
 	integrationService := service.NewIntegrationService(integrationRepo)
@@ -101,9 +110,14 @@ func main() {
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
 	tenantHandler := handlers.NewTenantHandler(tenantService)
 	domainValidationHandler := handlers.NewDomainValidationHandler(domainValidationService)
+	
+	// Chat handlers
+	chatWidgetHandler := handlers.NewChatWidgetHandler(chatWidgetService)
+	chatSessionHandler := handlers.NewChatSessionHandler(chatSessionService, chatWidgetService)
+	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -136,7 +150,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler, domainNameHandler *handlers.DomainNameHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler, domainNameHandler *handlers.DomainNameHandler, chatWidgetHandler *handlers.ChatWidgetHandler, chatSessionHandler *handlers.ChatSessionHandler, chatWebSocketHandler *handlers.ChatWebSocketHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -348,6 +362,42 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 					domains.DELETE("/:domain_id", domainNameHandler.DeleteDomainName)
 				}
 			}
+			
+			// Chat system endpoints
+			chat := projects.Group("/chat")
+			{
+				// Chat widgets
+				chat.GET("/widgets", chatWidgetHandler.ListChatWidgets)
+				chat.POST("/widgets", chatWidgetHandler.CreateChatWidget)
+				chat.GET("/widgets/:widget_id", chatWidgetHandler.GetChatWidget)
+				chat.PATCH("/widgets/:widget_id", chatWidgetHandler.UpdateChatWidget)
+				chat.DELETE("/widgets/:widget_id", chatWidgetHandler.DeleteChatWidget)
+
+				// Chat sessions (agent endpoints)
+				chat.GET("/sessions", chatSessionHandler.ListChatSessions)
+				chat.GET("/sessions/:session_id", chatSessionHandler.GetChatSession)
+				chat.POST("/sessions/:session_id/assign", chatSessionHandler.AssignAgent)
+				chat.GET("/sessions/:session_id/messages", chatSessionHandler.GetChatMessages)
+				chat.POST("/sessions/:session_id/messages", chatSessionHandler.SendMessage)
+
+				// WebSocket endpoint for real-time chat
+				chat.GET("/ws/:session_id", chatWebSocketHandler.HandleAgentWebSocket)
+			}
+		}
+		
+		// Public chat endpoints (no authentication required)
+		publicChat := router.Group("/api/public/chat")
+		{
+			// Widget initialization and chat initiation
+			publicChat.POST("/widgets/:widget_id/initiate", chatSessionHandler.InitiateChat)
+			
+			// Public chat session endpoints (token-based auth)
+			publicChat.GET("/sessions/:session_token", chatSessionHandler.GetChatSessionByToken)
+			publicChat.GET("/sessions/:session_token/messages", chatSessionHandler.GetVisitorMessages)
+			publicChat.POST("/sessions/:session_token/messages", chatSessionHandler.SendVisitorMessage)
+			
+			// WebSocket endpoint for visitors
+			publicChat.GET("/ws/:session_token", chatWebSocketHandler.HandleWebSocket)
 		}
 	}
 

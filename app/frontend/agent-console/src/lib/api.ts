@@ -1,4 +1,14 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios'
+import type {
+  ChatWidget,
+  ChatSession,
+  ChatMessage,
+  CreateChatWidgetRequest,
+  UpdateChatWidgetRequest,
+  SendChatMessageRequest,
+  AssignChatSessionRequest,
+  ChatSessionFilters
+} from '../types/chat'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/v1'
 
@@ -969,6 +979,83 @@ class APIClient {
 
   async deleteDomainValidation(domainId: string): Promise<void> {
     await this.client.delete(`/email/domains/${domainId}`)
+  }
+
+  // Chat Widget endpoints
+  async createChatWidget(data: CreateChatWidgetRequest): Promise<ChatWidget> {
+    const response: AxiosResponse<ChatWidget> = await this.client.post('/chat/widgets', data)
+    return response.data
+  }
+
+  async getChatWidget(widgetId: string): Promise<ChatWidget> {
+    const response: AxiosResponse<ChatWidget> = await this.client.get(`/chat/widgets/${widgetId}`)
+    return response.data
+  }
+
+  async listChatWidgets(): Promise<ChatWidget[]> {
+    const response: AxiosResponse<{ widgets: ChatWidget[] }> = await this.client.get('/chat/widgets')
+    return response.data.widgets
+  }
+
+  async updateChatWidget(widgetId: string, data: UpdateChatWidgetRequest): Promise<ChatWidget> {
+    const response: AxiosResponse<ChatWidget> = await this.client.put(`/chat/widgets/${widgetId}`, data)
+    return response.data
+  }
+
+  async deleteChatWidget(widgetId: string): Promise<void> {
+    await this.client.delete(`/chat/widgets/${widgetId}`)
+  }
+
+  // Chat Session endpoints
+  async listChatSessions(filters?: ChatSessionFilters): Promise<ChatSession[]> {
+    const params = new URLSearchParams()
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.assigned_agent_id) params.append('assigned_agent_id', filters.assigned_agent_id)
+    if (filters?.widget_id) params.append('widget_id', filters.widget_id)
+    if (filters?.limit) params.append('limit', filters.limit.toString())
+
+    const response: AxiosResponse<{ sessions: ChatSession[] }> = await this.client.get(`/chat/sessions?${params.toString()}`)
+    return response.data.sessions
+  }
+
+  async getChatSession(sessionId: string): Promise<ChatSession> {
+    const response: AxiosResponse<ChatSession> = await this.client.get(`/chat/sessions/${sessionId}`)
+    return response.data
+  }
+
+  async getActiveChatSessions(): Promise<ChatSession[]> {
+    const response: AxiosResponse<{ sessions: ChatSession[] }> = await this.client.get('/chat/sessions/active')
+    return response.data.sessions
+  }
+
+  async assignChatSession(sessionId: string, data: AssignChatSessionRequest): Promise<void> {
+    await this.client.post(`/chat/sessions/${sessionId}/assign`, data)
+  }
+
+  async endChatSession(sessionId: string): Promise<void> {
+    await this.client.post(`/chat/sessions/${sessionId}/end`)
+  }
+
+  // Chat Message endpoints
+  async getChatMessages(sessionId: string, includePrivate: boolean = true): Promise<ChatMessage[]> {
+    const params = includePrivate ? '?include_private=true' : ''
+    const response: AxiosResponse<{ messages: ChatMessage[] }> = await this.client.get(`/chat/sessions/${sessionId}/messages${params}`)
+    return response.data.messages
+  }
+
+  async sendChatMessage(sessionId: string, data: SendChatMessageRequest): Promise<ChatMessage> {
+    const response: AxiosResponse<ChatMessage> = await this.client.post(`/chat/sessions/${sessionId}/messages`, data)
+    return response.data
+  }
+
+  async markChatMessagesAsRead(sessionId: string): Promise<void> {
+    await this.client.post(`/chat/sessions/${sessionId}/read`)
+  }
+
+  // WebSocket URL for real-time chat
+  getChatWebSocketUrl(): string {
+    const wsUrl = this.client.defaults.baseURL?.replace('http', 'ws') || 'ws://localhost:8080/v1'
+    return `${wsUrl}/chat/ws`
   }
 }
 

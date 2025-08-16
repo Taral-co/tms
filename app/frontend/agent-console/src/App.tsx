@@ -18,6 +18,8 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { ChatWidgetsPage } from './pages/ChatWidgetsPage'
+import { ChatSessionsPage } from './pages/ChatSessionsPage'
 import './index.css'
 
 // Configure React Query client
@@ -70,6 +72,9 @@ function AppContent() {
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/chat/widgets" element={<ChatWidgetsPage />} />
+              <Route path="/chat/sessions" element={<ChatSessionsPage />} />
+              <Route path="/chat/sessions/:sessionId" element={<ChatSessionsPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </AppShell>
