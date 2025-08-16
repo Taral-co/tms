@@ -371,3 +371,39 @@ func (h *TicketHandler) SendMagicLink(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
+
+// DeleteTicket handles ticket deletion
+func (h *TicketHandler) DeleteTicket(c *gin.Context) {
+	tenantID := middleware.GetTenantID(c)
+	projectIDStr := c.Param("project_id")
+	ticketIDStr := c.Param("ticket_id")
+	agentID := middleware.GetAgentID(c)
+
+	projectID, err := uuid.Parse(projectIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project_id"})
+		return
+	}
+
+	ticketID, err := uuid.Parse(ticketIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ticket_id"})
+		return
+	}
+
+	err = h.ticketService.DeleteTicket(c.Request.Context(), tenantID, projectID, ticketID, agentID)
+	if err != nil {
+		if err.Error() == "insufficient permissions to delete ticket" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions to delete ticket"})
+			return
+		}
+		if err.Error() == "ticket not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Ticket not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete ticket"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Ticket deleted successfully"})
+}

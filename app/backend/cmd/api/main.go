@@ -250,6 +250,9 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				// Dedicated reassignment endpoint (requires admin permissions)
 				tickets.POST("/:ticket_id/reassign", middleware.ProjectAdminMiddleware(), ticketHandler.ReassignTicket)
 
+				// Delete ticket (requires admin permissions)
+				tickets.DELETE("/:ticket_id", middleware.ProjectAdminMiddleware(), ticketHandler.DeleteTicket)
+
 				// Customer validation and magic links
 				tickets.POST("/:ticket_id/validate-customer", ticketHandler.ValidateCustomer)
 				tickets.POST("/:ticket_id/send-magic-link", ticketHandler.SendMagicLink)

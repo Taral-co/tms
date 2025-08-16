@@ -16,5 +16,8 @@ export * from './lib/utils'
 // Enterprise UI Component exports
 export * from './components/ui'
 
+// Hooks exports
+export { useToast } from './hooks/use-toast'
+
 // Virtualized components
 export * from './components/virtualized'

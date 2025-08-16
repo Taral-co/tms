@@ -565,3 +565,36 @@ func (s *TicketService) SendMagicLinkToCustomer(ctx context.Context, tenantID, p
 
 	return result, nil
 }
+
+// DeleteTicket deletes a ticket with proper authorization checks
+func (s *TicketService) DeleteTicket(ctx context.Context, tenantID, projectID, ticketID uuid.UUID, agentID uuid.UUID) error {
+	// Check if agent has admin permissions for this project
+	hasPermission, err := s.rbacService.CheckPermission(ctx, agentID, tenantID, projectID, rbac.PermTicketAdmin)
+	if err != nil {
+		return fmt.Errorf("failed to check permissions: %w", err)
+	}
+
+	if !hasPermission {
+		return fmt.Errorf("insufficient permissions to delete ticket")
+	}
+
+	// Check if ticket exists and belongs to the tenant/project
+	existingTicket, err := s.ticketRepo.GetByTenantAndProjectID(ctx, tenantID, projectID, ticketID)
+	if err != nil {
+		return fmt.Errorf("failed to get ticket: %w", err)
+	}
+
+	if existingTicket == nil {
+		return fmt.Errorf("ticket not found")
+	}
+
+	// Delete the ticket (CASCADE will handle related messages)
+	err = s.ticketRepo.Delete(ctx, tenantID, projectID, ticketID)
+	if err != nil {
+		return fmt.Errorf("failed to delete ticket: %w", err)
+	}
+
+	log.Printf("Ticket %s deleted by agent %s", ticketID, agentID)
+
+	return nil
+}

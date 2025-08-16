@@ -5,53 +5,38 @@ import {
   MoreHorizontal, 
   User, 
   Clock, 
-  Tag, 
   Paperclip, 
   Send, 
-  Star,
-  Archive,
-  AlertTriangle,
-  CheckCircle,
-  MessageSquare,
-  Phone,
-  Mail,
   UserPlus,
   Shield,
-  ExternalLink
+  ExternalLink,
+  Trash2,
+  AlertTriangle,
+  Edit3,
+  Archive,
+  Flag,
+  MessageSquare,
+  Mail
 } from 'lucide-react'
+import { 
+  Button,
+  Badge,
+  Card,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  useToast,
+  Toaster
+} from '@tms/shared'
 import { apiClient, Ticket, Message, ReassignTicketRequest, CustomerValidationResult, MagicLinkResult } from '../lib/api'
-
-// Simplified components - in a real app these would come from a UI library
-const Button = ({ children, variant = 'default', size = 'default', className = '', ...props }: any) => (
-  <button 
-    className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
-      variant === 'outline' ? 'border border-input hover:bg-accent hover:text-accent-foreground' :
-      variant === 'ghost' ? 'hover:bg-accent hover:text-accent-foreground' :
-      variant === 'destructive' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' :
-      'bg-primary text-primary-foreground hover:bg-primary/90'
-    } ${
-      size === 'sm' ? 'h-9 px-3 rounded-md' : 
-      size === 'lg' ? 'h-11 px-8 rounded-md' :
-      'h-10 py-2 px-4'
-    } ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-)
-
-const Badge = ({ children, variant = 'default', className = '' }: any) => (
-  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
-    variant === 'destructive' ? 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80' :
-    variant === 'warning' ? 'border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' :
-    variant === 'success' ? 'border-transparent bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' :
-    variant === 'secondary' ? 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80' :
-    variant === 'outline' ? 'text-foreground' :
-    'border-transparent bg-primary text-primary-foreground hover:bg-primary/80'
-  } ${className}`}>
-    {children}
-  </span>
-)
 
 const statusColors = {
   new: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
@@ -77,6 +62,7 @@ const formatTime = (timestamp: string) => {
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { toast } = useToast()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
@@ -85,6 +71,8 @@ export function TicketDetailPage() {
   const [replyType, setReplyType] = useState<'public' | 'private'>('public')
   const [sending, setSending] = useState(false)
   const [showReassignModal, setShowReassignModal] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [validatingCustomer, setValidatingCustomer] = useState(false)
   const [sendingMagicLink, setSendingMagicLink] = useState(false)
 
@@ -126,11 +114,49 @@ export function TicketDetailPage() {
       
       setMessages(prev => [...prev, newMessage])
       setReplyText('')
+      
+      toast({
+        title: "Reply sent",
+        description: "Your reply has been sent successfully.",
+        variant: "default"
+      })
     } catch (err) {
       console.error('Failed to send reply:', err)
-      // TODO: Show error toast
+      toast({
+        title: "Error",
+        description: "Failed to send reply. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleDeleteTicket = async () => {
+    if (!ticket) return
+    
+    try {
+      setDeleting(true)
+      await apiClient.deleteTicket(ticket.id)
+      
+      toast({
+        title: "Ticket deleted",
+        description: "The ticket has been permanently deleted.",
+        variant: "default"
+      })
+      
+      // Navigate back to tickets list
+      navigate('/tickets')
+    } catch (err) {
+      console.error('Failed to delete ticket:', err)
+      toast({
+        title: "Error",
+        description: "Failed to delete ticket. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setDeleting(false)
+      setShowDeleteDialog(false)
     }
   }
 
@@ -145,12 +171,23 @@ export function TicketDetailPage() {
       
       setTicket(updatedTicket)
       setShowReassignModal(false)
+      
       // Reload messages to see system message about reassignment
       const messagesData = await apiClient.getTicketMessages(ticket.id)
       setMessages(messagesData.messages)
+      
+      toast({
+        title: "Ticket reassigned",
+        description: "The ticket has been reassigned successfully.",
+        variant: "default"
+      })
     } catch (err) {
       console.error('Failed to reassign ticket:', err)
-      // TODO: Show error toast
+      toast({
+        title: "Error",
+        description: "Failed to reassign ticket. Please try again.",
+        variant: "destructive"
+      })
     }
   }
 
@@ -162,15 +199,25 @@ export function TicketDetailPage() {
       const result = await apiClient.validateCustomer(ticket.id)
       
       if (result.success) {
-        // Show success message
-        alert(result.message)
+        toast({
+          title: "Validation sent",
+          description: result.message,
+          variant: "default"
+        })
       } else {
-        // Show error message
-        alert(`Failed to send validation: ${result.message}`)
+        toast({
+          title: "Error",
+          description: `Failed to send validation: ${result.message}`,
+          variant: "destructive"
+        })
       }
     } catch (err) {
       console.error('Failed to validate customer:', err)
-      alert('Failed to send customer validation. Please try again.')
+      toast({
+        title: "Error",
+        description: "Failed to send customer validation. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setValidatingCustomer(false)
     }
@@ -184,15 +231,25 @@ export function TicketDetailPage() {
       const result = await apiClient.sendMagicLinkToCustomer(ticket.id)
       
       if (result.success) {
-        // Show success message
-        alert(result.message)
+        toast({
+          title: "Magic link sent",
+          description: result.message,
+          variant: "default"
+        })
       } else {
-        // Show error message
-        alert(`Failed to send magic link: ${result.message}`)
+        toast({
+          title: "Error",
+          description: `Failed to send magic link: ${result.message}`,
+          variant: "destructive"
+        })
       }
     } catch (err) {
       console.error('Failed to send magic link:', err)
-      alert('Failed to send magic link. Please try again.')
+      toast({
+        title: "Error",
+        description: "Failed to send magic link. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setSendingMagicLink(false)
     }
@@ -200,12 +257,17 @@ export function TicketDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-1/4 mb-6"></div>
-          <div className="space-y-4">
-            <div className="h-32 bg-muted rounded"></div>
-            <div className="h-64 bg-muted rounded"></div>
+      <div className="flex-1 bg-background">
+        <div className="border-b bg-card px-6 py-4">
+          <div className="animate-pulse flex items-center space-x-4">
+            <div className="h-4 w-16 bg-muted rounded"></div>
+            <div className="h-6 w-48 bg-muted rounded"></div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="animate-pulse space-y-6">
+            <div className="h-48 bg-muted rounded-lg"></div>
+            <div className="h-64 bg-muted rounded-lg"></div>
           </div>
         </div>
       </div>
@@ -214,263 +276,379 @@ export function TicketDetailPage() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="flex items-center space-x-2 text-destructive">
-          <AlertTriangle className="h-5 w-5" />
-          <span>{error}</span>
+      <div className="flex-1 bg-background">
+        <div className="border-b bg-card px-6 py-4">
+          <Button variant="ghost" onClick={() => navigate('/tickets')} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Tickets
+          </Button>
         </div>
-        <button 
-          onClick={() => id && loadTicketData(id)}
-          className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-        >
-          Retry
-        </button>
+        <div className="p-6">
+          <div className="flex items-center gap-3 text-destructive mb-4">
+            <AlertTriangle className="h-5 w-5" />
+            <span className="font-medium">{error}</span>
+          </div>
+          <Button onClick={() => id && loadTicketData(id)}>
+            Retry
+          </Button>
+        </div>
       </div>
     )
   }
 
   if (!ticket) {
     return (
-      <div className="p-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">Ticket not found</h2>
-          <p className="text-muted-foreground mt-2">The ticket you're looking for doesn't exist or you don't have permission to view it.</p>
-          <Button onClick={() => navigate('/tickets')} className="mt-4">
+      <div className="flex-1 bg-background">
+        <div className="border-b bg-card px-6 py-4">
+          <Button variant="ghost" onClick={() => navigate('/tickets')} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
             Back to Tickets
           </Button>
+        </div>
+        <div className="p-6">
+          <div className="text-center py-12">
+            <h2 className="text-xl font-semibold text-foreground mb-2">Ticket not found</h2>
+            <p className="text-muted-foreground mb-6">The ticket you're looking for doesn't exist or you don't have permission to view it.</p>
+            <Button onClick={() => navigate('/tickets')}>
+              Back to Tickets
+            </Button>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => navigate('/tickets')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              #{ticket.number} {ticket.subject}
-            </h1>
-            <div className="flex items-center space-x-2 mt-1">
-              <Badge className={statusColors[ticket.status]}>
-                {ticket.status}
-              </Badge>
-              <Badge className={priorityColors[ticket.priority]}>
-                {ticket.priority}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                Created {formatTime(ticket.created_at)}
-              </span>
+    <>
+      <div className="flex-1 bg-background">
+        {/* Enhanced Header */}
+        <div className="border-b bg-card">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" onClick={() => navigate('/tickets')} className="gap-2 h-9">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Button>
+                <div className="h-6 w-px bg-border"></div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      #{ticket.number} {ticket.subject}
+                    </h1>
+                    <div className="flex items-center gap-2">
+                      <Badge className={statusColors[ticket.status]}>
+                        {ticket.status}
+                      </Badge>
+                      <Badge className={priorityColors[ticket.priority]}>
+                        {ticket.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>Created {formatTime(ticket.created_at)}</span>
+                    <span>•</span>
+                    <span>Last updated {formatTime(ticket.updated_at)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowReassignModal(true)} className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Reassign
+                </Button>
+                
+                {/* Enterprise Actions Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" aria-label="More actions">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => setShowReassignModal(true)} className="gap-2">
+                      <UserPlus className="h-4 w-4" />
+                      Reassign ticket
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleValidateCustomer} disabled={validatingCustomer} className="gap-2">
+                      <Shield className="h-4 w-4" />
+                      {validatingCustomer ? 'Sending...' : 'Validate customer'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSendMagicLink} disabled={sendingMagicLink} className="gap-2">
+                      <ExternalLink className="h-4 w-4" />
+                      {sendingMagicLink ? 'Sending...' : 'Send magic link'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="gap-2">
+                      <Edit3 className="h-4 w-4" />
+                      Edit ticket
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="gap-2">
+                      <Archive className="h-4 w-4" />
+                      Archive ticket
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => setShowDeleteDialog(true)}
+                      className="gap-2 text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete ticket
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={() => setShowReassignModal(true)}>
-            <UserPlus className="w-4 h-4 mr-2" />
-            Reassign
-          </Button>
-          <Button variant="outline">
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Messages/Timeline */}
-          <div className="bg-card border rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Conversation</h2>
-            
-            <div className="space-y-6">
-              {messages.map((message) => (
-                <div key={message.id} className="flex space-x-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                      {message.author_type === 'customer' ? (
-                        <User className="w-4 h-4" />
-                      ) : message.author_type === 'agent' ? (
-                        <MessageSquare className="w-4 h-4" />
-                      ) : (
-                        <Clock className="w-4 h-4" />
-                      )}
+        {/* Enhanced Content */}
+        <div className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Main Content */}
+            <div className="lg:col-span-3">
+              {/* Enhanced Conversation Card */}
+              <Card className="shadow-sm">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-semibold text-foreground">Conversation</h2>
+                    <div className="text-sm text-muted-foreground">
+                      {messages.length} message{messages.length !== 1 ? 's' : ''}
                     </div>
                   </div>
                   
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">
-                          {message.user_info.name
-                          }
-                        </span>
-                        {message.is_private && (
-                          <Badge variant="secondary" className="text-xs">
-                            Internal Note
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {formatTime(message.created_at)}
-                      </span>
-                    </div>
-                    
-                    <div className="text-foreground whitespace-pre-wrap mt-1">
-                      {message.body}
-                    </div>
-                    
-                    {message.attachments && message.attachments.length > 0 && (
-                      <div className="mt-3 pt-3 border-t">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Paperclip className="w-4 h-4" />
-                          {message.attachments.length} attachment(s)
+                  <div className="space-y-6">
+                    {messages.map((message) => (
+                      <div key={message.id} className="flex gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center ring-2 ring-background">
+                            {message.author_type === 'customer' ? (
+                              <User className="w-5 h-5" />
+                            ) : message.author_type === 'agent' ? (
+                              <MessageSquare className="w-5 h-5" />
+                            ) : (
+                              <Clock className="w-5 h-5" />
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <span className="font-medium text-foreground">
+                                {message.user_info.name}
+                              </span>
+                              {message.is_private && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Internal Note
+                                </Badge>
+                              )}
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              {formatTime(message.created_at)}
+                            </span>
+                          </div>
+                          
+                          <div className="prose prose-sm max-w-none text-foreground">
+                            <div className="whitespace-pre-wrap">
+                              {message.body}
+                            </div>
+                          </div>
+                          
+                          {message.attachments && message.attachments.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-border">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Paperclip className="w-4 h-4" />
+                                <span>{message.attachments.length} attachment{message.attachments.length !== 1 ? 's' : ''}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
+                    ))}
+                  </div>
+
+                  {/* Enhanced Reply Form */}
+                  <div className="mt-8 pt-6 border-t border-border">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant={replyType === 'public' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setReplyType('public')}
+                        >
+                          Public Reply
+                        </Button>
+                        <Button
+                          variant={replyType === 'private' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setReplyType('private')}
+                        >
+                          Internal Note
+                        </Button>
+                      </div>
+                      
+                      <div className="relative">
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder={replyType === 'public' ? 'Write a reply to the customer...' : 'Add an internal note...'}
+                          className="w-full p-4 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none bg-background text-foreground placeholder:text-muted-foreground min-h-[120px]"
+                          disabled={sending}
+                        />
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <Button variant="ghost" size="sm" className="gap-2">
+                          <Paperclip className="w-4 h-4" />
+                          Attach files
+                        </Button>
+                        
+                        <Button 
+                          onClick={handleSendReply} 
+                          disabled={!replyText.trim() || sending}
+                          className="gap-2"
+                        >
+                          <Send className="w-4 h-4" />
+                          {sending ? 'Sending...' : 'Send'}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              ))}
+              </Card>
             </div>
 
-            {/* Reply Form */}
-            <div className="mt-8 border-t pt-6">
-              <div className="bg-card border rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Button
-                    variant={replyType === 'public' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setReplyType('public')}
-                  >
-                    Public Reply
-                  </Button>
-                  <Button
-                    variant={replyType === 'private' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setReplyType('private')}
-                  >
-                    Internal Note
-                  </Button>
-                </div>
-                
-                <textarea
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder={replyType === 'public' ? 'Write a reply to the customer...' : 'Add an internal note...'}
-                  className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring min-h-[100px] resize-none bg-[var(--card)] text-[var(--card-fg)] placeholder:text-[color:var(--muted-foreground)]"
-                  disabled={sending}
-                />
-                
-                <div className="flex justify-between items-center mt-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Paperclip className="w-4 h-4" />
-                    <span>Attach files</span>
+            {/* Enhanced Sidebar */}
+            <div className="space-y-6">
+              {/* Customer Info */}
+              <Card className="shadow-sm">
+                <div className="p-4">
+                  <h3 className="font-semibold text-foreground mb-4">Customer Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground truncate">{ticket.customer?.name}</div>
+                        <div className="text-sm text-muted-foreground">Customer</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Mail className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground truncate">{ticket.customer?.email}</div>
+                        <div className="text-sm text-muted-foreground">Email</div>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <Button onClick={handleSendReply} disabled={!replyText.trim() || sending}>
-                    <Send className="w-4 h-4 mr-2" />
-                    {sending ? 'Sending...' : 'Send'}
-                  </Button>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
+              </Card>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Customer Info */}
-          <div className="bg-card border rounded-lg p-4">
-            <h3 className="font-medium text-foreground mb-3">Customer</h3>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{ticket.customer?.name}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Mail className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{ticket.customer?.email}</span>
-              </div>
-            </div>
-          </div>
+              {/* Ticket Details */}
+              <Card className="shadow-sm">
+                <div className="p-4">
+                  <h3 className="font-semibold text-foreground mb-4">Ticket Details</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Type</span>
+                      <span className="font-medium text-foreground">{ticket.type}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Source</span>
+                      <span className="font-medium text-foreground">{ticket.source}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Assignee</span>
+                      <span className="font-medium text-foreground">
+                        {ticket.assigned_agent?.name || 'Unassigned'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Created</span>
+                      <span className="font-medium text-foreground">{formatTime(ticket.created_at)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Updated</span>
+                      <span className="font-medium text-foreground">{formatTime(ticket.updated_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
 
-          {/* Ticket Details */}
-          <div className="bg-card border rounded-lg p-4">
-            <h3 className="font-medium text-foreground mb-3">Details</h3>
-            <div className="space-y-3">
-              <div>
-                <span className="text-sm font-medium">Type:</span>
-                <span className="text-sm ml-2">{ticket.type}</span>
-              </div>
-              <div>
-                <span className="text-sm font-medium">Source:</span>
-                <span className="text-sm ml-2">{ticket.source}</span>
-              </div>
-              <div>
-                <span className="text-sm font-medium">Assignee:</span>
-                <span className="text-sm ml-2">
-                  {ticket.assigned_agent?.name || 'Unassigned'}
-                </span>
-              </div>
-              <div>
-                <span className="text-sm font-medium">Created:</span>
-                <span className="text-sm ml-2">{formatTime(ticket.created_at)}</span>
-              </div>
-              <div>
-                <span className="text-sm font-medium">Updated:</span>
-                <span className="text-sm ml-2">{formatTime(ticket.updated_at)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="bg-card border rounded-lg p-4">
-            <h3 className="font-medium text-foreground mb-3">Actions</h3>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full justify-start">
-                Change Status
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                Change Priority
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => setShowReassignModal(true)}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Reassign
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={handleValidateCustomer}
-                disabled={validatingCustomer}
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                {validatingCustomer ? 'Sending...' : 'Validate Customer'}
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={handleSendMagicLink}
-                disabled={sendingMagicLink}
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                {sendingMagicLink ? 'Sending...' : 'Send Magic Link'}
-              </Button>
-              <Button variant="outline" className="w-full justify-start text-destructive">
-                Close Ticket
-              </Button>
+              {/* Quick Actions */}
+              <Card className="shadow-sm">
+                <div className="p-4">
+                  <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
+                  <div className="space-y-2">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Flag className="w-4 h-4" />
+                      Change Status
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Flag className="w-4 h-4" />
+                      Change Priority
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      onClick={() => setShowReassignModal(true)}
+                      size="sm"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Reassign
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      onClick={handleValidateCustomer}
+                      disabled={validatingCustomer}
+                      size="sm"
+                    >
+                      <Shield className="w-4 h-4" />
+                      {validatingCustomer ? 'Sending...' : 'Validate Customer'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2"
+                      onClick={handleSendMagicLink}
+                      disabled={sendingMagicLink}
+                      size="sm"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      {sendingMagicLink ? 'Sending...' : 'Send Magic Link'}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Ticket</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this ticket? This action cannot be undone and will permanently remove the ticket and all its messages.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteTicket} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete Ticket'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reassign Modal */}
       {showReassignModal && (
@@ -479,11 +657,14 @@ export function TicketDetailPage() {
           onReassign={handleReassign}
         />
       )}
-    </div>
+      
+      {/* Toast Notifications */}
+      <Toaster />
+    </>
   )
 }
 
-// Simple Reassign Modal Component
+// Enhanced Reassign Modal Component with Enterprise UI
 interface ReassignModalProps {
   onClose: () => void
   onReassign: (assigneeId: string, note?: string) => void
@@ -501,17 +682,28 @@ const ReassignModal: React.FC<ReassignModalProps> = ({ onClose, onReassign }) =>
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background p-6 rounded-lg w-full max-w-md border shadow-lg">
-        <h2 className="text-lg font-semibold mb-4">Reassign Ticket</h2>
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Reassign Ticket
+          </DialogTitle>
+          <DialogDescription>
+            Select an agent to assign this ticket to. You can optionally add a note about the reassignment.
+          </DialogDescription>
+        </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Assign to Agent</label>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <label htmlFor="assignee" className="text-sm font-medium text-foreground">
+              Assign to Agent
+            </label>
             <select
+              id="assignee"
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
               required
             >
               <option value="">Select an agent...</option>
@@ -520,26 +712,30 @@ const ReassignModal: React.FC<ReassignModalProps> = ({ onClose, onReassign }) =>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Note (optional)</label>
+          <div className="space-y-2">
+            <label htmlFor="note" className="text-sm font-medium text-foreground">
+              Note (optional)
+            </label>
             <textarea
+              id="note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring h-24"
+              className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground h-24 resize-none"
               placeholder="Add a note about this reassignment..."
             />
           </div>
 
-          <div className="flex space-x-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+          <DialogFooter className="gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={!assigneeId}>
+            <Button type="submit" disabled={!assigneeId} className="gap-2">
+              <UserPlus className="h-4 w-4" />
               Reassign
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
