@@ -86,8 +86,7 @@ func main() {
 	domainValidationService := service.NewDomainValidationService(domainValidationRepo, mailService)
 
 	// Integration services
-	webhookService := service.NewWebhookService(integrationRepo)
-	integrationService := service.NewIntegrationService(integrationRepo, webhookService)
+	integrationService := service.NewIntegrationService(integrationRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, publicService)

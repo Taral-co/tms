@@ -122,21 +122,6 @@ CREATE TABLE application_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Caching layer metadata
-CREATE TABLE cache_entries (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-    cache_key VARCHAR(512) NOT NULL,
-    cache_value BYTEA, -- Stored as binary for flexibility
-    content_type VARCHAR(100) NOT NULL DEFAULT 'application/json',
-    ttl_seconds INTEGER NOT NULL DEFAULT 3600,
-    hit_count INTEGER NOT NULL DEFAULT 0,
-    last_accessed TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(cache_key)
-);
 
 -- Knowledge base and documentation
 CREATE TYPE article_status AS ENUM ('draft', 'published', 'archived', 'under_review');
@@ -253,10 +238,6 @@ CREATE INDEX idx_application_logs_level_timestamp ON application_logs(level, tim
 CREATE INDEX idx_application_logs_component_operation ON application_logs(component, operation);
 CREATE INDEX idx_application_logs_correlation_id ON application_logs(correlation_id) WHERE correlation_id IS NOT NULL;
 
-CREATE INDEX idx_cache_entries_key ON cache_entries(cache_key);
-CREATE INDEX idx_cache_entries_expires_at ON cache_entries(expires_at);
-CREATE INDEX idx_cache_entries_tenant ON cache_entries(tenant_id) WHERE tenant_id IS NOT NULL;
-
 CREATE INDEX idx_knowledge_articles_tenant_project ON knowledge_articles(tenant_id, project_id);
 CREATE INDEX idx_knowledge_articles_status_visibility ON knowledge_articles(status, visibility);
 CREATE INDEX idx_knowledge_articles_category ON knowledge_articles(category) WHERE category IS NOT NULL;
@@ -284,7 +265,6 @@ ALTER TABLE background_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_limit_buckets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE metrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE application_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cache_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_deliveries ENABLE ROW LEVEL SECURITY;
@@ -307,9 +287,6 @@ CREATE POLICY metrics_tenant_policy ON metrics
     USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
 
 CREATE POLICY application_logs_tenant_policy ON application_logs
-    USING (tenant_id IS NULL OR tenant_id = current_setting('app.current_tenant_id')::UUID);
-
-CREATE POLICY cache_entries_tenant_policy ON cache_entries
     USING (tenant_id IS NULL OR tenant_id = current_setting('app.current_tenant_id')::UUID);
 
 CREATE POLICY knowledge_articles_tenant_policy ON knowledge_articles
@@ -349,11 +326,6 @@ CREATE TRIGGER trigger_rate_limit_buckets_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_cache_entries_updated_at
-    BEFORE UPDATE ON cache_entries
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER trigger_knowledge_articles_updated_at
     BEFORE UPDATE ON knowledge_articles
     FOR EACH ROW
@@ -378,7 +350,6 @@ CREATE TRIGGER trigger_notification_deliveries_updated_at
 DROP TRIGGER IF EXISTS trigger_notification_deliveries_updated_at ON notification_deliveries;
 DROP TRIGGER IF EXISTS trigger_notifications_updated_at ON notifications;
 DROP TRIGGER IF EXISTS trigger_knowledge_articles_updated_at ON knowledge_articles;
-DROP TRIGGER IF EXISTS trigger_cache_entries_updated_at ON cache_entries;
 DROP TRIGGER IF EXISTS trigger_rate_limit_buckets_updated_at ON rate_limit_buckets;
 DROP TRIGGER IF EXISTS trigger_background_jobs_updated_at ON background_jobs;
 DROP TRIGGER IF EXISTS trigger_search_indexes_updated_at ON search_indexes;
@@ -389,7 +360,6 @@ DROP TABLE IF EXISTS analytics_events;
 DROP TABLE IF EXISTS notification_deliveries;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS knowledge_articles;
-DROP TABLE IF EXISTS cache_entries;
 DROP TABLE IF EXISTS application_logs;
 DROP TABLE IF EXISTS metrics;
 DROP TABLE IF EXISTS rate_limit_buckets;

@@ -13,13 +13,11 @@ import (
 
 type IntegrationService struct {
 	integrationRepo *repo.IntegrationRepository
-	webhookService  *WebhookService
 }
 
-func NewIntegrationService(integrationRepo *repo.IntegrationRepository, webhookService *WebhookService) *IntegrationService {
+func NewIntegrationService(integrationRepo *repo.IntegrationRepository) *IntegrationService {
 	return &IntegrationService{
 		integrationRepo: integrationRepo,
-		webhookService:  webhookService,
 	}
 }
 
@@ -121,193 +119,10 @@ func (s *IntegrationService) TestIntegration(ctx context.Context, tenantID, inte
 	}
 }
 
-// Webhook subscription management
-func (s *IntegrationService) CreateWebhookSubscription(ctx context.Context, tenantID, projectID uuid.UUID, req *models.CreateWebhookSubscriptionRequest) (*models.WebhookSubscription, error) {
-	// Verify integration exists
-	_, err := s.integrationRepo.GetIntegrationByID(ctx, tenantID, req.IntegrationID)
-	if err != nil {
-		return nil, fmt.Errorf("integration not found: %w", err)
-	}
-
-	subscription := &models.WebhookSubscription{
-		ID:             uuid.New(),
-		TenantID:       tenantID,
-		ProjectID:      projectID,
-		IntegrationID:  req.IntegrationID,
-		WebhookURL:     req.WebhookURL,
-		Events:         req.Events,
-		Secret:         s.generateWebhookSecret(),
-		IsActive:       true,
-		RetryCount:     0,
-		MaxRetries:     req.MaxRetries,
-		TimeoutSeconds: req.TimeoutSeconds,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
-
-	if subscription.MaxRetries == 0 {
-		subscription.MaxRetries = 3
-	}
-	if subscription.TimeoutSeconds == 0 {
-		subscription.TimeoutSeconds = 30
-	}
-
-	if err := s.integrationRepo.CreateWebhookSubscription(ctx, subscription); err != nil {
-		return nil, fmt.Errorf("failed to create webhook subscription: %w", err)
-	}
-
-	return subscription, nil
-}
-
-func (s *IntegrationService) ListWebhookSubscriptions(ctx context.Context, tenantID, projectID uuid.UUID, integrationID *uuid.UUID) ([]*models.WebhookSubscription, error) {
-	return s.integrationRepo.ListWebhookSubscriptions(ctx, tenantID, projectID, integrationID)
-}
-
-func (s *IntegrationService) DeliverWebhook(ctx context.Context, tenantID uuid.UUID, event models.WebhookEvent, payload interface{}) error {
-	// Get all active webhook subscriptions for this event
-	subscriptions, err := s.integrationRepo.ListWebhookSubscriptions(ctx, tenantID, uuid.Nil, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get webhook subscriptions: %w", err)
-	}
-
-	for _, subscription := range subscriptions {
-		if !subscription.IsActive {
-			continue
-		}
-
-		// Check if subscription includes this event
-		eventIncluded := false
-		for _, subscribedEvent := range subscription.Events {
-			if subscribedEvent == string(event) {
-				eventIncluded = true
-				break
-			}
-		}
-
-		if !eventIncluded {
-			continue
-		}
-
-		// Create delivery record
-		payloadMap, ok := payload.(models.JSONMap)
-		if !ok {
-			// Convert to JSONMap if not already
-			payloadMap = models.JSONMap{"data": payload}
-		}
-		
-		delivery := &models.WebhookDelivery{
-			ID:             uuid.New(),
-			TenantID:       tenantID,
-			ProjectID:      subscription.ProjectID,
-			SubscriptionID: subscription.ID,
-			EventType:      event,
-			Payload:        payloadMap,
-			DeliveryAttempt: 1,
-			CreatedAt:      time.Now(),
-		}
-
-		// Attempt delivery
-		if err := s.webhookService.DeliverWebhook(ctx, subscription, delivery); err != nil {
-			// Log error but continue with other subscriptions
-			fmt.Printf("Failed to deliver webhook to %s: %v\n", subscription.WebhookURL, err)
-		}
-	}
-
-	return nil
-}
-
-// Integration-specific configuration methods
-func (s *IntegrationService) CreateSlackConfiguration(ctx context.Context, tenantID uuid.UUID, req *models.CreateSlackConfigurationRequest) (*models.SlackConfiguration, error) {
-	config := &models.SlackConfiguration{
-		ID:                   uuid.New(),
-		IntegrationID:        req.IntegrationID,
-		TenantID:             tenantID,
-		BotToken:             req.BotToken,
-		TeamID:               req.TeamID,
-		TeamName:             req.TeamName,
-		BotUserID:            req.BotUserID,
-		DefaultChannel:       req.DefaultChannel,
-		NotificationSettings: req.NotificationSettings,
-		CreatedAt:            time.Now(),
-		UpdatedAt:            time.Now(),
-	}
-
-	if err := s.integrationRepo.CreateSlackConfiguration(ctx, config); err != nil {
-		return nil, fmt.Errorf("failed to create Slack configuration: %w", err)
-	}
-
-	return config, nil
-}
-
-func (s *IntegrationService) CreateJiraConfiguration(ctx context.Context, tenantID uuid.UUID, req *models.CreateJiraConfigurationRequest) (*models.JiraConfiguration, error) {
-	config := &models.JiraConfiguration{
-		ID:            uuid.New(),
-		IntegrationID: req.IntegrationID,
-		TenantID:      tenantID,
-		InstanceURL:   req.InstanceURL,
-		ProjectKey:    req.ProjectKey,
-		IssueType:     req.IssueType,
-		FieldMappings: req.FieldMappings,
-		SyncSettings:  req.SyncSettings,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}
-
-	if err := s.integrationRepo.CreateJiraConfiguration(ctx, config); err != nil {
-		return nil, fmt.Errorf("failed to create JIRA configuration: %w", err)
-	}
-
-	return config, nil
-}
-
-func (s *IntegrationService) CreateCalendlyConfiguration(ctx context.Context, tenantID uuid.UUID, req *models.CreateCalendlyConfigurationRequest) (*models.CalendlyConfiguration, error) {
-	config := &models.CalendlyConfiguration{
-		ID:                req.IntegrationID, // Use integration ID as primary key
-		IntegrationID:     req.IntegrationID,
-		TenantID:          tenantID,
-		OrganizationURI:   req.OrganizationURI,
-		UserURI:           req.UserURI,
-		WebhookSigningKey: req.WebhookSigningKey,
-		AutoCreateTickets: req.AutoCreateTickets,
-		DefaultTicketType: req.DefaultTicketType,
-		DefaultPriority:   req.DefaultPriority,
-		CreatedAt:         time.Now(),
-		UpdatedAt:         time.Now(),
-	}
-
-	if err := s.integrationRepo.CreateCalendlyConfiguration(ctx, config); err != nil {
-		return nil, fmt.Errorf("failed to create Calendly configuration: %w", err)
-	}
-
-	return config, nil
-}
-
-func (s *IntegrationService) CreateZapierConfiguration(ctx context.Context, tenantID uuid.UUID, req *models.CreateZapierConfigurationRequest) (*models.ZapierConfiguration, error) {
-	config := &models.ZapierConfiguration{
-		ID:                uuid.New(),
-		IntegrationID:     req.IntegrationID,
-		TenantID:          tenantID,
-		WebhookURL:        req.WebhookURL,
-		AuthMethod:        req.AuthMethod,
-		AuthConfig:        req.AuthConfig,
-		TriggerEvents:     req.TriggerEvents,
-		FieldMappings:     req.FieldMappings,
-		TransformSettings: req.TransformSettings,
-		CreatedAt:         time.Now(),
-		UpdatedAt:         time.Now(),
-	}
-
-	if err := s.integrationRepo.CreateZapierConfiguration(ctx, config); err != nil {
-		return nil, fmt.Errorf("failed to create Zapier configuration: %w", err)
-	}
-
-	return config, nil
-}
-
 // Sync logging
 func (s *IntegrationService) LogSync(ctx context.Context, tenantID, projectID, integrationID uuid.UUID, operation, status string, externalID *string, requestPayload, responsePayload interface{}, errorMsg *string, durationMs *int) error {
 	var reqPayload, respPayload models.JSONMap
-	
+
 	if requestPayload != nil {
 		if reqMap, ok := requestPayload.(models.JSONMap); ok {
 			reqPayload = reqMap
@@ -315,7 +130,7 @@ func (s *IntegrationService) LogSync(ctx context.Context, tenantID, projectID, i
 			reqPayload = models.JSONMap{"data": requestPayload}
 		}
 	}
-	
+
 	if responsePayload != nil {
 		if respMap, ok := responsePayload.(models.JSONMap); ok {
 			respPayload = respMap
@@ -435,7 +250,7 @@ func (s *IntegrationService) GetIntegrationTemplateByType(ctx context.Context, i
 func (s *IntegrationService) StartOAuthFlow(ctx context.Context, tenantID, projectID uuid.UUID, integrationType models.IntegrationType, redirectURL *string) (string, string, error) {
 	// Generate state token for OAuth flow
 	stateToken := uuid.New().String()
-	
+
 	// Create OAuth flow record
 	flow := &models.OAuthFlow{
 		ID:              uuid.New(),
