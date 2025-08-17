@@ -67,21 +67,20 @@ export function ChatPage() {
     const newPath = tab === 'widgets' ? '/chat/widgets' : '/chat/sessions'
     navigate(newPath, { replace: true })
   }
-
   const tabs = [
-    {
-      id: 'sessions' as const,
-      name: 'Chat Sessions',
-      icon: MessageCircle,
-      description: 'Manage live chat conversations',
-      disabled: !guidedSetup.hasWidgets
-    },
     {
       id: 'widgets' as const,
       name: 'Chat Widgets',
       icon: Settings,
       description: 'Configure chat widgets for your domains',
       disabled: false
+    },
+    {
+      id: 'sessions' as const,
+      name: 'Chat Sessions',
+      icon: MessageCircle,
+      description: 'Manage live chat conversations',
+      disabled: !guidedSetup.hasWidgets
     }
   ]
 
@@ -97,48 +96,50 @@ export function ChatPage() {
                 Manage chat sessions and configure widgets for customer support
               </p>
             </div>
-            
-            {/* Setup Progress Indicator */}
-            {!guidedSetup.loading && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${guidedSetup.hasWidgets ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                  <span className="text-xs text-muted-foreground">Widgets</span>
+
+            <div className="flex items-center gap-4">
+              {/* Setup Progress Indicator */}
+              {!guidedSetup.loading && (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${guidedSetup.hasWidgets ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
+                    <span className="text-xs text-muted-foreground">Widgets</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${guidedSetup.hasSessions ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
+                    <span className="text-xs text-muted-foreground">Sessions</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${guidedSetup.hasSessions ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                  <span className="text-xs text-muted-foreground">Sessions</span>
-                </div>
+              )}
+
+              {/* Tab Navigation (moved to top-right) */}
+              <div className="flex space-x-1 bg-muted/50 p-1 rounded-lg w-fit">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => !tab.disabled && handleTabChange(tab.id)}
+                      disabled={tab.disabled}
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
+                        ${tab.disabled
+                          ? 'text-muted-foreground/50 cursor-not-allowed'
+                          : isActive
+                            ? 'bg-background text-foreground shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                        }
+                      `}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.name}
+                    </button>
+                  )
+                })}
               </div>
-            )}
-          </div>
-          
-          {/* Tab Navigation */}
-          <div className="flex space-x-1 bg-muted/50 p-1 rounded-lg w-fit">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              const isActive = activeTab === tab.id
-              
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => !tab.disabled && handleTabChange(tab.id)}
-                  disabled={tab.disabled}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
-                    ${tab.disabled
-                      ? 'text-muted-foreground/50 cursor-not-allowed'
-                      : isActive
-                        ? 'bg-background text-foreground shadow-sm border border-border'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                    }
-                  `}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.name}
-                </button>
-              )
-            })}
+            </div>
           </div>
         </div>
       </div>
