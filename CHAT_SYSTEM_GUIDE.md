@@ -29,20 +29,33 @@ Chat System Components:
 
 ## Getting Started
 
+The TMS Chat System provides a guided setup experience to help you get started quickly:
+
+### Guided Setup Flow
+
+When you first access the Chat section, you'll be guided through a step-by-step setup process:
+
+1. **Initial Setup Check**: The system automatically detects if you have chat widgets configured
+2. **Guided Onboarding**: If no widgets exist, you'll see a welcome screen with clear next steps
+3. **Progressive Disclosure**: Features unlock as you complete each setup step
+
 ### 1. Create a Chat Widget
 
-Before you can handle chat sessions, you need to create at least one chat widget:
+The system will guide you to create your first chat widget:
 
-1. Navigate to **Chat > Widgets** in the agent console
-2. Click **Create Widget**
-3. Fill in the required information:
+1. Navigate to **Chat** in the agent console
+2. If no widgets exist, you'll see the guided setup screen
+3. Click **Get Started - Create Your First Widget**
+4. Fill in the required information:
    - **Name**: Internal name for the widget
    - **Domain**: The domain where this widget will be embedded
    - **Welcome Message**: Greeting shown to customers
    - **Appearance**: Colors and positioning
    - **Settings**: Business hours, file uploads, etc.
-4. Click **Save** to create the widget
-5. Copy the **embed code** to add to your website
+5. Click **Save** to create the widget
+6. Copy the **embed code** to add to your website
+
+**Note**: You need at least one verified domain before creating chat widgets. [Verify domains in Settings](/settings) if needed.
 
 ### 2. Embed the Widget
 
@@ -68,7 +81,7 @@ Add the generated embed code to your website's HTML:
 
 #### Accessing Chat Sessions
 
-1. Navigate to **Chat > Sessions** in the agent console
+1. Navigate to **Chat** in the agent console (this will default to the Chat Sessions tab)
 2. Use the filters to view:
    - **All**: Every chat session
    - **Unassigned**: Sessions needing agent assignment

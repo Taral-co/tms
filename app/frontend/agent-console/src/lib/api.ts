@@ -456,7 +456,8 @@ class APIClient {
           config.url.startsWith('/integrations') ||
           config.url.startsWith('/email') || 
           config.url.startsWith('/settings') ||
-          config.url.startsWith('/analytics')
+          config.url.startsWith('/analytics') ||
+          config.url.startsWith('/chat')
         ) && !config.url.includes('/tenants/')) {
           config.url = `/tenants/${tenantId}/projects/${projectId}${config.url}`
         }

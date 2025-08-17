@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search } from 'lucide-react'
+import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search, Settings, ArrowRight } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
@@ -22,11 +22,22 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   const [filter, setFilter] = useState<'all' | 'active' | 'unassigned'>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [hasWidgets, setHasWidgets] = useState<boolean | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadSessions()
+    checkWidgets()
   }, [filter])
+
+  const checkWidgets = async () => {
+    try {
+      const widgets = await apiClient.listChatWidgets()
+      setHasWidgets(widgets.length > 0)
+    } catch (error) {
+      setHasWidgets(false)
+    }
+  }
 
   useEffect(() => {
     if (initialSessionId) {
@@ -163,10 +174,9 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     <div className="h-full flex bg-background">
       {/* Sessions Sidebar */}
       <div className="w-96 border-r border-border bg-card flex flex-col">
-        {/* Header */}
+        {/* Controls */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-semibold text-card-foreground">Chat Sessions</h1>
             <button
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 h-9 px-3 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
@@ -246,16 +256,44 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
               <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mb-3">
                 <MessageCircle className="w-6 h-6 text-muted-foreground" />
               </div>
-              <h3 className="font-medium text-card-foreground mb-1">No chat sessions found</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {searchTerm ? 'Try adjusting your search terms' : 'Start a new chat to begin helping customers'}
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                Start New Chat
-              </button>
+              
+              {hasWidgets === false ? (
+                <>
+                  <h3 className="font-medium text-card-foreground mb-1">No chat widgets created</h3>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+                    Before you can manage chat sessions, you need to create and embed a chat widget on your website.
+                  </p>
+                  <div className="space-y-3">
+                    <a
+                      href="/chat/widgets"
+                      className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Create Your First Widget
+                    </a>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>1. Create widget</span>
+                      <ArrowRight className="w-3 h-3" />
+                      <span>2. Embed on site</span>
+                      <ArrowRight className="w-3 h-3" />
+                      <span>3. Handle sessions</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="font-medium text-card-foreground mb-1">No chat sessions found</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {searchTerm ? 'Try adjusting your search terms' : 'Start a new chat to begin helping customers'}
+                  </p>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    Start New Chat
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

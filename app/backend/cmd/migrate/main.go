@@ -81,6 +81,8 @@ func runMigrations(database *db.DB) error {
 		"migrations/014_project_scoped_email_system.sql",
 		"migrations/015_unique_from_address_constraint.sql",
 		"migrations/016_add_display_name_to_mailboxes.sql",
+		"migrations/017_remove_email_address_columns_from_connectors.sql",
+		"migrations/018_chat_system.sql",
 	}
 
 	for _, migration := range migrations {
