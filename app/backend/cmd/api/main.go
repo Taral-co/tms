@@ -64,7 +64,7 @@ func main() {
 	tenantRepo := repo.NewTenantRepository(database.DB.DB)
 	emailInboxRepo := repo.NewEmailInboxRepository(database.DB.DB)
 	domainValidationRepo := repo.NewDomainValidationRepo(database.DB)
-	
+
 	// Chat repositories
 	chatWidgetRepo := repo.NewChatWidgetRepo(database.DB)
 	chatSessionRepo := repo.NewChatSessionRepo(database.DB)
@@ -89,7 +89,7 @@ func main() {
 	ticketService := service.NewTicketService(ticketRepo, customerRepo, agentRepo, messageRepo, rbacService, mailService, publicService)
 	emailInboxService := service.NewEmailInboxService(emailInboxRepo, ticketRepo, messageRepo, customerRepo, emailRepo, mailService, mailLogger)
 	domainValidationService := service.NewDomainValidationService(domainValidationRepo, mailService)
-	
+
 	// Chat services
 	chatWidgetService := service.NewChatWidgetService(chatWidgetRepo, domainValidationRepo)
 	chatSessionService := service.NewChatSessionService(chatSessionRepo, chatMessageRepo, chatWidgetRepo, customerRepo, ticketService)
@@ -110,7 +110,7 @@ func main() {
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
 	tenantHandler := handlers.NewTenantHandler(tenantService)
 	domainValidationHandler := handlers.NewDomainValidationHandler(domainValidationService)
-	
+
 	// Chat handlers
 	chatWidgetHandler := handlers.NewChatWidgetHandler(chatWidgetService)
 	chatSessionHandler := handlers.NewChatSessionHandler(chatSessionService, chatWidgetService)
@@ -362,7 +362,7 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 					domains.DELETE("/:domain_id", domainNameHandler.DeleteDomainName)
 				}
 			}
-			
+
 			// Chat system endpoints
 			chat := projects.Group("/chat")
 			{
@@ -384,18 +384,21 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				chat.GET("/ws/:session_id", chatWebSocketHandler.HandleAgentWebSocket)
 			}
 		}
-		
+
 		// Public chat endpoints (no authentication required)
 		publicChat := router.Group("/api/public/chat")
 		{
+			// Widget endpoints
+			publicChat.GET("/widgets/domain/:domain", chatWidgetHandler.GetChatWidgetByDomain)
+
 			// Widget initialization and chat initiation
 			publicChat.POST("/widgets/:widget_id/initiate", chatSessionHandler.InitiateChat)
-			
+
 			// Public chat session endpoints (token-based auth)
 			publicChat.GET("/sessions/:session_token", chatSessionHandler.GetChatSessionByToken)
 			publicChat.GET("/sessions/:session_token/messages", chatSessionHandler.GetVisitorMessages)
 			publicChat.POST("/sessions/:session_token/messages", chatSessionHandler.SendVisitorMessage)
-			
+
 			// WebSocket endpoint for visitors
 			publicChat.GET("/ws/:session_token", chatWebSocketHandler.HandleWebSocket)
 		}

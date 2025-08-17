@@ -435,17 +435,17 @@ type ChatWidget struct {
 	IsActive bool   `db:"is_active" json:"is_active"`
 
 	// Appearance settings
-	PrimaryColor     string `db:"primary_color" json:"primary_color"`
-	SecondaryColor   string `db:"secondary_color" json:"secondary_color"`
-	Position         string `db:"position" json:"position"`
-	WelcomeMessage   string `db:"welcome_message" json:"welcome_message"`
-	OfflineMessage   string `db:"offline_message" json:"offline_message"`
+	PrimaryColor   string `db:"primary_color" json:"primary_color"`
+	SecondaryColor string `db:"secondary_color" json:"secondary_color"`
+	Position       string `db:"position" json:"position"`
+	WelcomeMessage string `db:"welcome_message" json:"welcome_message"`
+	OfflineMessage string `db:"offline_message" json:"offline_message"`
 
 	// Behavior settings
-	AutoOpenDelay      int  `db:"auto_open_delay" json:"auto_open_delay"`
-	ShowAgentAvatars   bool `db:"show_agent_avatars" json:"show_agent_avatars"`
-	AllowFileUploads   bool `db:"allow_file_uploads" json:"allow_file_uploads"`
-	RequireEmail       bool `db:"require_email" json:"require_email"`
+	AutoOpenDelay    int  `db:"auto_open_delay" json:"auto_open_delay"`
+	ShowAgentAvatars bool `db:"show_agent_avatars" json:"show_agent_avatars"`
+	AllowFileUploads bool `db:"allow_file_uploads" json:"allow_file_uploads"`
+	RequireEmail     bool `db:"require_email" json:"require_email"`
 
 	// Business hours and embed settings
 	BusinessHours JSONMap `db:"business_hours" json:"business_hours"`
@@ -460,10 +460,10 @@ type ChatWidget struct {
 
 // ChatSession represents a chat conversation session
 type ChatSession struct {
-	ID           uuid.UUID  `db:"id" json:"id"`
-	TenantID     uuid.UUID  `db:"tenant_id" json:"tenant_id"`
-	ProjectID    uuid.UUID  `db:"project_id" json:"project_id"`
-	WidgetID     uuid.UUID  `db:"widget_id" json:"widget_id"`
+	ID        uuid.UUID `db:"id" json:"id"`
+	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
+	WidgetID  uuid.UUID `db:"widget_id" json:"widget_id"`
 
 	// Session identity
 	SessionToken string     `db:"session_token" json:"session_token"`
@@ -479,18 +479,18 @@ type ChatSession struct {
 	AssignedAt      *time.Time `db:"assigned_at" json:"assigned_at,omitempty"`
 
 	// Timing
-	StartedAt        time.Time  `db:"started_at" json:"started_at"`
-	EndedAt          *time.Time `db:"ended_at" json:"ended_at,omitempty"`
-	LastActivityAt   time.Time  `db:"last_activity_at" json:"last_activity_at"`
+	StartedAt      time.Time  `db:"started_at" json:"started_at"`
+	EndedAt        *time.Time `db:"ended_at" json:"ended_at,omitempty"`
+	LastActivityAt time.Time  `db:"last_activity_at" json:"last_activity_at"`
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 
 	// Joined fields
-	AssignedAgentName string `db:"assigned_agent_name" json:"assigned_agent_name,omitempty"`
-	CustomerName      string `db:"customer_name" json:"customer_name,omitempty"`
-	CustomerEmail     string `db:"customer_email" json:"customer_email,omitempty"`
-	WidgetName        string `db:"widget_name" json:"widget_name,omitempty"`
+	AssignedAgentName *string `db:"assigned_agent_name" json:"assigned_agent_name,omitempty"`
+	CustomerName      *string `db:"customer_name" json:"customer_name,omitempty"`
+	CustomerEmail     *string `db:"customer_email" json:"customer_email,omitempty"`
+	WidgetName        *string `db:"widget_name" json:"widget_name,omitempty"`
 }
 
 // ChatMessage represents a message in a chat session
@@ -571,10 +571,10 @@ type UpdateChatWidgetRequest struct {
 
 // InitiateChatRequest represents a request to start a chat session
 type InitiateChatRequest struct {
-	VisitorName  string  `json:"visitor_name" binding:"required,max=255"`
-	VisitorEmail string  `json:"visitor_email" binding:"omitempty,email"`
-	InitialMessage string `json:"initial_message" binding:"omitempty,max=1000"`
-	VisitorInfo  JSONMap `json:"visitor_info"`
+	VisitorName    string  `json:"visitor_name" binding:"required,max=255"`
+	VisitorEmail   string  `json:"visitor_email" binding:"omitempty,email"`
+	InitialMessage string  `json:"initial_message" binding:"omitempty,max=1000"`
+	VisitorInfo    JSONMap `json:"visitor_info"`
 }
 
 // SendChatMessageRequest represents a request to send a chat message
@@ -601,14 +601,14 @@ type ChatSessionWithMessages struct {
 type WSMessageType string
 
 const (
-	WSMsgTypeChatMessage    WSMessageType = "chat_message"
-	WSMsgTypeAgentJoined    WSMessageType = "agent_joined"
-	WSMsgTypeAgentLeft      WSMessageType = "agent_left"
-	WSMsgTypeSessionEnded   WSMessageType = "session_ended"
-	WSMsgTypeTypingStart    WSMessageType = "typing_start"
-	WSMsgTypeTypingStop     WSMessageType = "typing_stop"
-	WSMsgTypeReadReceipt    WSMessageType = "read_receipt"
-	WSMsgTypeSessionUpdate  WSMessageType = "session_update"
+	WSMsgTypeChatMessage   WSMessageType = "chat_message"
+	WSMsgTypeAgentJoined   WSMessageType = "agent_joined"
+	WSMsgTypeAgentLeft     WSMessageType = "agent_left"
+	WSMsgTypeSessionEnded  WSMessageType = "session_ended"
+	WSMsgTypeTypingStart   WSMessageType = "typing_start"
+	WSMsgTypeTypingStop    WSMessageType = "typing_stop"
+	WSMsgTypeReadReceipt   WSMessageType = "read_receipt"
+	WSMsgTypeSessionUpdate WSMessageType = "session_update"
 )
 
 // WSMessage represents a WebSocket message

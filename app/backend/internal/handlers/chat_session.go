@@ -66,7 +66,7 @@ func (h *ChatSessionHandler) InitiateChat(c *gin.Context) {
 func (h *ChatSessionHandler) GetChatSession(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
-	
+
 	sessionIDStr := c.Param("session_id")
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
@@ -115,23 +115,23 @@ func (h *ChatSessionHandler) ListChatSessions(c *gin.Context) {
 
 	// Parse query parameters
 	filters := repo.ChatSessionFilters{}
-	
+
 	if status := c.Query("status"); status != "" {
 		filters.Status = status
 	}
-	
+
 	if agentIDStr := c.Query("assigned_agent_id"); agentIDStr != "" {
 		if agentID, err := uuid.Parse(agentIDStr); err == nil {
 			filters.AssignedAgentID = &agentID
 		}
 	}
-	
+
 	if widgetIDStr := c.Query("widget_id"); widgetIDStr != "" {
 		if widgetID, err := uuid.Parse(widgetIDStr); err == nil {
 			filters.WidgetID = &widgetID
 		}
 	}
-	
+
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
 			filters.Limit = limit
@@ -140,7 +140,7 @@ func (h *ChatSessionHandler) ListChatSessions(c *gin.Context) {
 
 	sessions, err := h.chatSessionService.ListChatSessions(c.Request.Context(), tenantID, projectID, filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list chat sessions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list chat sessions: " + err.Error()})
 		return
 	}
 
@@ -173,7 +173,7 @@ func (h *ChatSessionHandler) GetActiveSessions(c *gin.Context) {
 func (h *ChatSessionHandler) AssignAgent(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
-	
+
 	sessionIDStr := c.Param("session_id")
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
@@ -200,7 +200,7 @@ func (h *ChatSessionHandler) AssignAgent(c *gin.Context) {
 func (h *ChatSessionHandler) EndSession(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
-	
+
 	sessionIDStr := c.Param("session_id")
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
@@ -221,11 +221,24 @@ func (h *ChatSessionHandler) EndSession(c *gin.Context) {
 func (h *ChatSessionHandler) SendMessage(c *gin.Context) {
 	agentID := middleware.GetAgentID(c)
 	agentName := c.GetString("agent_name") // Should be set by middleware
-	
+	tenantID := middleware.GetTenantID(c)
+	projectID := middleware.GetProjectID(c)
+
 	sessionIDStr := c.Param("session_id")
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid session ID format"})
+		return
+	}
+
+	// Get session to pass to SendMessage
+	session, err := h.chatSessionService.GetChatSession(c.Request.Context(), tenantID, projectID, sessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get session: " + err.Error()})
+		return
+	}
+	if session == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
 		return
 	}
 
@@ -235,7 +248,7 @@ func (h *ChatSessionHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	message, err := h.chatSessionService.SendMessage(c.Request.Context(), sessionID, &req, "agent", &agentID, agentName)
+	message, err := h.chatSessionService.SendMessage(c.Request.Context(), session, &req, "agent", &agentID, agentName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message: " + err.Error()})
 		return
@@ -255,7 +268,7 @@ func (h *ChatSessionHandler) SendVisitorMessage(c *gin.Context) {
 	// Get session to validate token
 	session, err := h.chatSessionService.GetChatSessionByToken(c.Request.Context(), sessionToken)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session: " + err.Error()})
 		return
 	}
 	if session == nil {
@@ -271,11 +284,11 @@ func (h *ChatSessionHandler) SendVisitorMessage(c *gin.Context) {
 
 	// Get visitor name from session
 	visitorName := "Visitor"
-	if session.CustomerName != "" {
-		visitorName = session.CustomerName
+	if session.CustomerName != nil && *session.CustomerName != "" {
+		visitorName = *session.CustomerName
 	}
 
-	message, err := h.chatSessionService.SendMessage(c.Request.Context(), session.ID, &req, "visitor", nil, visitorName)
+	message, err := h.chatSessionService.SendMessage(c.Request.Context(), session, &req, "visitor", nil, visitorName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message: " + err.Error()})
 		return
@@ -288,7 +301,7 @@ func (h *ChatSessionHandler) SendVisitorMessage(c *gin.Context) {
 func (h *ChatSessionHandler) GetChatMessages(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
-	
+
 	sessionIDStr := c.Param("session_id")
 	sessionID, err := uuid.Parse(sessionIDStr)
 	if err != nil {
@@ -322,7 +335,7 @@ func (h *ChatSessionHandler) GetVisitorMessages(c *gin.Context) {
 	// Get session to validate token
 	session, err := h.chatSessionService.GetChatSessionByToken(c.Request.Context(), sessionToken)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session: " + err.Error()})
 		return
 	}
 	if session == nil {

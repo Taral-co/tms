@@ -19,6 +19,7 @@
   "workspaces": [
     "shared",
     "agent-console",
-    "public-view"
+    "public-view",
+    "chat-widget"
   ]
 }

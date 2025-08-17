@@ -3,7 +3,7 @@ import { ChatMessage, ChatSession, ChatWidget, InitiateChatRequest, SendMessageR
 export class ChatAPI {
   private baseUrl: string
 
-  constructor(apiUrl: string = 'http://localhost:8080/v1') {
+  constructor(apiUrl: string = 'http://localhost:8080/api') {
     this.baseUrl = apiUrl
   }
 
@@ -16,7 +16,7 @@ export class ChatAPI {
   }
 
   async initiateChat(widgetId: string, request: InitiateChatRequest): Promise<{ session_id: string, session_token: string }> {
-    const response = await fetch(`${this.baseUrl}/public/chat/widgets/${widgetId}/sessions`, {
+    const response = await fetch(`${this.baseUrl}/public/chat/widgets/${widgetId}/initiate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -75,6 +75,6 @@ export class ChatAPI {
 
   getWebSocketUrl(sessionToken: string): string {
     const wsUrl = this.baseUrl.replace('http', 'ws')
-    return `${wsUrl}/public/chat/ws?session_token=${sessionToken}`
+    return `${wsUrl}/public/chat/ws/${sessionToken}`
   }
 }

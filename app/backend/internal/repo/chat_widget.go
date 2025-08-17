@@ -50,9 +50,32 @@ func (r *ChatWidgetRepo) GetChatWidget(ctx context.Context, tenantID, projectID,
 		LEFT JOIN email_domain_validations edv ON cw.domain_id = edv.id
 		WHERE cw.tenant_id = $1 AND cw.project_id = $2 AND cw.id = $3
 	`
-	
+
 	var widget models.ChatWidget
 	err := r.db.GetContext(ctx, &widget, query, tenantID, projectID, widgetID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &widget, nil
+}
+
+func (r *ChatWidgetRepo) GetChatWidgetById(ctx context.Context, widgetID uuid.UUID) (*models.ChatWidget, error) {
+	query := `
+		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
+			   cw.primary_color, cw.secondary_color, cw.position, cw.welcome_message, cw.offline_message,
+			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
+			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
+			   edv.domain as domain_name
+		FROM chat_widgets cw
+		LEFT JOIN email_domain_validations edv ON cw.domain_id = edv.id
+		WHERE cw.id = $1
+	`
+
+	var widget models.ChatWidget
+	err := r.db.GetContext(ctx, &widget, query, widgetID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -75,7 +98,7 @@ func (r *ChatWidgetRepo) GetChatWidgetByDomain(ctx context.Context, domain strin
 		WHERE edv.domain = $1 AND cw.is_active = true AND edv.status = 'verified'
 		LIMIT 1
 	`
-	
+
 	var widget models.ChatWidget
 	err := r.db.GetContext(ctx, &widget, query, domain)
 	if err != nil {
@@ -100,7 +123,7 @@ func (r *ChatWidgetRepo) ListChatWidgets(ctx context.Context, tenantID, projectI
 		WHERE cw.tenant_id = $1 AND cw.project_id = $2
 		ORDER BY cw.created_at DESC
 	`
-	
+
 	var widgets []*models.ChatWidget
 	err := r.db.SelectContext(ctx, &widgets, query, tenantID, projectID)
 	if err != nil {
@@ -112,7 +135,7 @@ func (r *ChatWidgetRepo) ListChatWidgets(ctx context.Context, tenantID, projectI
 // UpdateChatWidget updates a chat widget
 func (r *ChatWidgetRepo) UpdateChatWidget(ctx context.Context, widget *models.ChatWidget) error {
 	widget.UpdatedAt = time.Now()
-	
+
 	query := `
 		UPDATE chat_widgets SET
 			name = :name,

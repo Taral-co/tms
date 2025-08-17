@@ -45,7 +45,7 @@ func (h *ChatWidgetHandler) CreateChatWidget(c *gin.Context) {
 func (h *ChatWidgetHandler) GetChatWidget(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
-	
+
 	widgetIDStr := c.Param("widget_id")
 	widgetID, err := uuid.Parse(widgetIDStr)
 	if err != nil {
@@ -88,7 +88,7 @@ func (h *ChatWidgetHandler) ListChatWidgets(c *gin.Context) {
 func (h *ChatWidgetHandler) UpdateChatWidget(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
-	
+
 	widgetIDStr := c.Param("widget_id")
 	widgetID, err := uuid.Parse(widgetIDStr)
 	if err != nil {
@@ -115,7 +115,7 @@ func (h *ChatWidgetHandler) UpdateChatWidget(c *gin.Context) {
 func (h *ChatWidgetHandler) DeleteChatWidget(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
-	
+
 	widgetIDStr := c.Param("widget_id")
 	widgetID, err := uuid.Parse(widgetIDStr)
 	if err != nil {
@@ -130,4 +130,25 @@ func (h *ChatWidgetHandler) DeleteChatWidget(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+// GetChatWidgetByDomain gets a chat widget by domain (public endpoint)
+func (h *ChatWidgetHandler) GetChatWidgetByDomain(c *gin.Context) {
+	domain := c.Param("domain")
+	if domain == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Domain is required"})
+		return
+	}
+
+	widget, err := h.chatWidgetService.GetChatWidgetByDomain(c.Request.Context(), domain)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat widget"})
+		return
+	}
+	if widget == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Chat widget not found for domain"})
+		return
+	}
+
+	c.JSON(http.StatusOK, widget)
 }

@@ -48,6 +48,7 @@ export class TMSChatWidget {
   }
 
   private createWidget() {
+    console.log('Creating chat widget, widget:', JSON.stringify(this.widget))
     if (!this.widget) return
 
     // Create main container
@@ -147,6 +148,8 @@ export class TMSChatWidget {
       </div>
     `
 
+    console.log('Widget container created:', this.container)
+
     // Create toggle button
     const toggleButton = document.createElement('div')
     toggleButton.id = 'tms-chat-toggle'
@@ -181,21 +184,27 @@ export class TMSChatWidget {
       toggleButton.style.transform = 'scale(1)'
     })
 
-    // Add event listeners
-    this.attachEventListeners()
-
     // Append to document
     document.body.appendChild(this.container)
     document.body.appendChild(toggleButton)
+    console.log('Widget and toggle button appended to body')
+
+    // Add event listeners AFTER elements are in DOM
+    this.attachEventListeners()
   }
 
   private attachEventListeners() {
+    console.log('Attaching event listeners...', this.container)
     if (!this.container) return
+    console.log('Container is present')
 
     const toggleButton = document.getElementById('tms-chat-toggle')
     const closeButton = document.getElementById('tms-chat-close')
     const sendButton = document.getElementById('tms-chat-send')
     const input = document.getElementById('tms-chat-input') as HTMLInputElement
+
+    console.log('Input element found:', input)
+    console.log('Toggle button:', toggleButton, 'Close button:', closeButton, 'Send button:', sendButton)
 
     toggleButton?.addEventListener('click', () => this.toggle())
     closeButton?.addEventListener('click', () => this.close())
@@ -213,13 +222,20 @@ export class TMSChatWidget {
   }
 
   private async open() {
-    if (!this.widget || !this.container) return
+    console.log('Opening chat widget, widget:', this.widget, 'container:', this.container)
+    if (!this.widget || !this.container) {
+      console.error('Missing widget or container!')
+      return
+    }
 
+    console.log('Setting container display to block')
     this.container.style.display = 'block'
     this.isOpen = true
+    console.log('Container display set, isOpen now:', this.isOpen)
 
     // Start chat session if not already started
     if (!this.session) {
+      console.log('Starting chat session...')
       await this.startChatSession()
     }
   }
@@ -232,6 +248,7 @@ export class TMSChatWidget {
   }
 
   private toggle() {
+    console.log('Chat widget toggle clicked, isOpen:', this.isOpen)
     if (this.isOpen) {
       this.close()
     } else {
@@ -240,10 +257,12 @@ export class TMSChatWidget {
   }
 
   private async startChatSession() {
+    console.log('startChatSession called, widget:', this.widget)
     if (!this.widget) return
 
     try {
       // Show welcome message first
+      console.log('Adding welcome message...')
       this.addMessage({
         id: 'welcome',
         content: this.widget.welcome_message,
@@ -253,6 +272,7 @@ export class TMSChatWidget {
         message_type: 'text',
         is_private: false
       })
+      console.log('Welcome message added')
 
       // Get visitor info
       const visitorInfo = {
@@ -263,7 +283,14 @@ export class TMSChatWidget {
       }
 
       // Prompt for visitor name and email if required
-      const visitorName = await this.promptForVisitorInfo()
+      console.log('Prompting for visitor info...')
+      
+      // TEMPORARY: Skip the modal for debugging
+      const visitorName = 'Test Visitor'
+      console.log('Using test visitor name:', visitorName)
+      
+      //const visitorName = await this.promptForVisitorInfo()
+      //console.log('Visitor name received:', visitorName)
       if (!visitorName) return
 
       // Initiate chat session
@@ -294,6 +321,7 @@ export class TMSChatWidget {
   }
 
   private async promptForVisitorInfo(): Promise<string | null> {
+    console.log('Creating visitor info modal...')
     return new Promise((resolve) => {
       const modal = document.createElement('div')
       modal.style.cssText = `
@@ -367,10 +395,13 @@ export class TMSChatWidget {
       `
 
       document.body.appendChild(modal)
+      console.log('Modal appended to body')
 
       const nameInput = modal.querySelector('#visitor-name') as HTMLInputElement
       const startButton = modal.querySelector('#start-chat')
       const cancelButton = modal.querySelector('#cancel-chat')
+
+      console.log('Modal elements:', { nameInput, startButton, cancelButton })
 
       const cleanup = () => {
         document.body.removeChild(modal)

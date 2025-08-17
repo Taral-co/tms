@@ -176,11 +176,11 @@ func (h *ChatWebSocketHandler) handleWebSocketMessage(ctx context.Context, sessi
 				}
 
 				visitorName := "Visitor"
-				if session.CustomerName != "" {
-					visitorName = session.CustomerName
+				if session.CustomerName != nil && *session.CustomerName != "" {
+					visitorName = *session.CustomerName
 				}
 
-				message, err := h.chatSessionService.SendMessage(ctx, session.ID, req, "visitor", nil, visitorName)
+				message, err := h.chatSessionService.SendMessage(ctx, session, req, "visitor", nil, visitorName)
 				if err != nil {
 					h.sendError(conn, "Failed to send message: "+err.Error())
 					return
@@ -198,12 +198,18 @@ func (h *ChatWebSocketHandler) handleWebSocketMessage(ctx context.Context, sessi
 		}
 
 	case models.WSMsgTypeTypingStart:
+		// Get visitor name
+		visitorName := "Visitor"
+		if session.CustomerName != nil && *session.CustomerName != "" {
+			visitorName = *session.CustomerName
+		}
+
 		// Broadcast typing indicator
 		broadcastMsg := models.WSMessage{
 			Type:      models.WSMsgTypeTypingStart,
 			SessionID: session.ID,
 			Data: map[string]interface{}{
-				"author_name": session.CustomerName,
+				"author_name": visitorName,
 				"author_type": "visitor",
 			},
 			Timestamp: time.Now(),
@@ -211,12 +217,18 @@ func (h *ChatWebSocketHandler) handleWebSocketMessage(ctx context.Context, sessi
 		h.broadcastToSessionExcluding(session.ID, broadcastMsg, conn)
 
 	case models.WSMsgTypeTypingStop:
+		// Get visitor name
+		visitorName := "Visitor"
+		if session.CustomerName != nil && *session.CustomerName != "" {
+			visitorName = *session.CustomerName
+		}
+
 		// Broadcast stop typing indicator
 		broadcastMsg := models.WSMessage{
 			Type:      models.WSMsgTypeTypingStop,
 			SessionID: session.ID,
 			Data: map[string]interface{}{
-				"author_name": session.CustomerName,
+				"author_name": visitorName,
 				"author_type": "visitor",
 			},
 			Timestamp: time.Now(),
@@ -241,7 +253,7 @@ func (h *ChatWebSocketHandler) handleAgentWebSocketMessage(ctx context.Context, 
 			content, _ := data["content"].(string)
 			sessionIDStr, _ := data["session_id"].(string)
 			agentName, _ := data["agent_name"].(string)
-			
+
 			if content != "" && sessionIDStr != "" {
 				sessionID, err := uuid.Parse(sessionIDStr)
 				if err != nil {
@@ -253,7 +265,7 @@ func (h *ChatWebSocketHandler) handleAgentWebSocketMessage(ctx context.Context, 
 					Content: content,
 				}
 
-				message, err := h.chatSessionService.SendMessage(ctx, sessionID, req, "agent", &agentID, agentName)
+				message, err := h.chatSessionService.SendMessageByID(ctx, sessionID, req, "agent", &agentID, agentName)
 				if err != nil {
 					h.sendError(conn, "Failed to send message: "+err.Error())
 					return
@@ -275,7 +287,7 @@ func (h *ChatWebSocketHandler) handleAgentWebSocketMessage(ctx context.Context, 
 		if data, ok := msg.Data.(map[string]interface{}); ok {
 			sessionIDStr, _ := data["session_id"].(string)
 			agentName, _ := data["agent_name"].(string)
-			
+
 			if sessionIDStr != "" {
 				sessionID, err := uuid.Parse(sessionIDStr)
 				if err != nil {
@@ -299,7 +311,7 @@ func (h *ChatWebSocketHandler) handleAgentWebSocketMessage(ctx context.Context, 
 		// Mark messages as read by agent
 		if data, ok := msg.Data.(map[string]interface{}); ok {
 			sessionIDStr, _ := data["session_id"].(string)
-			
+
 			if sessionIDStr != "" {
 				sessionID, err := uuid.Parse(sessionIDStr)
 				if err != nil {
