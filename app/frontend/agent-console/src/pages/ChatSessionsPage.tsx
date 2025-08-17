@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search, Settings, ArrowRight } from 'lucide-react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search, Settings, ArrowRight, Wifi, WifiOff } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
+import { useWebSocket } from '../hooks/useWebSocket'
+import { useTypingIndicator } from '../hooks/useTypingIndicator'
 import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
 import type { ChatSession, ChatMessage, SendChatMessageRequest } from '../types/chat'
 import { format } from 'date-fns'
@@ -23,7 +25,84 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [hasWidgets, setHasWidgets] = useState<boolean | null>(null)
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // WebSocket connection for real-time updates
+  const { 
+    isConnected: wsConnected,
+    isConnecting: wsConnecting,
+    error: wsError,
+    sendTypingIndicator,
+    connect
+  } = useWebSocket({
+    // Connect to general agent WebSocket (not session-specific) for broader updates
+    sessionId: selectedSession?.id,
+    onMessage: useCallback((message: ChatMessage) => {
+      // Only add message if it's for the currently selected session
+      if (selectedSession?.id === message.session_id) {
+        setMessages(prev => {
+          // Check if message already exists to avoid duplicates
+          const exists = prev.some(m => m.id === message.id)
+          if (exists) return prev
+          return [...prev, message]
+        })
+      }
+      
+      // Update session list to reflect new activity
+      setSessions(prev => prev.map(session => 
+        session.id === message.session_id 
+          ? { ...session, last_activity_at: message.created_at }
+          : session
+      ))
+    }, [selectedSession?.id]),
+    onSessionUpdate: useCallback((updatedSession: ChatSession) => {
+      setSessions(prev => {
+        const exists = prev.some(s => s.id === updatedSession.id)
+        if (exists) {
+          return prev.map(session => 
+            session.id === updatedSession.id ? updatedSession : session
+          )
+        } else {
+          // New session - add to list and refresh
+          return [updatedSession, ...prev]
+        }
+      })
+      
+      if (selectedSession?.id === updatedSession.id) {
+        setSelectedSession(updatedSession)
+      }
+    }, [selectedSession?.id]),
+    onTyping: useCallback((data: { isTyping: boolean; agentName?: string }) => {
+      if (data.agentName) {
+        setTypingUsers(prev => {
+          const newSet = new Set(prev)
+          if (data.isTyping) {
+            newSet.add(data.agentName!)
+          } else {
+            newSet.delete(data.agentName!)
+          }
+          return newSet
+        })
+      }
+    }, []),
+    onError: useCallback((error: string) => {
+      setError(`WebSocket error: ${error}`)
+    }, [])
+  })  // Typing indicator management
+  const { startTyping, stopTyping } = useTypingIndicator({
+    onTypingStart: () => {
+      if (selectedSession?.id) {
+        sendTypingIndicator(true, selectedSession.id)
+      }
+    },
+    onTypingStop: () => {
+      if (selectedSession?.id) {
+        sendTypingIndicator(false, selectedSession.id)
+      }
+    },
+    debounceMs: 2000
+  })
 
   useEffect(() => {
     loadSessions()
@@ -34,7 +113,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     try {
       const widgets = await apiClient.listChatWidgets()
       setHasWidgets(widgets.length > 0)
-    } catch (error) {
+    } catch (_error) {
       setHasWidgets(false)
     }
   }
@@ -105,9 +184,12 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         message_type: 'text'
       }
       
-      const sentMessage = await apiClient.sendChatMessage(selectedSession.id, messageData)
-      setMessages(prev => [...prev, sentMessage])
+      await apiClient.sendChatMessage(selectedSession.id, messageData)
+      // Don't add to local state - WebSocket will handle the update
       setNewMessage('')
+      
+      // Send typing stop indicator
+      stopTyping()
     } catch (err: any) {
       setError(`Failed to send message: ${err.message}`)
     } finally {
@@ -146,6 +228,50 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       case 'transferred': return 'bg-info/10 text-info'
       default: return 'bg-muted text-muted-foreground'
     }
+  }
+
+  // Connection status notification component
+  const ConnectionStatus = () => {
+    if (!selectedSession) return null
+    
+    if (wsConnected) {
+      return (
+        <div className="flex items-center gap-1 text-success" title="Real-time connection active">
+          <Wifi className="w-3 h-3" />
+          <span className="text-xs">Live</span>
+        </div>
+      )
+    }
+    
+    if (wsConnecting) {
+      return (
+        <div className="flex items-center gap-1 text-warning" title="Connecting to real-time updates...">
+          <WifiOff className="w-3 h-3 animate-pulse" />
+          <span className="text-xs">Connecting...</span>
+        </div>
+      )
+    }
+    
+    if (wsError) {
+      return (
+        <div className="flex items-center gap-1 text-destructive" title={wsError}>
+          <WifiOff className="w-3 h-3" />
+          <span className="text-xs">Error</span>
+        </div>
+      )
+    }
+    
+    return (
+      <div className="flex items-center gap-1 text-muted-foreground" title="Disconnected from real-time updates">
+        <WifiOff className="w-3 h-3" />
+        <span className="text-xs">Offline</span>
+      </div>
+    )
+  }
+
+  // Manual retry handler for connection failures
+  const handleRetryConnection = () => {
+    connect('manual-retry')
   }
 
   // Filter sessions based on search term
@@ -321,6 +447,8 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                       <span>•</span>
                       <Clock className="w-3 h-3" />
                       <span>{format(new Date(selectedSession.created_at), 'MMM d, h:mm a')}</span>
+                      <span>•</span>
+                      <ConnectionStatus />
                     </div>
                   </div>
                 </div>
@@ -350,7 +478,37 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
+              
+              {/* Typing Indicators */}
+              {typingUsers.size > 0 && (
+                <div className="flex justify-start">
+                  <div className="max-w-xs lg:max-w-md px-4 py-2 rounded-lg bg-muted text-card-foreground">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
+            </div>
+
+            {/* ARIA Live Region for Screen Readers */}
+            <div 
+              aria-live="polite" 
+              aria-label="Chat activity announcements"
+              className="sr-only"
+            >
+              {typingUsers.size > 0 && (
+                `${Array.from(typingUsers).join(', ')} ${typingUsers.size === 1 ? 'is' : 'are'} typing`
+              )}
             </div>
 
             {/* Message Input */}
@@ -360,12 +518,24 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                   <div className="flex-1">
                     <textarea
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={(e) => {
+                        setNewMessage(e.target.value)
+                        // Use typing indicator hook for better debouncing
+                        if (e.target.value.trim()) {
+                          startTyping()
+                        } else {
+                          stopTyping()
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
                           handleSendMessage(e)
                         }
+                      }}
+                      onBlur={() => {
+                        // Stop typing indicator when input loses focus
+                        stopTyping()
                       }}
                       placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
                       className="w-full min-h-[44px] max-h-[280px] px-3 py-2 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
@@ -424,17 +594,27 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         onSessionCreated={handleCreateSession}
       />
 
-      {/* Error Toast */}
-      {error && (
-        <div className="fixed bottom-4 right-4 bg-destructive text-destructive-foreground px-4 py-2 rounded-md shadow-lg flex items-center gap-2 max-w-sm">
-          <span className="text-sm">{error}</span>
+      {/* WebSocket Error Toast */}
+      {wsError && wsError.includes('multiple attempts') && (
+        <div className="fixed bottom-16 right-4 bg-destructive text-destructive-foreground px-4 py-3 rounded-md shadow-lg flex items-center gap-3 max-w-sm z-50">
+          <WifiOff className="w-4 h-4" />
+          <div className="flex-1">
+            <div className="text-sm font-medium">Connection Failed</div>
+            <div className="text-xs opacity-90">Unable to connect to real-time chat</div>
+          </div>
           <button 
-            onClick={() => setError(null)}
-            className="ml-2 hover:bg-destructive/90 rounded p-1 transition-colors"
-            aria-label="Dismiss error"
+            onClick={handleRetryConnection}
+            className="bg-destructive-foreground text-destructive px-2 py-1 rounded text-xs font-medium hover:opacity-90 transition-opacity"
           >
-            <X className="w-4 h-4" />
+            Retry
           </button>
+        </div>
+      )}
+      
+      {wsError && !wsError.includes('multiple attempts') && (
+        <div className="fixed bottom-16 right-4 bg-warning text-warning-foreground px-4 py-2 rounded-md shadow-lg flex items-center gap-2 max-w-sm z-50">
+          <WifiOff className="w-4 h-4" />
+          <span className="text-sm">{wsError}</span>
         </div>
       )}
     </div>

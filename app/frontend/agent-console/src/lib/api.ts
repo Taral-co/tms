@@ -1058,7 +1058,7 @@ class APIClient {
     await this.client.post(`/chat/sessions/${sessionId}/read`)
   }
 
-  // WebSocket URL for real-time chat
+  // WebSocket URL for real-time chat (agent endpoint)
   getChatWebSocketUrl(): string {
     const wsUrl = this.client.defaults.baseURL?.replace('http', 'ws') || 'ws://localhost:8080/v1'
     return `${wsUrl}/chat/ws`
