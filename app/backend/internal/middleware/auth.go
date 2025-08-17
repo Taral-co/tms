@@ -23,21 +23,26 @@ func AuthMiddleware(jwtAuth *auth.Service) gin.HandlerFunc {
 
 		// Get token from Authorization header
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		queryTokenParam := c.Query("token")
+		if authHeader == "" && queryTokenParam == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header or query token required"})
 			c.Abort()
 			return
 		}
 
 		// Check Bearer prefix
 		const bearerPrefix = "Bearer "
-		if !strings.HasPrefix(authHeader, bearerPrefix) {
+		var token string
+		if strings.HasPrefix(authHeader, bearerPrefix) {
+			token = authHeader[len(bearerPrefix):]
+		} else {
+			token = queryTokenParam
+		}
+		if !strings.HasPrefix(authHeader, bearerPrefix) && queryTokenParam == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
 			c.Abort()
 			return
 		}
-
-		token := authHeader[len(bearerPrefix):]
 
 		// Validate token
 		claims, err := jwtAuth.ValidateToken(token)

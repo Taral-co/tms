@@ -70,13 +70,6 @@ CREATE POLICY sla_policies_tenant_policy ON sla_policies
 CREATE POLICY sla_policies_project_policy ON sla_policies 
     USING (project_id = ANY (string_to_array(current_setting('app.project_ids', true), ',')::uuid[]));
 
--- Unauth Tokens RLS
-ALTER TABLE unauth_tokens ENABLE ROW LEVEL SECURITY;
-CREATE POLICY unauth_tokens_tenant_policy ON unauth_tokens 
-    USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
-CREATE POLICY unauth_tokens_project_policy ON unauth_tokens 
-    USING (project_id = ANY (string_to_array(current_setting('app.project_ids', true), ',')::uuid[]));
-
 -- Webhooks RLS
 ALTER TABLE webhooks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY webhooks_tenant_policy ON webhooks 
@@ -98,8 +91,6 @@ CREATE POLICY audit_log_tenant_policy ON audit_log
 DROP POLICY IF EXISTS audit_log_tenant_policy ON audit_log;
 DROP POLICY IF EXISTS webhooks_project_policy ON webhooks;
 DROP POLICY IF EXISTS webhooks_tenant_policy ON webhooks;
-DROP POLICY IF EXISTS unauth_tokens_project_policy ON unauth_tokens;
-DROP POLICY IF EXISTS unauth_tokens_tenant_policy ON unauth_tokens;
 DROP POLICY IF EXISTS sla_policies_project_policy ON sla_policies;
 DROP POLICY IF EXISTS sla_policies_tenant_policy ON sla_policies;
 DROP POLICY IF EXISTS attachments_project_policy ON attachments;
@@ -121,7 +112,6 @@ DROP POLICY IF EXISTS tenants_tenant_policy ON tenants;
 -- Disable RLS
 ALTER TABLE audit_log DISABLE ROW LEVEL SECURITY;
 ALTER TABLE webhooks DISABLE ROW LEVEL SECURITY;
-ALTER TABLE unauth_tokens DISABLE ROW LEVEL SECURITY;
 ALTER TABLE sla_policies DISABLE ROW LEVEL SECURITY;
 ALTER TABLE attachments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE ticket_tags DISABLE ROW LEVEL SECURITY;

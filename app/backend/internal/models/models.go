@@ -583,6 +583,7 @@ type SendChatMessageRequest struct {
 	Content     string  `json:"content" binding:"required"`
 	IsPrivate   bool    `json:"is_private"`
 	Metadata    JSONMap `json:"metadata"`
+	SenderName  string  `json:"sender_name" binding:"required,max=255"`
 }
 
 // AssignChatSessionRequest represents a request to assign an agent to a chat

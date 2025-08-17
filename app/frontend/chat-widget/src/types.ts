@@ -42,6 +42,7 @@ export interface InitiateChatRequest {
 export interface SendMessageRequest {
   content: string
   message_type?: 'text' | 'file' | 'image'
+  sender_name: string
 }
 
 export interface WSMessage {

@@ -267,7 +267,7 @@ export class TMSChatWidget {
         id: 'welcome',
         content: this.widget.welcome_message,
         author_type: 'system',
-        author_name: 'System',
+        author_name: this.widget.name,
         created_at: new Date().toISOString(),
         message_type: 'text',
         is_private: false
@@ -279,7 +279,8 @@ export class TMSChatWidget {
         url: window.location.href,
         referrer: document.referrer,
         user_agent: navigator.userAgent,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        visitor_id: await this.computeCrossBrowserFingerprint()
       }
 
       // Prompt for visitor name and email if required
@@ -539,7 +540,8 @@ export class TMSChatWidget {
     try {
       const message = await this.api.sendMessage(this.session.session_token, {
         content,
-        message_type: 'text'
+        message_type: 'text',
+        sender_name: 'Visitor'
       })
 
       this.addMessage(message)
@@ -631,5 +633,111 @@ export class TMSChatWidget {
     if (toggleButton) {
       toggleButton.remove()
     }
+  }
+
+  // Compute a cross-browser fingerprint using canvas, WebGL and navigator/screen properties.
+  // Note: absolute guarantees across different browsers are impossible, but this produces
+  // a reasonably stable fingerprint for the same device/environment.
+  public async computeCrossBrowserFingerprint(): Promise<string> {
+    try {
+      const parts: string[] = []
+
+      // Navigator properties
+      try {
+        parts.push(navigator.userAgent || '')
+        // languages may be array
+        // @ts-ignore
+        parts.push((navigator.languages || []).join(','))
+        // @ts-ignore
+        parts.push((navigator.language || ''))
+        // @ts-ignore
+        parts.push((navigator.platform || ''))
+        // @ts-ignore
+        parts.push(String((navigator as any).hardwareConcurrency || ''))
+        // @ts-ignore
+        parts.push(String((navigator as any).deviceMemory || ''))
+      } catch (e) {
+        // ignore
+      }
+
+      // Screen properties
+      try {
+        parts.push(String(screen.width || ''))
+        parts.push(String(screen.height || ''))
+        parts.push(String(screen.colorDepth || ''))
+      } catch (e) {}
+
+      // Timezone offset
+      try {
+        parts.push(String(new Date().getTimezoneOffset()))
+      } catch (e) {}
+
+      // Canvas fingerprint
+      try {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          canvas.width = 200
+          canvas.height = 60
+          ctx.fillStyle = '#f60'
+          ctx.fillRect(0, 0, 200, 60)
+          ctx.fillStyle = '#069'
+          ctx.font = '18px Arial'
+          ctx.fillText('TMS Chat ' + navigator.userAgent, 10, 35)
+          // draw a random shape
+          ctx.beginPath()
+          ctx.arc(50, 20, 15, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(255,255,255,0.5)'
+          ctx.fill()
+          const dataUrl = canvas.toDataURL()
+          parts.push(dataUrl)
+        }
+      } catch (e) {}
+
+      // WebGL renderer info
+      try {
+        const canvas = document.createElement('canvas')
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+        if (gl) {
+          const dbg = (gl as any).getExtension('WEBGL_debug_renderer_info')
+          if (dbg) {
+            const vendor = (gl as any).getParameter(dbg.UNMASKED_VENDOR_WEBGL)
+            const renderer = (gl as any).getParameter(dbg.UNMASKED_RENDERER_WEBGL)
+            parts.push(String(vendor))
+            parts.push(String(renderer))
+          }
+        }
+      } catch (e) {}
+
+      const long = parts.join('||')
+      // Use SubtleCrypto SHA-256 when available
+      return await this.sha256Hex(long)
+    } catch (e) {
+      // fallback
+      return this.simpleHashHex(String(Math.random()))
+    }
+  }
+
+  private async sha256Hex(input: string): Promise<string> {
+    try {
+      if (window.crypto && window.crypto.subtle) {
+        const enc = new TextEncoder()
+        const buf = enc.encode(input)
+        const hash = await crypto.subtle.digest('SHA-256', buf)
+        const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+        return hex
+      }
+    } catch (e) {
+      // ignore and fall through to fallback
+    }
+    return this.simpleHashHex(input)
+  }
+
+  private simpleHashHex(input: string): string {
+    let h = 2166136261 >>> 0
+    for (let i = 0; i < input.length; i++) {
+      h = Math.imul(h ^ input.charCodeAt(i), 16777619) >>> 0
+    }
+    return h.toString(16)
   }
 }

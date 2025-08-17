@@ -220,7 +220,6 @@ func (h *ChatSessionHandler) EndSession(c *gin.Context) {
 // SendMessage sends a message in a chat session (agent endpoint)
 func (h *ChatSessionHandler) SendMessage(c *gin.Context) {
 	agentID := middleware.GetAgentID(c)
-	agentName := c.GetString("agent_name") // Should be set by middleware
 	tenantID := middleware.GetTenantID(c)
 	projectID := middleware.GetProjectID(c)
 
@@ -231,24 +230,13 @@ func (h *ChatSessionHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	// Get session to pass to SendMessage
-	session, err := h.chatSessionService.GetChatSession(c.Request.Context(), tenantID, projectID, sessionID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get session: " + err.Error()})
-		return
-	}
-	if session == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
-		return
-	}
-
 	var req models.SendChatMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	message, err := h.chatSessionService.SendMessage(c.Request.Context(), session, &req, "agent", &agentID, agentName)
+	message, err := h.chatSessionService.SendMessage(c.Request.Context(), tenantID, projectID, sessionID, &req, "agent", &agentID, req.SenderName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message: " + err.Error()})
 		return
@@ -288,7 +276,7 @@ func (h *ChatSessionHandler) SendVisitorMessage(c *gin.Context) {
 		visitorName = *session.CustomerName
 	}
 
-	message, err := h.chatSessionService.SendMessage(c.Request.Context(), session, &req, "visitor", nil, visitorName)
+	message, err := h.chatSessionService.SendMessage(c.Request.Context(), session.TenantID, session.ProjectID, session.ID, &req, "visitor", nil, visitorName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message: " + err.Error()})
 		return

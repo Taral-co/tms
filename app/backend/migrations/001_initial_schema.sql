@@ -172,19 +172,6 @@ CREATE TABLE sla_policies (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create unauth_tokens table
-CREATE TABLE unauth_tokens (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    jti VARCHAR(255) NOT NULL UNIQUE,
-    scope unauth_scope NOT NULL DEFAULT 'view',
-    exp TIMESTAMPTZ NOT NULL,
-    consumed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 -- Create webhooks table
 CREATE TABLE webhooks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -230,8 +217,6 @@ CREATE INDEX idx_tickets_created_at ON tickets(created_at);
 CREATE INDEX idx_ticket_messages_ticket_id ON ticket_messages(ticket_id);
 CREATE INDEX idx_ticket_messages_created_at ON ticket_messages(created_at);
 CREATE INDEX idx_attachments_ticket_id ON attachments(ticket_id);
-CREATE INDEX idx_unauth_tokens_jti ON unauth_tokens(jti);
-CREATE INDEX idx_unauth_tokens_exp ON unauth_tokens(exp);
 CREATE INDEX idx_audit_log_tenant_id ON audit_log(tenant_id);
 CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
 
@@ -318,7 +303,6 @@ DROP FUNCTION IF EXISTS set_ticket_number();
 
 DROP TABLE IF EXISTS audit_log CASCADE;
 DROP TABLE IF EXISTS webhooks CASCADE;
-DROP TABLE IF EXISTS unauth_tokens CASCADE;
 DROP TABLE IF EXISTS sla_policies CASCADE;
 DROP TABLE IF EXISTS attachments CASCADE;
 DROP TABLE IF EXISTS ticket_tags CASCADE;

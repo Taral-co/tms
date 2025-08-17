@@ -94,10 +94,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
     try {
       // The backend expects: /v1/chat/ws/:session_id?agent_id=xxx
-      const wsUrl = `${apiClient.getChatWebSocketUrl()}/${options.sessionId}?agent_id=${user.id}`
-      
+      const token = localStorage.getItem('auth_token')
+      const wsUrl = `${apiClient.getChatWebSocketUrl()}/${options.sessionId}?token=${token}`
+
       console.log('WebSocket: Attempting to connect to:', wsUrl, 'from ->',connectingFrom)
-      
+
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 

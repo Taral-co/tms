@@ -106,7 +106,7 @@ func (s *ChatSessionService) InitiateChat(ctx context.Context, widgetID uuid.UUI
 
 	// Send initial message if provided
 	if req.InitialMessage != "" {
-		_, err = s.SendMessage(ctx, session, &models.SendChatMessageRequest{
+		_, err = s.SendMessage(ctx, widget.TenantID, widget.ProjectID, session.ID, &models.SendChatMessageRequest{
 			Content: req.InitialMessage,
 		}, "visitor", nil, req.VisitorName)
 		if err != nil {
@@ -158,7 +158,7 @@ func (s *ChatSessionService) AssignAgent(ctx context.Context, tenantID, projectI
 	}
 
 	// Send system message about agent assignment
-	_, err = s.SendMessage(ctx, session, &models.SendChatMessageRequest{
+	_, err = s.SendMessage(ctx, tenantID, projectID, sessionID, &models.SendChatMessageRequest{
 		Content: "An agent has joined the conversation",
 	}, "system", nil, "System")
 
@@ -183,7 +183,7 @@ func (s *ChatSessionService) EndSession(ctx context.Context, tenantID, projectID
 }
 
 // SendMessage sends a message in a chat session
-func (s *ChatSessionService) SendMessage(ctx context.Context, session *models.ChatSession, req *models.SendChatMessageRequest, authorType string, authorID *uuid.UUID, authorName string) (*models.ChatMessage, error) {
+func (s *ChatSessionService) SendMessage(ctx context.Context, tenantID, projectID, sessionID uuid.UUID, req *models.SendChatMessageRequest, authorType string, authorID *uuid.UUID, authorName string) (*models.ChatMessage, error) {
 	// Set defaults
 	if req.MessageType == "" {
 		req.MessageType = "text"
@@ -191,9 +191,9 @@ func (s *ChatSessionService) SendMessage(ctx context.Context, session *models.Ch
 
 	message := &models.ChatMessage{
 		ID:            uuid.New(),
-		TenantID:      session.TenantID,
-		ProjectID:     session.ProjectID,
-		SessionID:     session.ID,
+		TenantID:      tenantID,
+		ProjectID:     projectID,
+		SessionID:     sessionID,
 		MessageType:   req.MessageType,
 		Content:       req.Content,
 		AuthorType:    authorType,
@@ -216,7 +216,7 @@ func (s *ChatSessionService) SendMessage(ctx context.Context, session *models.Ch
 	}
 
 	// Update session last activity
-	err = s.chatSessionRepo.UpdateLastActivity(ctx, session.ID)
+	err = s.chatSessionRepo.UpdateLastActivity(ctx, sessionID)
 	if err != nil {
 		// Log error but don't fail message creation
 		fmt.Printf("Failed to update session last activity: %v\n", err)
