@@ -1060,8 +1060,15 @@ class APIClient {
 
   // WebSocket URL for real-time chat (agent endpoint)
   getChatWebSocketUrl(): string {
+    const tenantId = localStorage.getItem('tenant_id')
+    const projectId = localStorage.getItem('project_id')
+    
+    if (!tenantId || !projectId) {
+      throw new Error('Tenant ID and Project ID are required for WebSocket connection')
+    }
+    
     const wsUrl = this.client.defaults.baseURL?.replace('http', 'ws') || 'ws://localhost:8080/v1'
-    return `${wsUrl}/chat/ws`
+    return `${wsUrl}/tenants/${tenantId}/projects/${projectId}/chat/ws`
   }
 }
 
