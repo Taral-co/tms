@@ -21,6 +21,7 @@ import (
 	"github.com/bareuptime/tms/internal/redis"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/bareuptime/tms/internal/service"
+	"github.com/bareuptime/tms/internal/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -114,7 +115,12 @@ func main() {
 	// Chat handlers
 	chatWidgetHandler := handlers.NewChatWidgetHandler(chatWidgetService)
 	chatSessionHandler := handlers.NewChatSessionHandler(chatSessionService, chatWidgetService)
-	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService)
+
+	// Initialize enterprise connection manager
+	connectionManager := websocket.NewConnectionManager(redisService.GetClient())
+	defer connectionManager.Shutdown()
+
+	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager)
 
 	// Setup router
 	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler)

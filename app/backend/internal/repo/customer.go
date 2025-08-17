@@ -119,6 +119,9 @@ func (r *customerRepository) GetByEmail(ctx context.Context, tenantID uuid.UUID,
 	)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Customer not found
+		}
 		return nil, err
 	}
 

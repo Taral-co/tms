@@ -171,7 +171,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   }
 
   return (
-    <div className="h-full flex bg-background">
+    <div className="h-screen flex bg-background overflow-hidden">
       {/* Sessions Sidebar */}
       <div className="w-96 border-r border-border bg-card flex flex-col">
         {/* Controls */}
@@ -240,7 +240,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         {/* Sessions List */}
         <div className="flex-1 min-h-0">
           {filteredSessions.length > 0 ? (
-            <div className="overflow-y-auto flex-1">
+            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
               {filteredSessions.map((session) => (
                 <SessionCard
                   key={session.id}
@@ -346,7 +346,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
@@ -356,24 +356,43 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
             {/* Message Input */}
             {selectedSession.status === 'active' && (
               <div className="p-4 border-t border-border bg-card">
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-1 h-10 px-3 py-2 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                    disabled={sendingMessage}
-                    aria-label="Message input"
-                  />
+                <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <textarea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSendMessage(e)
+                        }
+                      }}
+                      placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
+                      className="w-full min-h-[44px] max-h-[280px] px-3 py-2 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                      disabled={sendingMessage}
+                      aria-label="Message input"
+                      rows={1}
+                      style={{
+                        height: 'auto',
+                        minHeight: '44px'
+                      }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement
+                        target.style.height = 'auto'
+                        target.style.height = Math.min(target.scrollHeight, 280) + 'px'
+                      }}
+                    />
+                  </div>
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || sendingMessage}
-                    className="h-10 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                    className="h-11 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors shrink-0"
                     aria-label="Send message"
                   >
                     <Send className="w-4 h-4" />
-                    {sendingMessage ? 'Sending...' : 'Send'}
+                    <span className="hidden sm:inline">
+                      {sendingMessage ? 'Sending...' : 'Send'}
+                    </span>
                   </button>
                 </form>
               </div>

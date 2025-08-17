@@ -33,6 +33,11 @@ func (s *Service) Close() error {
 	return s.client.Close()
 }
 
+// GetClient returns the underlying Redis client for advanced operations
+func (s *Service) GetClient() *redis.Client {
+	return s.client
+}
+
 // Ping tests the Redis connection
 func (s *Service) Ping(ctx context.Context) error {
 	return s.client.Ping(ctx).Err()
