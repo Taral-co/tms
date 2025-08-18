@@ -128,6 +128,11 @@ func (s *ChatSessionService) GetChatSessionByToken(ctx context.Context, sessionT
 	return s.chatSessionRepo.GetChatSessionByToken(ctx, sessionToken)
 }
 
+// GetChatSessionByID gets a chat session by ID for any tenant (used for global agent operations)
+func (s *ChatSessionService) GetChatSessionByID(ctx context.Context, tenantID, sessionID uuid.UUID) (*models.ChatSession, error) {
+	return s.chatSessionRepo.GetChatSessionByID(ctx, tenantID, sessionID)
+}
+
 // ListChatSessions lists chat sessions for a project
 func (s *ChatSessionService) ListChatSessions(ctx context.Context, tenantID, projectID uuid.UUID, filters repo.ChatSessionFilters) ([]*models.ChatSession, error) {
 	return s.chatSessionRepo.ListChatSessions(ctx, tenantID, projectID, filters)

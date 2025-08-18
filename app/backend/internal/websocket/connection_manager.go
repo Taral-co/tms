@@ -338,6 +338,9 @@ func (cm *ConnectionManager) handleRedisMessage(msg *redis.Message) {
 	if len(msg.Channel) > len("chat:session:") && msg.Channel[:len("chat:session:")] == "chat:session:" {
 		sessionID := msg.Channel[len("chat:session:"):]
 		cm.deliverToLocalConnections(sessionID, []byte(msg.Payload))
+		
+		// Also deliver to agent-global connections that should receive session updates
+		cm.deliverToAgentGlobalConnections(sessionID, []byte(msg.Payload))
 	} else if len(msg.Channel) > len("chat:connection:") && msg.Channel[:len("chat:connection:")] == "chat:connection:" {
 		connID := msg.Channel[len("chat:connection:"):]
 		cm.deliverToLocalConnection(connID, &message)
@@ -358,6 +361,31 @@ func (cm *ConnectionManager) deliverToLocalConnections(sessionID string, msgByte
 		if connection.SessionID == sessionID {
 			if err := cm.sendToWebSocketByConnection(connection, &message); err != nil {
 				log.Error().Err(err).Str("connection_id", connection.ID).Msg("Failed to send message to WebSocket")
+				// Remove failed connection
+				go cm.RemoveConnection(connection.ID)
+			}
+		}
+	}
+}
+
+func (cm *ConnectionManager) deliverToAgentGlobalConnections(sessionID string, msgBytes []byte) {
+	var message Message
+	if err := json.Unmarshal(msgBytes, &message); err != nil {
+		log.Error().Err(err).Msg("Failed to unmarshal message for agent global delivery")
+		return
+	}
+
+	cm.connMutex.RLock()
+	defer cm.connMutex.RUnlock()
+
+	// Deliver to agent-global connections (sessions starting with "agent-global-")
+	for _, connection := range cm.localConns {
+		if connection.Type == ConnectionTypeAgent && 
+		   len(connection.SessionID) > len("agent-global-") &&
+		   connection.SessionID[:len("agent-global-")] == "agent-global-" {
+			// This is an agent-global connection, send session updates to it
+			if err := cm.sendToWebSocketByConnection(connection, &message); err != nil {
+				log.Error().Err(err).Str("connection_id", connection.ID).Msg("Failed to send message to agent global WebSocket")
 				// Remove failed connection
 				go cm.RemoveConnection(connection.ID)
 			}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search, Settings, ArrowRight, Wifi, WifiOff, Volume2, VolumeX } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
-import { useWebSocket } from '../hooks/useWebSocket'
+import { useAgentWebSocket } from '../hooks/useAgentWebSocket'
 import { useTypingIndicator } from '../hooks/useTypingIndicator'
 import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
 import { notificationSound } from '../utils/notificationSound'
@@ -52,18 +52,17 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     localStorage.setItem('tms_agent_sound_enabled', JSON.stringify(soundEnabled))
   }, [soundEnabled])
 
-  // WebSocket connection for real-time updates
+  // Global Agent WebSocket connection for real-time updates
   const { 
     isConnected: wsConnected,
     isConnecting: wsConnecting,
     error: wsError,
     sendTypingIndicator,
     sendChatMessage,
-    markMessageAsRead,
+    subscribeToSession,
+    unsubscribeFromSession,
     manualRetry
-  } = useWebSocket({
-    // Connect to general agent WebSocket (not session-specific) for broader updates
-    sessionId: selectedSession?.id,
+  } = useAgentWebSocket({
     onMessage: useCallback((message: ChatMessage) => {
       // Only add message if it's for the currently selected session
       if (selectedSession?.id === message.session_id) {
@@ -168,7 +167,9 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     onError: useCallback((error: string) => {
       setError(`WebSocket error: ${error}`)
     }, [])
-  })  // Typing indicator management
+  })
+
+  // Typing indicator management
   const { startTyping, forceStopTyping } = useTypingIndicator({
     onTypingStart: () => {
       if (selectedSession?.id) {
@@ -182,6 +183,17 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     },
     debounceMs: 2000
   })
+
+  // Mark message as read (placeholder implementation)
+  const markMessageAsRead = useCallback(async (sessionId: string, _messageId: string): Promise<boolean> => {
+    try {
+      await apiClient.markChatMessagesAsRead(sessionId)
+      return true
+    } catch (error) {
+      console.error('Failed to mark message as read:', error)
+      return false
+    }
+  }, [])
 
   useEffect(() => {
     loadSessions()
@@ -248,10 +260,19 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   }
 
   const handleSessionSelect = (session: ChatSession) => {
+    // Unsubscribe from previous session
+    if (selectedSession?.id) {
+      unsubscribeFromSession(selectedSession.id)
+    }
+    
     // Force stop typing when switching sessions
     forceStopTyping()
     setSelectedSession(session)
     loadMessages(session.id)
+    
+    // Subscribe to new session for real-time updates
+    subscribeToSession(session.id)
+    
     // Clear any existing error when selecting a new session
     setError(null)
     // Clear flash effect for this session

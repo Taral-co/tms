@@ -89,6 +89,32 @@ func (r *ChatSessionRepo) GetChatSessionByToken(ctx context.Context, sessionToke
 	return &session, nil
 }
 
+// GetChatSessionByID gets a chat session by ID for any tenant (used for global agent operations)
+func (r *ChatSessionRepo) GetChatSessionByID(ctx context.Context, tenantID, sessionID uuid.UUID) (*models.ChatSession, error) {
+	query := `
+		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.session_token, cs.customer_id, cs.ticket_id,
+			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
+			   cs.last_activity_at, cs.created_at, cs.updated_at,
+			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
+			   cw.name as widget_name
+		FROM chat_sessions cs
+		LEFT JOIN agents a ON cs.assigned_agent_id = a.id
+		LEFT JOIN customers c ON cs.customer_id = c.id
+		LEFT JOIN chat_widgets cw ON cs.widget_id = cw.id
+		WHERE cs.id = $1 AND cs.tenant_id = $2
+	`
+	
+	var session models.ChatSession
+	err := r.db.GetContext(ctx, &session, query, sessionID, tenantID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &session, nil
+}
+
 // ListChatSessions lists chat sessions with filters
 func (r *ChatSessionRepo) ListChatSessions(ctx context.Context, tenantID, projectID uuid.UUID, filters ChatSessionFilters) ([]*models.ChatSession, error) {
 	baseQuery := `
