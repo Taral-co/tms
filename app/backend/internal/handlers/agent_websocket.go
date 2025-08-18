@@ -19,12 +19,14 @@ import (
 type AgentWebSocketHandler struct {
 	chatSessionService *service.ChatSessionService
 	connectionManager  *ws.ConnectionManager
+	agentService       *service.AgentService
 }
 
-func NewAgentWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager) *AgentWebSocketHandler {
+func NewAgentWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager, agentService *service.AgentService) *AgentWebSocketHandler {
 	return &AgentWebSocketHandler{
 		chatSessionService: chatSessionService,
 		connectionManager:  connectionManager,
+		agentService:       agentService,
 	}
 }
 
@@ -45,7 +47,8 @@ func (h *AgentWebSocketHandler) HandleAgentGlobalWebSocket(c *gin.Context) {
 	// Register agent connection with special "agent-global" session ID
 	userIDStr := agentUUID.String()
 	agentGlobalSessionID := "agent-global-" + agentUUID.String()
-	
+	agent, _ := h.agentService.GetAgent(c, tenantID, agentUUID)
+
 	connection, err := h.connectionManager.AddConnection(
 		agentGlobalSessionID,
 		ws.ConnectionTypeAgent,
@@ -68,7 +71,7 @@ func (h *AgentWebSocketHandler) HandleAgentGlobalWebSocket(c *gin.Context) {
 		SessionID: agentGlobalSessionID,
 		Data: json.RawMessage(`{
 			"type": "connected",
-			"message": "Connected to TMS agent console",
+			"message": "Connected to + "` + agent.Name + `" + console",
 			"agent_id": "` + agentUUID.String() + `"
 		}`),
 		FromType: ws.ConnectionTypeAgent,
@@ -92,11 +95,11 @@ func (h *AgentWebSocketHandler) HandleAgentGlobalWebSocket(c *gin.Context) {
 			break
 		}
 
-		h.handleAgentGlobalMessage(c.Request.Context(), tenantID, agentUUID, msg, connection.ID)
+		h.handleAgentGlobalMessage(c.Request.Context(), tenantID, agentUUID, agent.Name, msg, connection.ID)
 	}
 }
 
-func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, tenantID, agentUUID uuid.UUID, msg models.WSMessage, connectionID string) {
+func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, tenantID, agentUUID uuid.UUID, agentName string, msg models.WSMessage, connectionID string) {
 	switch msg.Type {
 	case models.WSMsgTypeChatMessage:
 		if msg.Data != nil && msg.SessionID != uuid.Nil {
@@ -111,7 +114,7 @@ func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, te
 				return
 			}
 			// Handle message for specific session via agent's global connection
-			h.handleChatMessage(ctx, tenantID, session.ProjectID, msg.SessionID.String(), agentUUID, msg, connectionID)
+			h.handleChatMessage(ctx, tenantID, session.ProjectID, agentUUID, msg.SessionID.String(), agentName, msg, connectionID)
 		}
 	case models.WSMsgTypeTypingStart, models.WSMsgTypeTypingStop:
 		if msg.SessionID != uuid.Nil {
@@ -133,14 +136,14 @@ func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, te
 			h.subscribeAgentToSession(ctx, agentUUID, msg.SessionID.String(), connectionID)
 		}
 	case "session_unsubscribe":
-		// Agent no longer wants updates for a specific session  
+		// Agent no longer wants updates for a specific session
 		if msg.SessionID != uuid.Nil {
 			h.unsubscribeAgentFromSession(ctx, agentUUID, msg.SessionID.String(), connectionID)
 		}
 	}
 }
 
-func (h *AgentWebSocketHandler) handleChatMessage(ctx context.Context, tenantID, projectID uuid.UUID, sessionID string, agentUUID uuid.UUID, msg models.WSMessage, connectionID string) {
+func (h *AgentWebSocketHandler) handleChatMessage(ctx context.Context, tenantID, projectID, agentUUID uuid.UUID, sessionID string, agentName string, msg models.WSMessage, connectionID string) {
 	// Parse message data
 	var messageData struct {
 		Content     string `json:"content"`

@@ -121,7 +121,7 @@ func main() {
 	defer connectionManager.Shutdown()
 
 	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager)
-	agentWebSocketHandler := handlers.NewAgentWebSocketHandler(chatSessionService, connectionManager)
+	agentWebSocketHandler := handlers.NewAgentWebSocketHandler(chatSessionService, connectionManager, agentService)
 
 	// Setup router
 	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler, agentWebSocketHandler)
