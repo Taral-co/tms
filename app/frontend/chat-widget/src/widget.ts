@@ -1,6 +1,8 @@
 import { EventEmitter } from './events'
 import { ChatAPI } from './api'
-import { ChatMessage, ChatSession, ChatWidget, ChatWidgetOptions, WSMessage } from './types'
+import { ChatMessage, ChatSession, ChatWidget, ChatWidgetOptions, WSMessage, SessionData, WidgetState } from './types'
+import { SessionStorage, generateVisitorFingerprint, isBusinessHours } from './storage'
+import { injectWidgetCSS, getWidgetTheme, playNotificationSound } from './themes'
 
 type Events = {
   'message:received': ChatMessage
@@ -18,26 +20,53 @@ export class TMSChatWidget {
   private widget: ChatWidget | null = null
   private session: ChatSession | null = null
   private container: HTMLElement | null = null
+  private toggleButton: HTMLElement | null = null
   private websocket: WebSocket | null = null
   private isOpen: boolean = false
   private messages: ChatMessage[] = []
   private isTyping: boolean = false
+  private storage: SessionStorage
+  private unreadCount: number = 0
+  private isBusinessHoursOpen: boolean = true
+  private reconnectAttempts: number = 0
+  private maxReconnectAttempts: number = 5
+  private reconnectDelay: number = 3000
 
   constructor(private options: ChatWidgetOptions) {
     this.api = new ChatAPI(options.apiUrl)
+    this.storage = new SessionStorage(options.widgetId)
     this.init()
   }
 
   private async init() {
     try {
+      // Check for existing session first
+      await this.restoreSession()
+      
       // Get widget configuration
       this.widget = await this.api.getWidgetByDomain(this.options.domain)
+      
+      if (!this.widget) {
+        throw new Error('Widget not found for domain')
+      }
+
+      // Check business hours
+      this.isBusinessHoursOpen = isBusinessHours(this.widget.business_hours)
+      
+      // Inject CSS styles
+      injectWidgetCSS(this.widget)
       
       // Create and inject widget UI
       this.createWidget()
       
-      // Auto-open if configured
-      if (this.widget.auto_open_delay > 0) {
+      // Load existing messages if we have a session
+      if (this.session) {
+        await this.loadMessages()
+        this.connectWebSocket()
+      }
+      
+      // Auto-open if configured and no existing session
+      if (this.widget.auto_open_delay > 0 && !this.session) {
         setTimeout(() => this.open(), this.widget.auto_open_delay * 1000)
       }
       
@@ -47,62 +76,75 @@ export class TMSChatWidget {
     }
   }
 
+  private async restoreSession() {
+    const existingSession = this.storage.getSession()
+    if (existingSession) {
+      this.session = {
+        id: existingSession.session_id,
+        session_token: existingSession.session_token,
+        widget_id: existingSession.widget_id,
+        status: 'active'
+      }
+      
+      // Load cached messages
+      this.messages = this.storage.getMessages()
+      this.storage.updateSessionActivity()
+    }
+  }
+
   private createWidget() {
-    console.log('Creating chat widget, widget:', JSON.stringify(this.widget))
     if (!this.widget) return
+
+    const theme = getWidgetTheme(this.widget)
 
     // Create main container
     this.container = document.createElement('div')
     this.container.id = 'tms-chat-widget'
-    this.container.style.cssText = `
-      position: fixed;
-      ${this.widget.position === 'bottom-right' ? 'right: 20px;' : 'left: 20px;'}
-      bottom: 20px;
-      width: 350px;
-      height: 500px;
-      z-index: 10000;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
-      border-radius: 12px;
-      overflow: hidden;
-      background: white;
-      display: none;
-    `
+    this.container.className = 'tms-widget-container'
 
-    // Create widget content
-    this.container.innerHTML = `
-      <div id="tms-chat-header" style="
-        background: ${this.widget.primary_color};
-        color: white;
-        padding: 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      ">
-        <div>
-          <div style="font-weight: 600; font-size: 16px;">${this.widget.name}</div>
-          <div id="tms-chat-status" style="font-size: 12px; opacity: 0.9;">Online</div>
+    // Create header with agent info
+    const headerHTML = `
+      <div class="tms-chat-header">
+        <div class="tms-agent-info">
+          ${this.widget.show_agent_avatars && this.widget.agent_avatar_url ? 
+            `<div class="tms-agent-avatar">
+              <img src="${this.widget.agent_avatar_url}" alt="${this.widget.agent_name}" />
+            </div>` :
+            `<div class="tms-agent-avatar">${this.widget.agent_name.charAt(0).toUpperCase()}</div>`
+          }
+          <div>
+            <div style="font-weight: 600; font-size: 16px;">${this.widget.agent_name}</div>
+            <div id="tms-chat-status" style="font-size: 12px; opacity: 0.9;">
+              ${this.isBusinessHoursOpen ? 'Online' : 'Away'}
+            </div>
+          </div>
         </div>
         <button id="tms-chat-close" style="
           background: none;
           border: none;
           color: white;
-          font-size: 18px;
+          font-size: 20px;
           cursor: pointer;
-          padding: 4px;
-        ">×</button>
+          padding: 4px 8px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+        " aria-label="Close chat">×</button>
       </div>
-      
+    `
+
+    // Create body with messages area
+    const bodyHTML = `
       <div id="tms-chat-body" style="
-        height: calc(100% - 120px);
+        height: calc(100% - 140px);
         display: flex;
         flex-direction: column;
+        background: #f8f9fa;
       ">
         <div id="tms-chat-messages" style="
           flex: 1;
           overflow-y: auto;
           padding: 16px;
-          background: #f8f9fa;
+          scroll-behavior: smooth;
         "></div>
         
         <div id="tms-chat-typing" style="
@@ -110,6 +152,7 @@ export class TMSChatWidget {
           font-size: 12px;
           color: #666;
           min-height: 20px;
+          font-style: italic;
         "></div>
         
         <div id="tms-chat-input-container" style="
@@ -117,11 +160,28 @@ export class TMSChatWidget {
           border-top: 1px solid #e9ecef;
           background: white;
         ">
-          <div style="display: flex; gap: 8px;">
-            <input 
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            ${this.widget.allow_file_uploads ? `
+              <label for="tms-file-input" style="
+                background: #f1f5f9;
+                border: 1px solid #e2e8f0;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+              " title="Attach file">
+                📎
+                <input id="tms-file-input" type="file" style="display: none;" accept="image/*,.pdf,.doc,.docx,.txt" />
+              </label>
+            ` : ''}
+            <textarea 
               id="tms-chat-input" 
-              type="text" 
               placeholder="Type your message..."
+              rows="1"
               style="
                 flex: 1;
                 padding: 10px 12px;
@@ -129,8 +189,13 @@ export class TMSChatWidget {
                 border-radius: 20px;
                 outline: none;
                 font-size: 14px;
+                font-family: inherit;
+                resize: none;
+                max-height: 100px;
+                min-height: 40px;
+                line-height: 1.4;
               "
-            />
+            ></textarea>
             <button id="tms-chat-send" style="
               background: ${this.widget.primary_color};
               color: white;
@@ -142,113 +207,266 @@ export class TMSChatWidget {
               display: flex;
               align-items: center;
               justify-content: center;
-            ">→</button>
+              font-size: 16px;
+              transition: all 0.2s;
+            " title="Send message" aria-label="Send message">
+              →
+            </button>
           </div>
+          ${this.widget.show_powered_by ? `
+            <div style="text-align: center; margin-top: 8px; font-size: 11px; color: #9ca3af;">
+              Powered by TMS Chat
+            </div>
+          ` : ''}
         </div>
       </div>
     `
 
-    console.log('Widget container created:', this.container)
+    this.container.innerHTML = headerHTML + bodyHTML
 
-    // Create toggle button
-    const toggleButton = document.createElement('div')
-    toggleButton.id = 'tms-chat-toggle'
-    toggleButton.style.cssText = `
-      position: fixed;
-      ${this.widget.position === 'bottom-right' ? 'right: 20px;' : 'left: 20px;'}
-      bottom: 20px;
-      width: 60px;
-      height: 60px;
-      background: ${this.widget.primary_color};
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-      z-index: 10001;
-      transition: transform 0.2s ease;
-    `
-    toggleButton.innerHTML = `
+    // Create toggle button with notification badge
+    this.toggleButton = document.createElement('button')
+    this.toggleButton.id = 'tms-chat-toggle'
+    this.toggleButton.className = 'tms-toggle-button'
+    this.toggleButton.setAttribute('aria-label', 'Open chat')
+    this.toggleButton.innerHTML = `
       <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
         <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
       </svg>
+      ${this.unreadCount > 0 ? `
+        <div class="tms-notification-badge">${this.unreadCount > 9 ? '9+' : this.unreadCount}</div>
+      ` : ''}
     `
-
-    // Add hover effect
-    toggleButton.addEventListener('mouseenter', () => {
-      toggleButton.style.transform = 'scale(1.1)'
-    })
-    
-    toggleButton.addEventListener('mouseleave', () => {
-      toggleButton.style.transform = 'scale(1)'
-    })
 
     // Append to document
     document.body.appendChild(this.container)
-    document.body.appendChild(toggleButton)
-    console.log('Widget and toggle button appended to body')
+    document.body.appendChild(this.toggleButton)
 
-    // Add event listeners AFTER elements are in DOM
+    // Add event listeners
     this.attachEventListeners()
+
+    // Show initial message if we have cached messages
+    if (this.messages.length > 0) {
+      this.messages.forEach(msg => this.displayMessage(msg))
+    } else if (!this.session) {
+      // Show welcome message for new visitors
+      this.showWelcomeMessage()
+    }
+  }
+
+  private showWelcomeMessage() {
+    if (!this.widget) return
+    
+    const welcomeMsg = this.widget.custom_greeting || this.widget.welcome_message
+    const message: ChatMessage = {
+      id: 'welcome-' + Date.now(),
+      content: welcomeMsg,
+      author_type: 'system',
+      author_name: this.widget.agent_name,
+      created_at: new Date().toISOString(),
+      message_type: 'text',
+      is_private: false
+    }
+    
+    this.displayMessage(message)
+  }
+
+  private displayMessage(message: ChatMessage) {
+    const messagesContainer = document.getElementById('tms-chat-messages')
+    if (!messagesContainer) return
+
+    const messageEl = document.createElement('div')
+    messageEl.style.cssText = `
+      margin-bottom: 12px;
+      display: flex;
+      ${message.author_type === 'visitor' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
+    `
+
+    const isVisitor = message.author_type === 'visitor'
+    const isSystem = message.author_type === 'system'
+    
+    // Use theme-based message bubble class
+    messageEl.innerHTML = `
+      <div class="tms-message-bubble ${isVisitor ? 'visitor' : 'agent'}" style="${
+        isSystem ? 'background: #e2e8f0; color: #475569; font-style: italic;' : ''
+      }">
+        ${!isVisitor && !isSystem && this.widget?.show_agent_avatars ? 
+          `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 2px;">${message.author_name}</div>` : 
+          ''
+        }
+        <div>${this.escapeHtml(message.content)}</div>
+        <div style="font-size: 11px; opacity: 0.7; margin-top: 2px;">
+          ${new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+    `
+
+    messagesContainer.appendChild(messageEl)
+    messagesContainer.scrollTop = messagesContainer.scrollHeight
+
+    // Play notification sound for new messages
+    if (message.author_type === 'agent' && this.widget?.sound_enabled) {
+      playNotificationSound('message', true)
+    }
   }
 
   private attachEventListeners() {
-    console.log('Attaching event listeners...', this.container)
-    if (!this.container) return
-    console.log('Container is present')
+    if (!this.container || !this.toggleButton) return
 
-    const toggleButton = document.getElementById('tms-chat-toggle')
-    const closeButton = document.getElementById('tms-chat-close')
-    const sendButton = document.getElementById('tms-chat-send')
-    const input = document.getElementById('tms-chat-input') as HTMLInputElement
+    const closeButton = this.container.querySelector('#tms-chat-close')
+    const sendButton = this.container.querySelector('#tms-chat-send')
+    const input = this.container.querySelector('#tms-chat-input') as HTMLTextAreaElement
+    const fileInput = this.container.querySelector('#tms-file-input') as HTMLInputElement
 
-    console.log('Input element found:', input)
-    console.log('Toggle button:', toggleButton, 'Close button:', closeButton, 'Send button:', sendButton)
+    // Toggle button
+    this.toggleButton.addEventListener('click', () => this.toggle())
 
-    toggleButton?.addEventListener('click', () => this.toggle())
+    // Close button
     closeButton?.addEventListener('click', () => this.close())
+
+    // Send button
     sendButton?.addEventListener('click', () => this.sendMessage())
-    
-    input?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
+
+    // Input field - auto-resize and send on Enter
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
         this.sendMessage()
       }
     })
 
     input?.addEventListener('input', () => {
       this.handleTyping()
+      this.autoResizeTextarea(input)
+    })
+
+    // File upload
+    fileInput?.addEventListener('change', (e) => {
+      const files = (e.target as HTMLInputElement).files
+      if (files && files.length > 0) {
+        this.handleFileUpload(files[0])
+      }
+    })
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isOpen) {
+        this.close()
+      }
     })
   }
 
-  private async open() {
-    console.log('Opening chat widget, widget:', this.widget, 'container:', this.container)
-    if (!this.widget || !this.container) {
-      console.error('Missing widget or container!')
+  private autoResizeTextarea(textarea: HTMLTextAreaElement) {
+    textarea.style.height = 'auto'
+    const maxHeight = 100
+    const newHeight = Math.min(textarea.scrollHeight, maxHeight)
+    textarea.style.height = newHeight + 'px'
+  }
+
+  private async handleFileUpload(file: File) {
+    if (!this.session || !this.widget?.allow_file_uploads) return
+
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (file.size > maxSize) {
+      this.showError('File size must be less than 10MB')
       return
     }
 
-    console.log('Setting container display to block')
-    this.container.style.display = 'block'
+    try {
+      // Here you would implement file upload to your backend
+      // For now, just show a placeholder message
+      const message: ChatMessage = {
+        id: 'file-' + Date.now(),
+        content: `📎 Uploaded: ${file.name}`,
+        author_type: 'visitor',
+        author_name: 'You',
+        created_at: new Date().toISOString(),
+        message_type: 'file',
+        is_private: false
+      }
+      
+      this.addMessage(message)
+    } catch (error) {
+      this.showError('Failed to upload file')
+    }
+  }
+
+  private showError(message: string) {
+    // Create a temporary error message
+    const errorMsg: ChatMessage = {
+      id: 'error-' + Date.now(),
+      content: `⚠️ ${message}`,
+      author_type: 'system',
+      author_name: 'System',
+      created_at: new Date().toISOString(),
+      message_type: 'text',
+      is_private: false
+    }
+    
+    this.displayMessage(errorMsg)
+    
+    if (this.widget?.sound_enabled) {
+      playNotificationSound('error', true)
+    }
+  }
+
+  private async open() {
+    if (!this.widget || !this.container) return
+
+    // Add opening animation class
+    this.container.classList.add('opening')
+    this.container.classList.add('open')
     this.isOpen = true
-    console.log('Container display set, isOpen now:', this.isOpen)
+
+    // Update toggle button accessibility
+    if (this.toggleButton) {
+      this.toggleButton.setAttribute('aria-label', 'Close chat')
+    }
 
     // Start chat session if not already started
     if (!this.session) {
-      console.log('Starting chat session...')
       await this.startChatSession()
+    } else {
+      // Update activity for existing session
+      this.storage.updateSessionActivity()
     }
+
+    // Focus input after opening
+    setTimeout(() => {
+      const input = document.getElementById('tms-chat-input')
+      input?.focus()
+    }, 300)
   }
 
   private close() {
     if (!this.container) return
     
-    this.container.style.display = 'none'
+    this.container.classList.add('closing')
+    this.container.classList.remove('open')
     this.isOpen = false
+
+    // Update toggle button
+    if (this.toggleButton) {
+      this.toggleButton.setAttribute('aria-label', 'Open chat')
+    }
+
+    // Clear notification badge
+    this.unreadCount = 0
+    this.updateNotificationBadge()
+
+    // Save widget state
+    this.storage.saveWidgetState({
+      is_minimized: false,
+      unread_count: 0,
+      last_interaction: new Date().toISOString()
+    })
+
+    setTimeout(() => {
+      this.container?.classList.remove('opening', 'closing')
+    }, 300)
   }
 
   private toggle() {
-    console.log('Chat widget toggle clicked, isOpen:', this.isOpen)
     if (this.isOpen) {
       this.close()
     } else {
@@ -256,48 +474,69 @@ export class TMSChatWidget {
     }
   }
 
+  private updateNotificationBadge() {
+    if (!this.toggleButton) return
+
+    const badge = this.toggleButton.querySelector('.tms-notification-badge')
+    if (this.unreadCount > 0) {
+      if (!badge) {
+        const badgeEl = document.createElement('div')
+        badgeEl.className = 'tms-notification-badge'
+        badgeEl.textContent = this.unreadCount > 9 ? '9+' : this.unreadCount.toString()
+        this.toggleButton.appendChild(badgeEl)
+      } else {
+        badge.textContent = this.unreadCount > 9 ? '9+' : this.unreadCount.toString()
+      }
+    } else if (badge) {
+      badge.remove()
+    }
+  }
+
   private async startChatSession() {
-    console.log('startChatSession called, widget:', this.widget)
     if (!this.widget) return
 
     try {
-      // Show welcome message first
-      console.log('Adding welcome message...')
-      this.addMessage({
-        id: 'welcome',
-        content: this.widget.welcome_message,
-        author_type: 'system',
-        author_name: this.widget.name,
-        created_at: new Date().toISOString(),
-        message_type: 'text',
-        is_private: false
-      })
-      console.log('Welcome message added')
+      // Get or prompt for visitor info
+      let visitorName = 'Anonymous'
+      let visitorEmail: string | undefined
 
-      // Get visitor info
-      const visitorInfo = {
+      const storedVisitor = this.storage.getVisitorInfo()
+      if (storedVisitor) {
+        visitorName = storedVisitor.name
+        visitorEmail = storedVisitor.email
+      } else {
+        const visitorInfo = await this.promptForVisitorInfo()
+        if (!visitorInfo) return
+
+        visitorName = visitorInfo.name
+        visitorEmail = visitorInfo.email
+
+        // Store visitor info for future sessions
+        const fingerprint = await generateVisitorFingerprint()
+        this.storage.saveVisitorInfo({
+          name: visitorName,
+          email: visitorEmail,
+          fingerprint,
+          last_visit: new Date().toISOString()
+        })
+      }
+
+      // Prepare visitor context
+      const visitorContext = {
         url: window.location.href,
         referrer: document.referrer,
         user_agent: navigator.userAgent,
         timestamp: Date.now(),
-        visitor_id: await this.computeCrossBrowserFingerprint()
+        visitor_id: await generateVisitorFingerprint(),
+        screen_resolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       }
-
-      // Prompt for visitor name and email if required
-      console.log('Prompting for visitor info...')
-      
-      // TEMPORARY: Skip the modal for debugging
-      const visitorName = 'Test Visitor'
-      console.log('Using test visitor name:', visitorName)
-      
-      //const visitorName = await this.promptForVisitorInfo()
-      //console.log('Visitor name received:', visitorName)
-      if (!visitorName) return
 
       // Initiate chat session
       const response = await this.api.initiateChat(this.widget.id, {
         visitor_name: visitorName,
-        visitor_info: visitorInfo
+        visitor_email: visitorEmail,
+        visitor_info: visitorContext
       })
 
       this.session = {
@@ -307,7 +546,18 @@ export class TMSChatWidget {
         status: 'active'
       }
 
-      // Connect WebSocket
+      // Save session to storage
+      this.storage.saveSession({
+        session_id: response.session_id,
+        session_token: response.session_token,
+        widget_id: this.widget.id,
+        visitor_name: visitorName,
+        visitor_email: visitorEmail,
+        created_at: new Date().toISOString(),
+        last_activity: new Date().toISOString()
+      })
+
+      // Connect WebSocket for real-time communication
       this.connectWebSocket()
 
       // Load existing messages
@@ -318,10 +568,13 @@ export class TMSChatWidget {
     } catch (error) {
       console.error('Failed to start chat session:', error)
       this.emitter.emit('error', 'Failed to start chat session')
+      
+      // Show error in chat
+      this.showError('Unable to connect. Please try again.')
     }
   }
 
-  private async promptForVisitorInfo(): Promise<string | null> {
+  private async promptForVisitorInfo(): Promise<{name: string; email?: string} | null> {
     console.log('Creating visitor info modal...')
     return new Promise((resolve) => {
       const modal = document.createElement('div')
@@ -399,6 +652,7 @@ export class TMSChatWidget {
       console.log('Modal appended to body')
 
       const nameInput = modal.querySelector('#visitor-name') as HTMLInputElement
+      const emailInput = modal.querySelector('#visitor-email') as HTMLInputElement
       const startButton = modal.querySelector('#start-chat')
       const cancelButton = modal.querySelector('#cancel-chat')
 
@@ -410,9 +664,10 @@ export class TMSChatWidget {
 
       startButton?.addEventListener('click', () => {
         const name = nameInput?.value.trim()
+        const email = emailInput?.value.trim()
         if (name) {
           cleanup()
-          resolve(name)
+          resolve({ name, email: email || undefined })
         }
       })
 
@@ -432,18 +687,30 @@ export class TMSChatWidget {
       const wsUrl = this.api.getWebSocketUrl(this.session.session_token)
       this.websocket = new WebSocket(wsUrl)
 
+      this.websocket.onopen = () => {
+        this.reconnectAttempts = 0
+        this.updateStatus('Connected')
+      }
+
       this.websocket.onmessage = (event) => {
         const message: WSMessage = JSON.parse(event.data)
         this.handleWebSocketMessage(message)
       }
 
       this.websocket.onclose = () => {
-        // Attempt to reconnect after a delay
-        setTimeout(() => this.connectWebSocket(), 3000)
+        this.updateStatus(this.isBusinessHoursOpen ? 'Connecting...' : 'Away')
+        
+        // Attempt to reconnect with exponential backoff
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.reconnectAttempts++
+          const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000)
+          setTimeout(() => this.connectWebSocket(), delay)
+        }
       }
 
       this.websocket.onerror = (error) => {
         console.error('WebSocket error:', error)
+        this.updateStatus('Connection error')
       }
 
     } catch (error) {
@@ -456,11 +723,33 @@ export class TMSChatWidget {
       case 'chat_message':
         this.addMessage(message.data)
         this.emitter.emit('message:received', message.data)
+        
+        // Increment unread count if widget is closed
+        if (!this.isOpen && message.data.author_type === 'agent') {
+          this.unreadCount++
+          this.updateNotificationBadge()
+          
+          if (this.widget?.sound_enabled) {
+            playNotificationSound('notification', true)
+          }
+        }
         break
 
       case 'agent_joined':
-        this.updateStatus('Agent joined')
+        this.updateStatus(`${message.data.agent_name} joined`)
         this.emitter.emit('agent:joined', message.data)
+        
+        // Show system message
+        const joinMessage: ChatMessage = {
+          id: 'agent-joined-' + Date.now(),
+          content: `${message.data.agent_name} has joined the conversation`,
+          author_type: 'system',
+          author_name: 'System',
+          created_at: new Date().toISOString(),
+          message_type: 'text',
+          is_private: false
+        }
+        this.addMessage(joinMessage)
         break
 
       case 'typing_start':
@@ -474,9 +763,41 @@ export class TMSChatWidget {
         this.hideTypingIndicator()
         break
 
+      case 'session_update':
+        if (message.data.status === 'ended') {
+          this.handleSessionEnd()
+        }
+        break
+
       case 'error':
         this.emitter.emit('error', message.data.error)
+        this.showError(message.data.error)
         break
+    }
+  }
+
+  private handleSessionEnd() {
+    this.updateStatus('Session ended')
+    
+    const endMessage: ChatMessage = {
+      id: 'session-ended-' + Date.now(),
+      content: 'The conversation has ended. Feel free to start a new chat if you need further assistance.',
+      author_type: 'system',
+      author_name: 'System',
+      created_at: new Date().toISOString(),
+      message_type: 'text',
+      is_private: false
+    }
+    
+    this.addMessage(endMessage)
+    
+    // Clear session
+    this.session = null
+    this.storage.clearSession()
+    
+    if (this.websocket) {
+      this.websocket.close()
+      this.websocket = null
     }
   }
 
@@ -493,45 +814,15 @@ export class TMSChatWidget {
 
   private addMessage(message: ChatMessage) {
     this.messages.push(message)
+    this.displayMessage(message)
     
-    const messagesContainer = document.getElementById('tms-chat-messages')
-    if (!messagesContainer) return
-
-    const messageEl = document.createElement('div')
-    messageEl.style.cssText = `
-      margin-bottom: 12px;
-      display: flex;
-      ${message.author_type === 'visitor' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
-    `
-
-    const isVisitor = message.author_type === 'visitor'
-    const bubbleColor = isVisitor ? this.widget?.primary_color : '#e9ecef'
-    const textColor = isVisitor ? 'white' : '#333'
-
-    messageEl.innerHTML = `
-      <div style="
-        max-width: 70%;
-        padding: 8px 12px;
-        border-radius: 18px;
-        background: ${bubbleColor};
-        color: ${textColor};
-        font-size: 14px;
-        line-height: 1.4;
-      ">
-        ${!isVisitor ? `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 2px;">${message.author_name}</div>` : ''}
-        <div>${this.escapeHtml(message.content)}</div>
-        <div style="font-size: 11px; opacity: 0.7; margin-top: 2px;">
-          ${new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </div>
-      </div>
-    `
-
-    messagesContainer.appendChild(messageEl)
-    messagesContainer.scrollTop = messagesContainer.scrollHeight
+    // Save to storage
+    this.storage.addMessage(message)
+    this.storage.updateSessionActivity()
   }
 
   private async sendMessage() {
-    const input = document.getElementById('tms-chat-input') as HTMLInputElement
+    const input = document.getElementById('tms-chat-input') as HTMLTextAreaElement
     if (!input || !this.session) return
 
     const content = input.value.trim()
@@ -541,17 +832,19 @@ export class TMSChatWidget {
       const message = await this.api.sendMessage(this.session.session_token, {
         content,
         message_type: 'text',
-        sender_name: 'Visitor'
+        sender_name: 'You'
       })
 
       this.addMessage(message)
       this.emitter.emit('message:sent', message)
       
       input.value = ''
+      input.style.height = 'auto'
       
     } catch (error) {
       console.error('Failed to send message:', error)
       this.emitter.emit('error', 'Failed to send message')
+      this.showError('Failed to send message. Please try again.')
     }
   }
 
@@ -629,115 +922,59 @@ export class TMSChatWidget {
     if (this.container) {
       this.container.remove()
     }
-    const toggleButton = document.getElementById('tms-chat-toggle')
-    if (toggleButton) {
-      toggleButton.remove()
+    if (this.toggleButton) {
+      this.toggleButton.remove()
+    }
+    
+    // Remove styles
+    const styles = document.getElementById('tms-widget-styles')
+    if (styles) {
+      styles.remove()
+    }
+    
+    // Clear storage if requested
+    if (this.options.enableSessionPersistence === false) {
+      this.storage.cleanup()
     }
   }
 
-  // Compute a cross-browser fingerprint using canvas, WebGL and navigator/screen properties.
-  // Note: absolute guarantees across different browsers are impossible, but this produces
-  // a reasonably stable fingerprint for the same device/environment.
-  public async computeCrossBrowserFingerprint(): Promise<string> {
-    try {
-      const parts: string[] = []
+  // Public API methods for external control
+  public openWidget() {
+    this.open()
+  }
 
-      // Navigator properties
-      try {
-        parts.push(navigator.userAgent || '')
-        // languages may be array
-        // @ts-ignore
-        parts.push((navigator.languages || []).join(','))
-        // @ts-ignore
-        parts.push((navigator.language || ''))
-        // @ts-ignore
-        parts.push((navigator.platform || ''))
-        // @ts-ignore
-        parts.push(String((navigator as any).hardwareConcurrency || ''))
-        // @ts-ignore
-        parts.push(String((navigator as any).deviceMemory || ''))
-      } catch (e) {
-        // ignore
-      }
+  public closeWidget() {
+    this.close()
+  }
 
-      // Screen properties
-      try {
-        parts.push(String(screen.width || ''))
-        parts.push(String(screen.height || ''))
-        parts.push(String(screen.colorDepth || ''))
-      } catch (e) {}
+  public toggleWidget() {
+    this.toggle()
+  }
 
-      // Timezone offset
-      try {
-        parts.push(String(new Date().getTimezoneOffset()))
-      } catch (e) {}
-
-      // Canvas fingerprint
-      try {
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          canvas.width = 200
-          canvas.height = 60
-          ctx.fillStyle = '#f60'
-          ctx.fillRect(0, 0, 200, 60)
-          ctx.fillStyle = '#069'
-          ctx.font = '18px Arial'
-          ctx.fillText('TMS Chat ' + navigator.userAgent, 10, 35)
-          // draw a random shape
-          ctx.beginPath()
-          ctx.arc(50, 20, 15, 0, Math.PI * 2)
-          ctx.fillStyle = 'rgba(255,255,255,0.5)'
-          ctx.fill()
-          const dataUrl = canvas.toDataURL()
-          parts.push(dataUrl)
-        }
-      } catch (e) {}
-
-      // WebGL renderer info
-      try {
-        const canvas = document.createElement('canvas')
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
-        if (gl) {
-          const dbg = (gl as any).getExtension('WEBGL_debug_renderer_info')
-          if (dbg) {
-            const vendor = (gl as any).getParameter(dbg.UNMASKED_VENDOR_WEBGL)
-            const renderer = (gl as any).getParameter(dbg.UNMASKED_RENDERER_WEBGL)
-            parts.push(String(vendor))
-            parts.push(String(renderer))
-          }
-        }
-      } catch (e) {}
-
-      const long = parts.join('||')
-      // Use SubtleCrypto SHA-256 when available
-      return await this.sha256Hex(long)
-    } catch (e) {
-      // fallback
-      return this.simpleHashHex(String(Math.random()))
+  public sendExternalMessage(content: string) {
+    if (!this.session) return
+    
+    const input = document.getElementById('tms-chat-input') as HTMLTextAreaElement
+    if (input) {
+      input.value = content
+      this.sendMessage()
     }
   }
 
-  private async sha256Hex(input: string): Promise<string> {
-    try {
-      if (window.crypto && window.crypto.subtle) {
-        const enc = new TextEncoder()
-        const buf = enc.encode(input)
-        const hash = await crypto.subtle.digest('SHA-256', buf)
-        const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
-        return hex
-      }
-    } catch (e) {
-      // ignore and fall through to fallback
+  public getSessionInfo() {
+    return {
+      hasActiveSession: this.session !== null,
+      isOpen: this.isOpen,
+      unreadCount: this.unreadCount,
+      sessionAge: this.storage.getSessionAge(),
+      messageCount: this.messages.length
     }
-    return this.simpleHashHex(input)
   }
 
-  private simpleHashHex(input: string): string {
-    let h = 2166136261 >>> 0
-    for (let i = 0; i < input.length; i++) {
-      h = Math.imul(h ^ input.charCodeAt(i), 16777619) >>> 0
+  public updateWidgetConfig(updates: Partial<ChatWidget>) {
+    if (this.widget) {
+      Object.assign(this.widget, updates)
+      injectWidgetCSS(this.widget)
     }
-    return h.toString(16)
   }
 }

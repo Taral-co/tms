@@ -435,17 +435,35 @@ type ChatWidget struct {
 	IsActive bool   `db:"is_active" json:"is_active"`
 
 	// Appearance settings
-	PrimaryColor   string `db:"primary_color" json:"primary_color"`
-	SecondaryColor string `db:"secondary_color" json:"secondary_color"`
-	Position       string `db:"position" json:"position"`
-	WelcomeMessage string `db:"welcome_message" json:"welcome_message"`
-	OfflineMessage string `db:"offline_message" json:"offline_message"`
+	PrimaryColor    string  `db:"primary_color" json:"primary_color"`
+	SecondaryColor  string  `db:"secondary_color" json:"secondary_color"`
+	Position        string  `db:"position" json:"position"`
+	WidgetShape     string  `db:"widget_shape" json:"widget_shape"`
+	ChatBubbleStyle string  `db:"chat_bubble_style" json:"chat_bubble_style"`
+	WidgetSize      string  `db:"widget_size" json:"widget_size"`
+	AnimationStyle  string  `db:"animation_style" json:"animation_style"`
+	CustomCSS       *string `db:"custom_css" json:"custom_css,omitempty"`
+
+	// Messaging settings
+	WelcomeMessage string  `db:"welcome_message" json:"welcome_message"`
+	OfflineMessage string  `db:"offline_message" json:"offline_message"`
+	CustomGreeting *string `db:"custom_greeting" json:"custom_greeting,omitempty"`
+	AwayMessage    string  `db:"away_message" json:"away_message"`
+
+	// Agent personalization
+	AgentName      string  `db:"agent_name" json:"agent_name"`
+	AgentAvatarURL *string `db:"agent_avatar_url" json:"agent_avatar_url,omitempty"`
 
 	// Behavior settings
 	AutoOpenDelay    int  `db:"auto_open_delay" json:"auto_open_delay"`
 	ShowAgentAvatars bool `db:"show_agent_avatars" json:"show_agent_avatars"`
 	AllowFileUploads bool `db:"allow_file_uploads" json:"allow_file_uploads"`
 	RequireEmail     bool `db:"require_email" json:"require_email"`
+	SoundEnabled     bool `db:"sound_enabled" json:"sound_enabled"`
+	ShowPoweredBy    bool `db:"show_powered_by" json:"show_powered_by"`
+
+	// AI and advanced features
+	UseAI bool `db:"use_ai" json:"use_ai"`
 
 	// Business hours and embed settings
 	BusinessHours JSONMap `db:"business_hours" json:"business_hours"`

@@ -18,6 +18,18 @@ export interface ChatWidget {
   business_hours: Record<string, any>
   embed_code?: string
   domain_name?: string
+  // Enhanced properties from migration 019
+  widget_shape?: 'rounded' | 'square' | 'minimal' | 'professional' | 'modern' | 'classic'
+  chat_bubble_style?: 'modern' | 'classic' | 'minimal' | 'rounded'
+  widget_size?: 'small' | 'medium' | 'large'
+  animation_style?: 'smooth' | 'bounce' | 'fade' | 'slide'
+  agent_name?: string
+  agent_avatar_url?: string
+  sound_enabled?: boolean
+  show_powered_by?: boolean
+  use_ai?: boolean
+  custom_greeting?: string
+  away_message?: string
   created_at: string
   updated_at: string
 }

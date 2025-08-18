@@ -73,7 +73,7 @@ func (h *ChatWidgetHandler) ListChatWidgets(c *gin.Context) {
 
 	widgets, err := h.chatWidgetService.ListChatWidgets(c.Request.Context(), tenantID, projectID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list chat widgets"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list chat widgets: " + err.Error()})
 		return
 	}
 

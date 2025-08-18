@@ -24,13 +24,21 @@ func (r *ChatWidgetRepo) CreateChatWidget(ctx context.Context, widget *models.Ch
 	query := `
 		INSERT INTO chat_widgets (
 			id, tenant_id, project_id, domain_id, name, is_active,
-			primary_color, secondary_color, position, welcome_message, offline_message,
+			primary_color, secondary_color, position, widget_shape, chat_bubble_style,
+			widget_size, animation_style, custom_css,
+			welcome_message, offline_message, custom_greeting, away_message,
+			agent_name, agent_avatar_url,
 			auto_open_delay, show_agent_avatars, allow_file_uploads, require_email,
+			sound_enabled, show_powered_by, use_ai,
 			business_hours, embed_code, created_at, updated_at
 		) VALUES (
 			:id, :tenant_id, :project_id, :domain_id, :name, :is_active,
-			:primary_color, :secondary_color, :position, :welcome_message, :offline_message,
+			:primary_color, :secondary_color, :position, :widget_shape, :chat_bubble_style,
+			:widget_size, :animation_style, :custom_css,
+			:welcome_message, :offline_message, :custom_greeting, :away_message,
+			:agent_name, :agent_avatar_url,
 			:auto_open_delay, :show_agent_avatars, :allow_file_uploads, :require_email,
+			:sound_enabled, :show_powered_by, :use_ai,
 			:business_hours, :embed_code, :created_at, :updated_at
 		)
 	`
@@ -42,8 +50,12 @@ func (r *ChatWidgetRepo) CreateChatWidget(ctx context.Context, widget *models.Ch
 func (r *ChatWidgetRepo) GetChatWidget(ctx context.Context, tenantID, projectID, widgetID uuid.UUID) (*models.ChatWidget, error) {
 	query := `
 		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
-			   cw.primary_color, cw.secondary_color, cw.position, cw.welcome_message, cw.offline_message,
+			   cw.primary_color, cw.secondary_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
+			   cw.widget_size, cw.animation_style, cw.custom_css,
+			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
+			   cw.agent_name, cw.agent_avatar_url,
 			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
+			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
 			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
 		FROM chat_widgets cw
@@ -65,8 +77,12 @@ func (r *ChatWidgetRepo) GetChatWidget(ctx context.Context, tenantID, projectID,
 func (r *ChatWidgetRepo) GetChatWidgetById(ctx context.Context, widgetID uuid.UUID) (*models.ChatWidget, error) {
 	query := `
 		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
-			   cw.primary_color, cw.secondary_color, cw.position, cw.welcome_message, cw.offline_message,
+			   cw.primary_color, cw.secondary_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
+			   cw.widget_size, cw.animation_style, cw.custom_css,
+			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
+			   cw.agent_name, cw.agent_avatar_url,
 			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
+			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
 			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
 		FROM chat_widgets cw
@@ -89,8 +105,12 @@ func (r *ChatWidgetRepo) GetChatWidgetById(ctx context.Context, widgetID uuid.UU
 func (r *ChatWidgetRepo) GetChatWidgetByDomain(ctx context.Context, domain string) (*models.ChatWidget, error) {
 	query := `
 		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
-			   cw.primary_color, cw.secondary_color, cw.position, cw.welcome_message, cw.offline_message,
+			   cw.primary_color, cw.secondary_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
+			   cw.widget_size, cw.animation_style, cw.custom_css,
+			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
+			   cw.agent_name, cw.agent_avatar_url,
 			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
+			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
 			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
 		FROM chat_widgets cw
@@ -114,8 +134,12 @@ func (r *ChatWidgetRepo) GetChatWidgetByDomain(ctx context.Context, domain strin
 func (r *ChatWidgetRepo) ListChatWidgets(ctx context.Context, tenantID, projectID uuid.UUID) ([]*models.ChatWidget, error) {
 	query := `
 		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
-			   cw.primary_color, cw.secondary_color, cw.position, cw.welcome_message, cw.offline_message,
+			   cw.primary_color, cw.secondary_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
+			   cw.widget_size, cw.animation_style, cw.custom_css,
+			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
+			   cw.agent_name, cw.agent_avatar_url,
 			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
+			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
 			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
 		FROM chat_widgets cw
@@ -143,12 +167,24 @@ func (r *ChatWidgetRepo) UpdateChatWidget(ctx context.Context, widget *models.Ch
 			primary_color = :primary_color,
 			secondary_color = :secondary_color,
 			position = :position,
+			widget_shape = :widget_shape,
+			chat_bubble_style = :chat_bubble_style,
+			widget_size = :widget_size,
+			animation_style = :animation_style,
+			custom_css = :custom_css,
 			welcome_message = :welcome_message,
 			offline_message = :offline_message,
+			custom_greeting = :custom_greeting,
+			away_message = :away_message,
+			agent_name = :agent_name,
+			agent_avatar_url = :agent_avatar_url,
 			auto_open_delay = :auto_open_delay,
 			show_agent_avatars = :show_agent_avatars,
 			allow_file_uploads = :allow_file_uploads,
 			require_email = :require_email,
+			sound_enabled = :sound_enabled,
+			show_powered_by = :show_powered_by,
+			use_ai = :use_ai,
 			business_hours = :business_hours,
 			embed_code = :embed_code,
 			updated_at = :updated_at

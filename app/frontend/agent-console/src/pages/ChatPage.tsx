@@ -158,6 +158,7 @@ export function ChatPage() {
             <Route path="/sessions" element={<ChatSessionsPage />} />
             <Route path="/widgets" element={<ChatWidgetsPage />} />
             <Route path="/widget/create" element={<CreateChatWidgetPage />} />
+            <Route path="/widget/edit/:widgetId" element={<CreateChatWidgetPage />} />
             <Route path="/" element={<ChatSessionsPage />} />
           </Routes>
         )}
