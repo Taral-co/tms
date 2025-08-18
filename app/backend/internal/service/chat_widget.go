@@ -14,8 +14,8 @@ import (
 )
 
 type ChatWidgetService struct {
-	chatWidgetRepo  *repo.ChatWidgetRepo
-	domainRepo      *repo.DomainValidationRepo
+	chatWidgetRepo *repo.ChatWidgetRepo
+	domainRepo     *repo.DomainValidationRepo
 }
 
 func NewChatWidgetService(chatWidgetRepo *repo.ChatWidgetRepo, domainRepo *repo.DomainValidationRepo) *ChatWidgetService {
@@ -153,6 +153,12 @@ func (s *ChatWidgetService) UpdateChatWidget(ctx context.Context, tenantID, proj
 	}
 	if req.BusinessHours != nil {
 		widget.BusinessHours = *req.BusinessHours
+	}
+	if req.ChatBubbleStyle != nil {
+		widget.ChatBubbleStyle = *req.ChatBubbleStyle
+	}
+	if req.WidgetShape != nil {
+		widget.WidgetShape = *req.WidgetShape
 	}
 
 	err = s.chatWidgetRepo.UpdateChatWidget(ctx, widget)

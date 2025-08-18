@@ -999,6 +999,7 @@ class APIClient {
   }
 
   async updateChatWidget(widgetId: string, data: UpdateChatWidgetRequest): Promise<ChatWidget> {
+    console.log('Updating widget:', widgetId, JSON.stringify(data))
     const response: AxiosResponse<ChatWidget> = await this.client.patch(`/chat/widgets/${widgetId}`, data)
     return response.data
   }

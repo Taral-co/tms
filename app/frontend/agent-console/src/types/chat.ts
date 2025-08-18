@@ -20,7 +20,7 @@ export interface ChatWidget {
   domain_name?: string
   // Enhanced properties from migration 019
   widget_shape?: 'rounded' | 'square' | 'minimal' | 'professional' | 'modern' | 'classic'
-  chat_bubble_style?: 'modern' | 'classic' | 'minimal' | 'rounded'
+  chat_bubble_style?: 'modern' | 'classic' | 'minimal' | 'bot'
   widget_size?: 'small' | 'medium' | 'large'
   animation_style?: 'smooth' | 'bounce' | 'fade' | 'slide'
   agent_name?: string

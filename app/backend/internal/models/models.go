@@ -585,6 +585,9 @@ type UpdateChatWidgetRequest struct {
 	AllowFileUploads *bool    `json:"allow_file_uploads,omitempty"`
 	RequireEmail     *bool    `json:"require_email,omitempty"`
 	BusinessHours    *JSONMap `json:"business_hours,omitempty"`
+	ChatBubbleStyle  *string  `json:"chat_bubble_style,omitempty" binding:"omitempty,oneof=modern classic minimal bot"`
+	WidgetShape      *string  `json:"widget_shape,omitempty" binding:"omitempty,oneof=rounded square"`
+	AgentName        *string  `json:"agent_name,omitempty" binding:"omitempty,max=255"`
 }
 
 // InitiateChatRequest represents a request to start a chat session

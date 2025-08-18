@@ -38,6 +38,29 @@ export class TMSChatWidget {
     this.init()
   }
 
+  private getBubbleStyleIcon(style?: string): string {
+    switch (style) {
+      case 'modern':
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+        </svg>`
+      case 'classic':
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 2.98.97 4.29L1 23l6.71-1.97C9.02 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"/>
+        </svg>`
+      case 'minimal':
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4 4h16v12H5.17L4 17.17V4m0-2c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H4z"/>
+        </svg>`
+      case 'bot':
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot-icon lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`
+      default:
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+        </svg>`
+    }
+  }
+
   private async init() {
     try {
       // Check for existing session first
@@ -230,9 +253,7 @@ export class TMSChatWidget {
     this.toggleButton.className = 'tms-toggle-button'
     this.toggleButton.setAttribute('aria-label', 'Open chat')
     this.toggleButton.innerHTML = `
-      <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-      </svg>
+      ${this.getBubbleStyleIcon(this.widget.chat_bubble_style)}
       ${this.unreadCount > 0 ? `
         <div class="tms-notification-badge">${this.unreadCount > 9 ? '9+' : this.unreadCount}</div>
       ` : ''}
@@ -490,6 +511,18 @@ export class TMSChatWidget {
     } else if (badge) {
       badge.remove()
     }
+  }
+
+  private updateToggleButtonIcon() {
+    if (!this.toggleButton || !this.widget) return
+    
+    const currentBadge = this.toggleButton.querySelector('.tms-notification-badge')
+    const badgeHTML = currentBadge ? currentBadge.outerHTML : ''
+    
+    this.toggleButton.innerHTML = `
+      ${this.getBubbleStyleIcon(this.widget.chat_bubble_style)}
+      ${badgeHTML}
+    `
   }
 
   private async startChatSession() {
@@ -975,6 +1008,7 @@ export class TMSChatWidget {
     if (this.widget) {
       Object.assign(this.widget, updates)
       injectWidgetCSS(this.widget)
+      this.updateToggleButtonIcon()
     }
   }
 }

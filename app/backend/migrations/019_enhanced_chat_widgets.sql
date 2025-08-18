@@ -4,7 +4,7 @@
 -- Add new columns to chat_widgets table
 ALTER TABLE chat_widgets 
 ADD COLUMN widget_shape VARCHAR(50) DEFAULT 'rounded' CHECK (widget_shape IN ('rounded', 'square', 'minimal', 'professional', 'modern', 'classic')),
-ADD COLUMN chat_bubble_style VARCHAR(50) DEFAULT 'modern' CHECK (chat_bubble_style IN ('modern', 'classic', 'minimal', 'rounded')),
+ADD COLUMN chat_bubble_style VARCHAR(50) DEFAULT 'modern' CHECK (chat_bubble_style IN ('modern', 'classic', 'minimal', 'bot')),
 ADD COLUMN agent_name VARCHAR(255) DEFAULT 'Support Agent',
 ADD COLUMN agent_avatar_url TEXT,
 ADD COLUMN use_ai BOOLEAN DEFAULT false,
