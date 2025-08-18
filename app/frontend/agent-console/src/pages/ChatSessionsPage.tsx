@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search, Settings, ArrowRight, Wifi, WifiOff } from 'lucide-react'
+import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search, Settings, ArrowRight, Wifi, WifiOff, Volume2, VolumeX } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useTypingIndicator } from '../hooks/useTypingIndicator'
 import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
+import { notificationSound } from '../utils/notificationSound'
+import { browserNotifications } from '../utils/browserNotifications'
 import type { ChatSession, ChatMessage } from '../types/chat'
 import { format } from 'date-fns'
 
@@ -26,7 +28,29 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [hasWidgets, setHasWidgets] = useState<boolean | null>(null)
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set())
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    // Load sound preference from localStorage, default to true
+    const saved = localStorage.getItem('tms_agent_sound_enabled')
+    return saved ? JSON.parse(saved) : true
+  })
+  const [flashingSessions, setFlashingSessions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Function to play notification sound
+  const playNotificationSound = useCallback(() => {
+    if (user?.id && soundEnabled) {
+      notificationSound.play().catch(() => {
+        // Handle cases where audio playback fails silently
+      })
+    }
+  }, [user?.id, soundEnabled])
+
+  // Sync sound enabled state with notification sound utility
+  useEffect(() => {
+    notificationSound.setEnabled(soundEnabled)
+    // Persist sound preference in localStorage
+    localStorage.setItem('tms_agent_sound_enabled', JSON.stringify(soundEnabled))
+  }, [soundEnabled])
 
   // WebSocket connection for real-time updates
   const { 
@@ -47,8 +71,61 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           // Check if message already exists to avoid duplicates
           const exists = prev.some(m => m.id === message.id)
           if (exists) return prev
+          
+          // Play notification sound for visitor messages (not agent's own messages)
+          if (message.author_type === 'visitor') {
+            playNotificationSound()
+            
+            // Show browser notification if page is not visible
+            const session = sessions.find(s => s.id === message.session_id)
+            if (session) {
+              browserNotifications.showMessageNotification({
+                customerName: session.customer_name,
+                customerEmail: session.customer_email,
+                messagePreview: message.content,
+                sessionId: message.session_id
+              })
+            }
+            
+            // Add flash effect to the session
+            setFlashingSessions(prev => new Set(prev).add(message.session_id))
+            setTimeout(() => {
+              setFlashingSessions(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(message.session_id)
+                return newSet
+              })
+            }, 2000)
+          }
+          
           return [...prev, message]
         })
+      } else {
+        // Message for a different session - still play notification if it's from a visitor
+        if (message.author_type === 'visitor') {
+          playNotificationSound()
+          
+          // Show browser notification if page is not visible
+          const session = sessions.find(s => s.id === message.session_id)
+          if (session) {
+            browserNotifications.showMessageNotification({
+              customerName: session.customer_name,
+              customerEmail: session.customer_email,
+              messagePreview: message.content,
+              sessionId: message.session_id
+            })
+          }
+          
+          // Add flash effect to the session
+          setFlashingSessions(prev => new Set(prev).add(message.session_id))
+          setTimeout(() => {
+            setFlashingSessions(prev => {
+              const newSet = new Set(prev)
+              newSet.delete(message.session_id)
+              return newSet
+            })
+          }, 2000)
+        }
       }
       
       // Update session list to reflect new activity
@@ -57,7 +134,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           ? { ...session, last_activity_at: message.created_at }
           : session
       ))
-    }, [selectedSession?.id]),
+    }, [selectedSession?.id, playNotificationSound]),
     onSessionUpdate: useCallback((updatedSession: ChatSession) => {
       setSessions(prev => {
         const exists = prev.some(s => s.id === updatedSession.id)
@@ -177,6 +254,12 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     loadMessages(session.id)
     // Clear any existing error when selecting a new session
     setError(null)
+    // Clear flash effect for this session
+    setFlashingSessions(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(session.id)
+      return newSet
+    })
   }
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -310,16 +393,6 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       <div className="w-96 border-r border-border bg-card flex flex-col">
         {/* Controls */}
         <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 h-9 px-3 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-              aria-label="Start new chat session"
-            >
-              <Plus className="w-4 h-4" />
-              New Chat
-            </button>
-          </div>
 
           {/* Search */}
           <div className="relative mb-3">
@@ -380,6 +453,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                   key={session.id}
                   session={session}
                   isSelected={selectedSession?.id === session.id}
+                  isFlashing={flashingSessions.has(session.id)}
                   onClick={() => handleSessionSelect(session)}
                   onAssign={() => handleAssignSession(session.id)}
                 />
@@ -471,6 +545,18 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                       Assign to Me
                     </button>
                   )}
+                  <button
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                    className={`w-9 h-9 flex items-center justify-center rounded-md transition-colors ${
+                      soundEnabled 
+                        ? 'text-primary hover:bg-primary/10' 
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                    aria-label={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
+                    title={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
+                  >
+                    {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  </button>
                   <button 
                     className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                     aria-label="More options"
@@ -639,11 +725,12 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
 interface SessionCardProps {
   session: ChatSession
   isSelected: boolean
+  isFlashing?: boolean
   onClick: () => void
   onAssign: () => void
 }
 
-function SessionCard({ session, isSelected, onClick, onAssign }: SessionCardProps) {
+function SessionCard({ session, isSelected, isFlashing = false, onClick, onAssign }: SessionCardProps) {
   const getStatusStyles = (status: string) => {
     switch (status) {
       case 'active': return 'bg-success/10 text-success'
@@ -658,6 +745,8 @@ function SessionCard({ session, isSelected, onClick, onAssign }: SessionCardProp
     <div
       className={`p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors ${
         isSelected ? 'bg-primary/5 border-l-4 border-l-primary' : ''
+      } ${
+        isFlashing ? 'animate-pulse bg-primary/10' : ''
       }`}
       onClick={onClick}
     >
