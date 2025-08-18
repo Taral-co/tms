@@ -53,7 +53,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   }, [soundEnabled])
 
   // Global Agent WebSocket connection for real-time updates
-  const { 
+  const {
     isConnected: wsConnected,
     isConnecting: wsConnecting,
     error: wsError,
@@ -70,11 +70,11 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           // Check if message already exists to avoid duplicates
           const exists = prev.some(m => m.id === message.id)
           if (exists) return prev
-          
+
           // Play notification sound for visitor messages (not agent's own messages)
           if (message.author_type === 'visitor') {
             playNotificationSound()
-            
+
             // Show browser notification if page is not visible
             const session = sessions.find(s => s.id === message.session_id)
             if (session) {
@@ -85,7 +85,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                 sessionId: message.session_id
               })
             }
-            
+
             // Add flash effect to the session
             setFlashingSessions(prev => new Set(prev).add(message.session_id))
             setTimeout(() => {
@@ -96,14 +96,14 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
               })
             }, 2000)
           }
-          
+
           return [...prev, message]
         })
       } else {
         // Message for a different session - still play notification if it's from a visitor
         if (message.author_type === 'visitor') {
           playNotificationSound()
-          
+
           // Show browser notification if page is not visible
           const session = sessions.find(s => s.id === message.session_id)
           if (session) {
@@ -114,7 +114,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
               sessionId: message.session_id
             })
           }
-          
+
           // Add flash effect to the session
           setFlashingSessions(prev => new Set(prev).add(message.session_id))
           setTimeout(() => {
@@ -126,10 +126,10 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           }, 2000)
         }
       }
-      
+
       // Update session list to reflect new activity
-      setSessions(prev => prev.map(session => 
-        session.id === message.session_id 
+      setSessions(prev => prev.map(session =>
+        session.id === message.session_id
           ? { ...session, last_activity_at: message.created_at }
           : session
       ))
@@ -138,7 +138,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       setSessions(prev => {
         const exists = prev.some(s => s.id === updatedSession.id)
         if (exists) {
-          return prev.map(session => 
+          return prev.map(session =>
             session.id === updatedSession.id ? updatedSession : session
           )
         } else {
@@ -146,7 +146,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           return [updatedSession, ...prev]
         }
       })
-      
+
       if (selectedSession?.id === updatedSession.id) {
         setSelectedSession(updatedSession)
       }
@@ -228,7 +228,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   const loadSessions = async () => {
     try {
       setLoading(true)
-      const data = await apiClient.listChatSessions({ 
+      const data = await apiClient.listChatSessions({
         status: filter === 'all' ? undefined : filter,
         assigned_agent_id: filter === 'unassigned' ? 'null' : undefined
       })
@@ -264,15 +264,15 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     if (selectedSession?.id) {
       unsubscribeFromSession(selectedSession.id)
     }
-    
+
     // Force stop typing when switching sessions
     forceStopTyping()
     setSelectedSession(session)
     loadMessages(session.id)
-    
+
     // Subscribe to new session for real-time updates
     subscribeToSession(session.id)
-    
+
     // Clear any existing error when selecting a new session
     setError(null)
     // Clear flash effect for this session
@@ -288,13 +288,13 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     if (!selectedSession || !newMessage.trim() || sendingMessage || !user?.name) return
 
     const messageContent = newMessage.trim()
-    
+
     try {
       setSendingMessage(true)
-      
+
       // Use WebSocket-first messaging for real-time delivery
       const success = await sendChatMessage(selectedSession.id, messageContent, user.name)
-      
+
       if (success) {
         setNewMessage('')
         // Force stop typing indicator when message is sent
@@ -311,7 +311,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
 
   const handleAssignSession = async (sessionId: string) => {
     if (!user?.id) return
-    
+
     try {
       await apiClient.assignChatSession(sessionId, { agent_id: user.id })
       await loadSessions()
@@ -345,7 +345,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   // Connection status notification component
   const ConnectionStatus = () => {
     if (!selectedSession) return null
-    
+
     if (wsConnected) {
       return (
         <div className="flex items-center gap-1 text-success" title="Real-time connection active">
@@ -354,7 +354,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         </div>
       )
     }
-    
+
     if (wsConnecting) {
       return (
         <div className="flex items-center gap-1 text-warning" title="Connecting to real-time updates...">
@@ -363,7 +363,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         </div>
       )
     }
-    
+
     if (wsError) {
       return (
         <div className="flex items-center gap-1 text-destructive" title={wsError}>
@@ -372,7 +372,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         </div>
       )
     }
-    
+
     return (
       <div className="flex items-center gap-1 text-muted-foreground" title="Disconnected from real-time updates">
         <WifiOff className="w-3 h-3" />
@@ -390,7 +390,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   const filteredSessions = useMemo(() => {
     if (!searchTerm) return sessions
     const term = searchTerm.toLowerCase()
-    return sessions.filter(session => 
+    return sessions.filter(session =>
       session.customer_name?.toLowerCase().includes(term) ||
       session.customer_email?.toLowerCase().includes(term) ||
       session.widget_name?.toLowerCase().includes(term)
@@ -431,40 +431,37 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           <div className="flex gap-2">
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                filter === 'all' 
-                  ? 'bg-primary text-primary-foreground' 
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${filter === 'all'
+                  ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
+                }`}
               aria-label="Show all sessions"
             >
               All ({sessions.length})
             </button>
             <button
               onClick={() => setFilter('unassigned')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                filter === 'unassigned' 
-                  ? 'bg-warning text-warning-foreground' 
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${filter === 'unassigned'
+                  ? 'bg-warning text-warning-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
+                }`}
               aria-label="Show unassigned sessions"
             >
               Unassigned ({sessions.filter(s => !s.assigned_agent_id).length})
             </button>
             <button
               onClick={() => setFilter('active')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                filter === 'active' 
-                  ? 'bg-success text-success-foreground' 
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${filter === 'active'
+                  ? 'bg-success text-success-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
+                }`}
               aria-label="Show active sessions"
             >
               Active ({sessions.filter(s => s.status === 'active').length})
             </button>
           </div>
         </div>
-        
+
         {/* Sessions List */}
         <div className="flex-1 min-h-0">
           {filteredSessions.length > 0 ? (
@@ -485,7 +482,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
               <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mb-3">
                 <MessageCircle className="w-6 h-6 text-muted-foreground" />
               </div>
-              
+
               {hasWidgets === false ? (
                 <>
                   <h3 className="font-medium text-card-foreground mb-1">No chat widgets created</h3>
@@ -568,17 +565,16 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                   )}
                   <button
                     onClick={() => setSoundEnabled(!soundEnabled)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-md transition-colors ${
-                      soundEnabled 
-                        ? 'text-primary hover:bg-primary/10' 
+                    className={`w-9 h-9 flex items-center justify-center rounded-md transition-colors ${soundEnabled
+                        ? 'text-primary hover:bg-primary/10'
                         : 'text-muted-foreground hover:bg-muted'
-                    }`}
+                      }`}
                     aria-label={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
                     title={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
                   >
                     {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                   </button>
-                  <button 
+                  <button
                     className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                     aria-label="More options"
                   >
@@ -591,13 +587,13 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
               {messages.map((message) => (
-                <MessageBubble 
-                  key={message.id} 
-                  message={message} 
+                <MessageBubble
+                  key={message.id}
+                  message={message}
                   onMarkAsRead={(messageId) => markMessageAsRead(selectedSession.id, messageId)}
                 />
               ))}
-              
+
               {/* Typing Indicators */}
               {typingUsers.size > 0 && (
                 <div className="flex justify-start">
@@ -615,13 +611,13 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                   </div>
                 </div>
               )}
-              
+
               <div ref={messagesEndRef} />
             </div>
 
             {/* ARIA Live Region for Screen Readers */}
-            <div 
-              aria-live="polite" 
+            <div
+              aria-live="polite"
               aria-label="Chat activity announcements"
               className="sr-only"
             >
@@ -692,19 +688,45 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-muted/20">
-            <div className="text-center max-w-sm">
-              <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">Select a chat session</h3>
-              <p className="text-muted-foreground mb-6">Choose a session from the sidebar to start chatting with customers</p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="h-10 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                Start New Chat
-              </button>
-            </div>
+            {hasWidgets === false ? (
+              <>
+                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                  <h3 className="font-medium text-card-foreground mb-1">No chat widgets created</h3>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+                    Before you can manage chat sessions, you need to create and embed a chat widget on your website.
+                  </p>
+                  <div className="space-y-3">
+                    <a
+                      href="/chat/widgets"
+                      className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Create Your First Widget
+                    </a>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>1. Create widget</span>
+                      <ArrowRight className="w-3 h-3" />
+                      <span>2. Embed on site</span>
+                      <ArrowRight className="w-3 h-3" />
+                      <span>3. Handle sessions</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) :
+              (<div className="text-center max-w-sm">
+                <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium text-foreground mb-2">Select a chat session</h3>
+                <p className="text-muted-foreground mb-6">Choose a session from the sidebar to start chatting with customers</p>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="h-10 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Start New Chat
+                </button>
+              </div>)}
           </div>
         )}
       </div>
@@ -724,7 +746,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
             <div className="text-sm font-medium">Connection Failed</div>
             <div className="text-xs opacity-90">Unable to connect to real-time chat</div>
           </div>
-          <button 
+          <button
             onClick={handleRetryConnection}
             className="bg-destructive-foreground text-destructive px-2 py-1 rounded text-xs font-medium hover:opacity-90 transition-opacity"
           >
@@ -732,7 +754,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           </button>
         </div>
       )}
-      
+
       {wsError && !wsError.includes('multiple attempts') && (
         <div className="fixed bottom-16 right-4 bg-warning text-warning-foreground px-4 py-2 rounded-md shadow-lg flex items-center gap-2 max-w-sm z-50">
           <WifiOff className="w-4 h-4" />
@@ -764,11 +786,9 @@ function SessionCard({ session, isSelected, isFlashing = false, onClick, onAssig
 
   return (
     <div
-      className={`p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors ${
-        isSelected ? 'bg-primary/5 border-l-4 border-l-primary' : ''
-      } ${
-        isFlashing ? 'animate-pulse bg-primary/10' : ''
-      }`}
+      className={`p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5 border-l-4 border-l-primary' : ''
+        } ${isFlashing ? 'animate-pulse bg-primary/10' : ''
+        }`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between">
@@ -815,7 +835,7 @@ interface MessageBubbleProps {
 function MessageBubble({ message, onMarkAsRead }: MessageBubbleProps) {
   const isAgent = message.author_type === 'agent'
   const messageRef = useRef<HTMLDivElement>(null)
-  
+
   // Mark visitor messages as read when they come into view
   useEffect(() => {
     if (!isAgent && !message.read_by_agent && onMarkAsRead && messageRef.current) {
@@ -829,24 +849,22 @@ function MessageBubble({ message, onMarkAsRead }: MessageBubbleProps) {
         },
         { threshold: 0.5 }
       )
-      
+
       observer.observe(messageRef.current)
       return () => observer.disconnect()
     }
   }, [isAgent, message.read_by_agent, message.id, onMarkAsRead])
-  
+
   return (
     <div ref={messageRef} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-        isAgent 
-          ? 'bg-primary text-primary-foreground' 
+      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isAgent
+          ? 'bg-primary text-primary-foreground'
           : 'bg-muted text-card-foreground'
-      }`}>
+        }`}>
         <p className="text-sm">{message.content}</p>
         <div className="flex items-center justify-between mt-1">
-          <p className={`text-xs ${
-            isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
-          }`}>
+          <p className={`text-xs ${isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
+            }`}>
             {format(new Date(message.created_at), 'h:mm a')}
           </p>
           {isAgent && (
