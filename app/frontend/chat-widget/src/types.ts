@@ -82,7 +82,7 @@ export interface SendMessageRequest {
 }
 
 export interface WSMessage {
-  type: 'chat_message' | 'typing_start' | 'typing_stop' | 'session_update' | 'agent_joined' | 'error'
+  type: 'chat_message' | 'typing_start' | 'typing_stop' | 'session_update' | 'agent_joined' | 'error' | 'message_read'
   session_id: string
   data: any
   timestamp: string

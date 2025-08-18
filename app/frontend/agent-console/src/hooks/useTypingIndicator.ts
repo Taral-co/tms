@@ -50,6 +50,18 @@ export function useTypingIndicator({
     }
   }, [onTypingStop])
 
+  const forceStopTyping = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = null
+    }
+    
+    if (isTypingRef.current) {
+      isTypingRef.current = false
+      onTypingStop()
+    }
+  }, [onTypingStop])
+
   const cleanup = useCallback(() => {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
@@ -61,6 +73,7 @@ export function useTypingIndicator({
   return {
     startTyping,
     stopTyping,
+    forceStopTyping,
     cleanup,
     isTyping: isTypingRef.current
   }

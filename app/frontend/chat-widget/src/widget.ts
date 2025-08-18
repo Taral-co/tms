@@ -25,12 +25,15 @@ export class TMSChatWidget {
   private isOpen: boolean = false
   private messages: ChatMessage[] = []
   private isTyping: boolean = false
+  private typingTimeout: number | null = null
   private storage: SessionStorage
   private unreadCount: number = 0
   private isBusinessHoursOpen: boolean = true
   private reconnectAttempts: number = 0
   private maxReconnectAttempts: number = 5
   private reconnectDelay: number = 3000
+  private messageQueue: any[] = []
+  private isConnected: boolean = false
 
   constructor(private options: ChatWidgetOptions) {
     this.api = new ChatAPI(options.apiUrl)
@@ -317,6 +320,19 @@ export class TMSChatWidget {
       this.autoResizeTextarea(input)
     })
 
+    // Stop typing when user stops typing (keyup event)
+    input?.addEventListener('keyup', () => {
+      // If input is empty, stop typing immediately
+      if (!input.value.trim()) {
+        this.stopTyping()
+      }
+    })
+
+    // Stop typing when input loses focus
+    input?.addEventListener('blur', () => {
+      this.stopTyping()
+    })
+
     // File upload
     fileInput?.addEventListener('change', (e) => {
       const files = (e.target as HTMLInputElement).files
@@ -408,11 +424,33 @@ export class TMSChatWidget {
       this.storage.updateSessionActivity()
     }
 
+    // Clear unread count and send read receipts for unread agent messages
+    if (this.unreadCount > 0) {
+      this.unreadCount = 0
+      this.updateNotificationBadge()
+      
+      // Send read receipts for unread agent messages
+      this.markUnreadMessagesAsRead()
+    }
+
     // Focus input after opening
     setTimeout(() => {
       const input = document.getElementById('tms-chat-input')
       input?.focus()
     }, 300)
+  }
+
+  private markUnreadMessagesAsRead() {
+    if (!this.isConnected) return
+
+    // Find recent agent messages that haven't been read
+    const recentAgentMessages = this.messages
+      .filter(m => m.author_type === 'agent')
+      .slice(-5) // Only last 5 messages to avoid spam
+    
+    recentAgentMessages.forEach(message => {
+      this.sendReadReceipt(message.id)
+    })
   }
 
   private close() {
@@ -677,49 +715,77 @@ export class TMSChatWidget {
       this.websocket = new WebSocket(wsUrl)
 
       this.websocket.onopen = () => {
+        console.log('WebSocket connected')
         this.reconnectAttempts = 0
+        this.isConnected = true
         this.updateStatus('Connected')
+        
+        // Process any queued messages
+        this.processMessageQueue()
       }
 
       this.websocket.onmessage = (event) => {
-        const message: WSMessage = JSON.parse(event.data)
-        this.handleWebSocketMessage(message)
+        try {
+          const message: WSMessage = JSON.parse(event.data)
+          this.handleWebSocketMessage(message)
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error)
+        }
       }
 
-      this.websocket.onclose = () => {
+      this.websocket.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason)
+        this.isConnected = false
         this.updateStatus(this.isBusinessHoursOpen ? 'Connecting...' : 'Away')
+        
+        // Clear typing state on disconnect
+        this.stopTyping()
         
         // Attempt to reconnect with exponential backoff
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++
           const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000)
+          console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
           setTimeout(() => this.connectWebSocket(), delay)
+        } else {
+          this.updateStatus('Connection failed')
         }
       }
 
       this.websocket.onerror = (error) => {
         console.error('WebSocket error:', error)
+        this.isConnected = false
         this.updateStatus('Connection error')
       }
 
     } catch (error) {
       console.error('Failed to connect WebSocket:', error)
+      this.isConnected = false
     }
   }
 
   private handleWebSocketMessage(message: WSMessage) {
     switch (message.type) {
       case 'chat_message':
-        this.addMessage(message.data)
-        this.emitter.emit('message:received', message.data)
-        
-        // Increment unread count if widget is closed
-        if (!this.isOpen && message.data.author_type === 'agent') {
-          this.unreadCount++
-          this.updateNotificationBadge()
+        // Only add message if it's not already in our local messages (avoid duplicates)
+        const existingMessage = this.messages.find(m => m.id === message.data.id)
+        if (!existingMessage) {
+          this.addMessage(message.data)
+          this.emitter.emit('message:received', message.data)
           
-          if (this.widget?.sound_enabled) {
-            playNotificationSound('notification', true)
+          // Increment unread count if widget is closed and message is from agent
+          if (!this.isOpen && message.data.author_type === 'agent') {
+            this.unreadCount++
+            this.updateNotificationBadge()
+            
+            if (this.widget?.sound_enabled) {
+              playNotificationSound('notification', true)
+            }
+          }
+          
+          // Send read receipt if widget is open
+          if (this.isOpen && message.data.author_type === 'agent') {
+            this.sendReadReceipt(message.data.id)
           }
         }
         break
@@ -752,6 +818,11 @@ export class TMSChatWidget {
         this.hideTypingIndicator()
         break
 
+      case 'message_read':
+        // Handle read receipts for sent messages
+        this.handleMessageRead(message.data.message_id)
+        break
+
       case 'session_update':
         if (message.data.status === 'ended') {
           this.handleSessionEnd()
@@ -762,6 +833,9 @@ export class TMSChatWidget {
         this.emitter.emit('error', message.data.error)
         this.showError(message.data.error)
         break
+
+      default:
+        console.warn('Unknown WebSocket message type:', message.type)
     }
   }
 
@@ -817,49 +891,125 @@ export class TMSChatWidget {
     const content = input.value.trim()
     if (!content) return
 
-    try {
-      const message = await this.api.sendMessage(this.session.session_token, {
-        content,
-        message_type: 'text',
-        sender_name: 'You'
-      })
+    // Clear the input immediately for better UX
+    input.value = ''
+    input.style.height = 'auto'
+    
+    // Stop typing indicator
+    this.stopTyping()
 
-      this.addMessage(message)
-      this.emitter.emit('message:sent', message)
-      
-      input.value = ''
-      input.style.height = 'auto'
+    try {
+      // Create temporary message for immediate display
+      const tempMessage: ChatMessage = {
+        id: 'temp-' + Date.now(),
+        content,
+        author_type: 'visitor',
+        author_name: 'You',
+        created_at: new Date().toISOString(),
+        message_type: 'text',
+        is_private: false
+      }
+
+      // Display message immediately
+      this.addMessage(tempMessage)
+
+      if (this.isConnected && this.websocket) {
+        // Send via WebSocket for real-time delivery
+        const wsMessage = {
+          type: 'chat_message',
+          session_id: this.session.id,
+          data: {
+            content,
+            message_type: 'text',
+            author_type: 'visitor',
+            author_name: 'You'
+          }
+        }
+        
+        this.websocket.send(JSON.stringify(wsMessage))
+        this.emitter.emit('message:sent', tempMessage)
+      } else {
+        // Fallback to HTTP API if WebSocket is not connected
+        console.log('WebSocket not connected, using HTTP API fallback')
+        const message = await this.api.sendMessage(this.session.session_token, {
+          content,
+          message_type: 'text',
+          sender_name: 'You'
+        })
+
+        // Replace temp message with real message
+        const tempIndex = this.messages.findIndex(m => m.id === tempMessage.id)
+        if (tempIndex !== -1) {
+          this.messages[tempIndex] = message
+        }
+        
+        this.emitter.emit('message:sent', message)
+      }
       
     } catch (error) {
       console.error('Failed to send message:', error)
       this.emitter.emit('error', 'Failed to send message')
       this.showError('Failed to send message. Please try again.')
+      
+      // Remove the temporary message on error
+      const tempIndex = this.messages.findIndex(m => m.id.startsWith('temp-'))
+      if (tempIndex !== -1) {
+        this.messages.splice(tempIndex, 1)
+        // Refresh the display
+        this.refreshMessages()
+      }
     }
   }
 
   private handleTyping() {
-    // Send typing indicator via WebSocket
-    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-      if (!this.isTyping) {
-        this.isTyping = true
-        this.websocket.send(JSON.stringify({
-          type: 'typing_start',
-          session_id: this.session?.id,
-          data: {}
-        }))
+    if (!this.isConnected || !this.websocket || !this.session) return
 
-        // Stop typing after 3 seconds of inactivity
-        setTimeout(() => {
-          if (this.isTyping) {
-            this.isTyping = false
-            this.websocket?.send(JSON.stringify({
-              type: 'typing_stop',
-              session_id: this.session?.id,
-              data: {}
-            }))
-          }
-        }, 3000)
+    // Clear existing timeout
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout)
+      this.typingTimeout = null
+    }
+
+    // Send typing start if not already typing
+    if (!this.isTyping) {
+      this.isTyping = true
+      this.sendTypingIndicator(true)
+    }
+
+    // Set timeout to stop typing after 2 seconds of inactivity
+    this.typingTimeout = window.setTimeout(() => {
+      this.stopTyping()
+    }, 2000)
+  }
+
+  private sendTypingIndicator(isTyping: boolean) {
+    if (!this.isConnected || !this.websocket || !this.session) return
+
+    try {
+      const message = {
+        type: isTyping ? 'typing_start' : 'typing_stop',
+        session_id: this.session.id,
+        data: {
+          author_type: 'visitor',
+          author_name: 'You'
+        }
       }
+      
+      this.websocket.send(JSON.stringify(message))
+    } catch (error) {
+      console.error('Failed to send typing indicator:', error)
+    }
+  }
+
+  private stopTyping() {
+    if (this.isTyping) {
+      this.isTyping = false
+      this.sendTypingIndicator(false)
+    }
+    
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout)
+      this.typingTimeout = null
     }
   }
 
@@ -890,6 +1040,63 @@ export class TMSChatWidget {
     }
   }
 
+  private processMessageQueue() {
+    if (!this.isConnected || !this.websocket || this.messageQueue.length === 0) return
+
+    console.log(`Processing ${this.messageQueue.length} queued messages`)
+    
+    while (this.messageQueue.length > 0) {
+      const message = this.messageQueue.shift()
+      try {
+        this.websocket.send(JSON.stringify(message))
+      } catch (error) {
+        console.error('Failed to send queued message:', error)
+        // Re-queue the message
+        this.messageQueue.unshift(message)
+        break
+      }
+    }
+  }
+
+  private sendReadReceipt(messageId: string) {
+    if (!this.isConnected || !this.websocket || !this.session) return
+
+    try {
+      const message = {
+        type: 'message_read',
+        session_id: this.session.id,
+        data: {
+          message_id: messageId,
+          read_by: 'visitor'
+        }
+      }
+      
+      this.websocket.send(JSON.stringify(message))
+    } catch (error) {
+      console.error('Failed to send read receipt:', error)
+    }
+  }
+
+  private handleMessageRead(messageId: string) {
+    // Find the message and mark it as read
+    const message = this.messages.find(m => m.id === messageId)
+    if (message && message.author_type === 'visitor') {
+      // Add visual indicator for read receipt if needed
+      console.log(`Message ${messageId} was read by agent`)
+    }
+  }
+
+  private refreshMessages() {
+    const messagesContainer = document.getElementById('tms-chat-messages')
+    if (!messagesContainer) return
+
+    // Clear container
+    messagesContainer.innerHTML = ''
+    
+    // Re-display all messages
+    this.messages.forEach(message => this.displayMessage(message))
+  }
+
   private escapeHtml(text: string): string {
     const map: Record<string, string> = {
       '&': '&amp;',
@@ -911,6 +1118,15 @@ export class TMSChatWidget {
   }
 
   public destroy() {
+    // Clean up typing timeout
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout)
+      this.typingTimeout = null
+    }
+
+    // Stop typing indicator
+    this.stopTyping()
+
     if (this.websocket) {
       this.websocket.close()
     }

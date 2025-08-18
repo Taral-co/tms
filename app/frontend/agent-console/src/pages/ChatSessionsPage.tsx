@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useTypingIndicator } from '../hooks/useTypingIndicator'
 import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
-import type { ChatSession, ChatMessage, SendChatMessageRequest } from '../types/chat'
+import type { ChatSession, ChatMessage } from '../types/chat'
 import { format } from 'date-fns'
 
 interface ChatSessionsPageProps {
@@ -34,7 +34,9 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     isConnecting: wsConnecting,
     error: wsError,
     sendTypingIndicator,
-    connect
+    sendChatMessage,
+    markMessageAsRead,
+    manualRetry
   } = useWebSocket({
     // Connect to general agent WebSocket (not session-specific) for broader updates
     sessionId: selectedSession?.id,
@@ -90,7 +92,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       setError(`WebSocket error: ${error}`)
     }, [])
   })  // Typing indicator management
-  const { startTyping, stopTyping } = useTypingIndicator({
+  const { startTyping, forceStopTyping } = useTypingIndicator({
     onTypingStart: () => {
       if (selectedSession?.id) {
         sendTypingIndicator(true, selectedSession.id)
@@ -169,28 +171,33 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   }
 
   const handleSessionSelect = (session: ChatSession) => {
+    // Force stop typing when switching sessions
+    forceStopTyping()
     setSelectedSession(session)
     loadMessages(session.id)
+    // Clear any existing error when selecting a new session
+    setError(null)
   }
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedSession || !newMessage.trim() || sendingMessage) return
+    if (!selectedSession || !newMessage.trim() || sendingMessage || !user?.name) return
 
+    const messageContent = newMessage.trim()
+    
     try {
       setSendingMessage(true)
-      const messageData: SendChatMessageRequest = {
-        content: newMessage.trim(),
-        message_type: 'text',
-        sender_name: user?.name || 'Unknown'
+      
+      // Use WebSocket-first messaging for real-time delivery
+      const success = await sendChatMessage(selectedSession.id, messageContent, user.name)
+      
+      if (success) {
+        setNewMessage('')
+        // Force stop typing indicator when message is sent
+        forceStopTyping()
+      } else {
+        setError('Failed to send message. Please try again.')
       }
-      
-      await apiClient.sendChatMessage(selectedSession.id, messageData)
-      // Don't add to local state - WebSocket will handle the update
-      setNewMessage('')
-      
-      // Send typing stop indicator
-      stopTyping()
     } catch (err: any) {
       setError(`Failed to send message: ${err.message}`)
     } finally {
@@ -272,7 +279,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
 
   // Manual retry handler for connection failures
   const handleRetryConnection = () => {
-    connect('manual-retry')
+    manualRetry()
   }
 
   // Filter sessions based on search term
@@ -477,7 +484,11 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
               {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+                <MessageBubble 
+                  key={message.id} 
+                  message={message} 
+                  onMarkAsRead={(messageId) => markMessageAsRead(selectedSession.id, messageId)}
+                />
               ))}
               
               {/* Typing Indicators */}
@@ -525,18 +536,21 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                         if (e.target.value.trim()) {
                           startTyping()
                         } else {
-                          stopTyping()
+                          forceStopTyping()
                         }
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
                           handleSendMessage(e)
+                        } else if (e.key === 'Escape') {
+                          // Stop typing on Escape
+                          forceStopTyping()
                         }
                       }}
                       onBlur={() => {
                         // Stop typing indicator when input loses focus
-                        stopTyping()
+                        forceStopTyping()
                       }}
                       placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
                       className="w-full min-h-[44px] max-h-[280px] px-3 py-2 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
@@ -685,24 +699,56 @@ function SessionCard({ session, isSelected, onClick, onAssign }: SessionCardProp
 
 interface MessageBubbleProps {
   message: ChatMessage
+  onMarkAsRead?: (messageId: string) => void
 }
 
-function MessageBubble({ message }: MessageBubbleProps) {
+function MessageBubble({ message, onMarkAsRead }: MessageBubbleProps) {
   const isAgent = message.author_type === 'agent'
+  const messageRef = useRef<HTMLDivElement>(null)
+  
+  // Mark visitor messages as read when they come into view
+  useEffect(() => {
+    if (!isAgent && !message.read_by_agent && onMarkAsRead && messageRef.current) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const [entry] = entries
+          if (entry.isIntersecting) {
+            onMarkAsRead(message.id)
+            observer.disconnect()
+          }
+        },
+        { threshold: 0.5 }
+      )
+      
+      observer.observe(messageRef.current)
+      return () => observer.disconnect()
+    }
+  }, [isAgent, message.read_by_agent, message.id, onMarkAsRead])
   
   return (
-    <div className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
+    <div ref={messageRef} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
         isAgent 
           ? 'bg-primary text-primary-foreground' 
           : 'bg-muted text-card-foreground'
       }`}>
         <p className="text-sm">{message.content}</p>
-        <p className={`text-xs mt-1 ${
-          isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
-        }`}>
-          {format(new Date(message.created_at), 'h:mm a')}
-        </p>
+        <div className="flex items-center justify-between mt-1">
+          <p className={`text-xs ${
+            isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
+          }`}>
+            {format(new Date(message.created_at), 'h:mm a')}
+          </p>
+          {isAgent && (
+            <div className="flex items-center gap-1 ml-2">
+              {message.read_by_visitor ? (
+                <span className="text-xs text-primary-foreground/70">✓✓</span>
+              ) : (
+                <span className="text-xs text-primary-foreground/50">✓</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

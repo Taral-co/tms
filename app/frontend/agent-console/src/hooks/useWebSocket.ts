@@ -278,6 +278,69 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     return false
   }, [])
 
+  const sendChatMessage = useCallback(async (sessionId: string, content: string, senderName: string): Promise<boolean> => {
+    const messageData = {
+      type: 'chat_message',
+      session_id: sessionId,
+      data: {
+        content: content.trim(),
+        author_type: 'agent' as const,
+        author_name: senderName,
+        message_type: 'text' as const
+      }
+    }
+
+    // Try WebSocket first for real-time delivery
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify(messageData))
+        console.log('Message sent via WebSocket')
+        return true
+      } catch (error) {
+        console.warn('WebSocket send failed, falling back to HTTP:', error)
+      }
+    }
+
+    // Fallback to HTTP API
+    try {
+      await apiClient.sendChatMessage(sessionId, {
+        content: content.trim(),
+        message_type: 'text',
+        user_name: senderName
+      })
+      console.log('Message sent via HTTP API fallback')
+      return true
+    } catch (error) {
+      console.error('Failed to send message via HTTP:', error)
+      return false
+    }
+  }, [])
+
+  const markMessageAsRead = useCallback(async (sessionId: string, messageId: string): Promise<boolean> => {
+    const readData = {
+      type: 'message_read',
+      session_id: sessionId,
+      data: {
+        message_id: messageId,
+        read_by: 'agent',
+        author_type: 'agent'
+      }
+    }
+
+    // Try WebSocket first
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify(readData))
+        return true
+      } catch (error) {
+        console.warn('WebSocket read receipt failed:', error)
+      }
+    }
+
+    // Could add HTTP fallback here if needed
+    return false
+  }, [])
+
   const sendTypingIndicator = useCallback((isTyping: boolean, sessionId?: string) => {
     if (!sessionId) return false
     
@@ -333,7 +396,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     connect,
     disconnect,
     sendMessage,
+    sendChatMessage,
+    markMessageAsRead,
     sendTypingIndicator,
+    manualRetry,
     reconnectAttempts: reconnectAttemptsRef.current
   }
 }
