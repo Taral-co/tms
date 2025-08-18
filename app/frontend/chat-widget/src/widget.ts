@@ -2,7 +2,7 @@ import { EventEmitter } from './events'
 import { ChatAPI } from './api'
 import { ChatMessage, ChatSession, ChatWidget, ChatWidgetOptions, WSMessage, SessionData, WidgetState } from './types'
 import { SessionStorage, generateVisitorFingerprint, isBusinessHours } from './storage'
-import { injectWidgetCSS, getWidgetTheme, playNotificationSound } from './themes'
+import { injectWidgetCSS, playNotificationSound } from './themes'
 
 type Events = {
   'message:received': ChatMessage
@@ -41,22 +41,30 @@ export class TMSChatWidget {
   private getBubbleStyleIcon(style?: string): string {
     switch (style) {
       case 'modern':
-        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+        return `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
         </svg>`
       case 'classic':
-        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        return `<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 2.98.97 4.29L1 23l6.71-1.97C9.02 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"/>
         </svg>`
       case 'minimal':
-        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M4 4h16v12H5.17L4 17.17V4m0-2c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H4z"/>
+        return `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
         </svg>`
       case 'bot':
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot-icon lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`
+        return `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8V4H8"/>
+          <rect width="16" height="12" x="4" y="8" rx="2"/>
+          <path d="M2 14h2"/>
+          <path d="M20 14h2"/>
+          <path d="M15 13v2"/>
+          <path d="M9 13v2"/>
+        </svg>`
       default:
-        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+        return `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
         </svg>`
     }
   }
@@ -118,14 +126,12 @@ export class TMSChatWidget {
   private createWidget() {
     if (!this.widget) return
 
-    const theme = getWidgetTheme(this.widget)
-
     // Create main container
     this.container = document.createElement('div')
     this.container.id = 'tms-chat-widget'
     this.container.className = 'tms-widget-container'
 
-    // Create header with agent info
+    // Create beautiful header with agent info
     const headerHTML = `
       <div class="tms-chat-header">
         <div class="tms-agent-info">
@@ -135,109 +141,55 @@ export class TMSChatWidget {
             </div>` :
             `<div class="tms-agent-avatar">${this.widget.agent_name.charAt(0).toUpperCase()}</div>`
           }
-          <div>
-            <div style="font-weight: 600; font-size: 16px;">${this.widget.agent_name}</div>
-            <div id="tms-chat-status" style="font-size: 12px; opacity: 0.9;">
-              ${this.isBusinessHoursOpen ? 'Online' : 'Away'}
+          <div class="tms-agent-details">
+            <div class="tms-agent-name">${this.widget.agent_name}</div>
+            <div class="tms-agent-status">
+              <div class="tms-status-indicator"></div>
+              ${this.isBusinessHoursOpen ? 'Online now' : 'Away'}
             </div>
           </div>
         </div>
-        <button id="tms-chat-close" style="
-          background: none;
-          border: none;
-          color: white;
-          font-size: 20px;
-          cursor: pointer;
-          padding: 4px 8px;
-          border-radius: 4px;
-          transition: background-color 0.2s;
-        " aria-label="Close chat">×</button>
+        <button class="tms-header-close" aria-label="Close chat">×</button>
       </div>
     `
 
-    // Create body with messages area
+    // Create modern body with enhanced messages area
     const bodyHTML = `
-      <div id="tms-chat-body" style="
-        height: calc(100% - 140px);
-        display: flex;
-        flex-direction: column;
-        background: #f8f9fa;
-      ">
-        <div id="tms-chat-messages" style="
-          flex: 1;
-          overflow-y: auto;
-          padding: 16px;
-          scroll-behavior: smooth;
-        "></div>
+      <div class="tms-chat-body">
+        <div class="tms-messages-container" id="tms-chat-messages"></div>
         
-        <div id="tms-chat-typing" style="
-          padding: 8px 16px;
-          font-size: 12px;
-          color: #666;
-          min-height: 20px;
-          font-style: italic;
-        "></div>
+        <div class="tms-typing-indicator" id="tms-chat-typing" style="display: none;">
+          <div class="tms-typing-dots">
+            <div class="tms-typing-dot"></div>
+            <div class="tms-typing-dot"></div>
+            <div class="tms-typing-dot"></div>
+          </div>
+          <span id="tms-typing-text"></span>
+        </div>
         
-        <div id="tms-chat-input-container" style="
-          padding: 16px;
-          border-top: 1px solid #e9ecef;
-          background: white;
-        ">
-          <div style="display: flex; gap: 8px; align-items: flex-end;">
+        <div class="tms-input-area">
+          <div class="tms-input-wrapper">
             ${this.widget.allow_file_uploads ? `
-              <label for="tms-file-input" style="
-                background: #f1f5f9;
-                border: 1px solid #e2e8f0;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: all 0.2s;
-              " title="Attach file">
+              <label class="tms-file-upload-btn" for="tms-file-input" title="Attach file">
                 📎
                 <input id="tms-file-input" type="file" style="display: none;" accept="image/*,.pdf,.doc,.docx,.txt" />
               </label>
             ` : ''}
             <textarea 
               id="tms-chat-input" 
+              class="tms-message-input"
               placeholder="Type your message..."
               rows="1"
-              style="
-                flex: 1;
-                padding: 10px 12px;
-                border: 1px solid #ddd;
-                border-radius: 20px;
-                outline: none;
-                font-size: 14px;
-                font-family: inherit;
-                resize: none;
-                max-height: 100px;
-                min-height: 40px;
-                line-height: 1.4;
-              "
             ></textarea>
-            <button id="tms-chat-send" style="
-              background: ${this.widget.primary_color};
-              color: white;
-              border: none;
-              border-radius: 50%;
-              width: 40px;
-              height: 40px;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 16px;
-              transition: all 0.2s;
-            " title="Send message" aria-label="Send message">
-              →
+            <button id="tms-chat-send" class="tms-send-button" title="Send message" aria-label="Send message">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22,2 15,22 11,13 2,9 22,2"></polygon>
+              </svg>
             </button>
           </div>
           ${this.widget.show_powered_by ? `
-            <div style="text-align: center; margin-top: 8px; font-size: 11px; color: #9ca3af;">
+            <div class="tms-powered-by">
               Powered by TMS Chat
             </div>
           ` : ''}
@@ -247,7 +199,7 @@ export class TMSChatWidget {
 
     this.container.innerHTML = headerHTML + bodyHTML
 
-    // Create toggle button with notification badge
+    // Create beautiful toggle button with modern icon
     this.toggleButton = document.createElement('button')
     this.toggleButton.id = 'tms-chat-toggle'
     this.toggleButton.className = 'tms-toggle-button'
@@ -296,37 +248,41 @@ export class TMSChatWidget {
     const messagesContainer = document.getElementById('tms-chat-messages')
     if (!messagesContainer) return
 
-    const messageEl = document.createElement('div')
-    messageEl.style.cssText = `
-      margin-bottom: 12px;
-      display: flex;
-      ${message.author_type === 'visitor' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
-    `
+    const messageWrapper = document.createElement('div')
+    messageWrapper.className = `tms-message-wrapper ${message.author_type}`
 
-    const isVisitor = message.author_type === 'visitor'
-    const isSystem = message.author_type === 'system'
+    const isAgent = message.author_type === 'agent'
     
-    // Use theme-based message bubble class
-    messageEl.innerHTML = `
-      <div class="tms-message-bubble ${isVisitor ? 'visitor' : 'agent'}" style="${
-        isSystem ? 'background: #e2e8f0; color: #475569; font-style: italic;' : ''
-      }">
-        ${!isVisitor && !isSystem && this.widget?.show_agent_avatars ? 
-          `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 2px;">${message.author_name}</div>` : 
-          ''
-        }
-        <div>${this.escapeHtml(message.content)}</div>
-        <div style="font-size: 11px; opacity: 0.7; margin-top: 2px;">
-          ${new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </div>
-      </div>
-    `
+    // Create message bubble with enhanced styling
+    const messageBubble = document.createElement('div')
+    messageBubble.className = `tms-message-bubble ${message.author_type}`
+    messageBubble.innerHTML = this.escapeHtml(message.content)
 
-    messagesContainer.appendChild(messageEl)
-    messagesContainer.scrollTop = messagesContainer.scrollHeight
+    // Create timestamp
+    const timestamp = document.createElement('div')
+    timestamp.className = 'tms-message-time'
+    timestamp.textContent = new Date(message.created_at).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
+
+    messageWrapper.appendChild(messageBubble)
+    messageWrapper.appendChild(timestamp)
+    messagesContainer.appendChild(messageWrapper)
+
+    // Auto-scroll to bottom with smooth behavior
+    requestAnimationFrame(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight
+    })
+
+    // Increment unread count if widget is closed and message is from agent
+    if (!this.isOpen && isAgent) {
+      this.unreadCount++
+      this.updateNotificationBadge()
+    }
 
     // Play notification sound for new messages
-    if (message.author_type === 'agent' && this.widget?.sound_enabled) {
+    if (isAgent && this.widget?.sound_enabled) {
       playNotificationSound('message', true)
     }
   }
@@ -334,7 +290,7 @@ export class TMSChatWidget {
   private attachEventListeners() {
     if (!this.container || !this.toggleButton) return
 
-    const closeButton = this.container.querySelector('#tms-chat-close')
+    const closeButton = this.container.querySelector('.tms-header-close')
     const sendButton = this.container.querySelector('#tms-chat-send')
     const input = this.container.querySelector('#tms-chat-input') as HTMLTextAreaElement
     const fileInput = this.container.querySelector('#tms-file-input') as HTMLInputElement
@@ -909,22 +865,28 @@ export class TMSChatWidget {
 
   private showTypingIndicator(agentName: string) {
     const typingEl = document.getElementById('tms-chat-typing')
-    if (typingEl) {
-      typingEl.textContent = `${agentName} is typing...`
+    const typingText = document.getElementById('tms-typing-text')
+    if (typingEl && typingText) {
+      typingText.textContent = `${agentName} is typing...`
+      typingEl.style.display = 'flex'
     }
   }
 
   private hideTypingIndicator() {
     const typingEl = document.getElementById('tms-chat-typing')
     if (typingEl) {
-      typingEl.textContent = ''
+      typingEl.style.display = 'none'
     }
   }
 
   private updateStatus(status: string) {
-    const statusEl = document.getElementById('tms-chat-status')
+    const statusEl = this.container?.querySelector('.tms-agent-status')
     if (statusEl) {
-      statusEl.textContent = status
+      // Update the status text while keeping the indicator
+      const indicator = statusEl.querySelector('.tms-status-indicator')
+      statusEl.innerHTML = ''
+      if (indicator) statusEl.appendChild(indicator)
+      statusEl.appendChild(document.createTextNode(status))
     }
   }
 

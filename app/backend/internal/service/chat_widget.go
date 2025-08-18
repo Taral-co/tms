@@ -145,6 +145,19 @@ func (s *ChatWidgetService) UpdateChatWidget(ctx context.Context, tenantID, proj
 	if req.ShowAgentAvatars != nil {
 		widget.ShowAgentAvatars = *req.ShowAgentAvatars
 	}
+
+	if req.AgentAvatarURL != nil {
+		widget.AgentAvatarURL = req.AgentAvatarURL
+	}
+
+	if req.AgentName != nil {
+		widget.AgentName = *req.AgentName
+	}
+
+	if req.CustomGreeting != nil {
+		widget.CustomGreeting = req.CustomGreeting
+	}
+
 	if req.AllowFileUploads != nil {
 		widget.AllowFileUploads = *req.AllowFileUploads
 	}

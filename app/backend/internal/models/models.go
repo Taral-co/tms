@@ -588,6 +588,8 @@ type UpdateChatWidgetRequest struct {
 	ChatBubbleStyle  *string  `json:"chat_bubble_style,omitempty" binding:"omitempty,oneof=modern classic minimal bot"`
 	WidgetShape      *string  `json:"widget_shape,omitempty" binding:"omitempty,oneof=rounded square"`
 	AgentName        *string  `json:"agent_name,omitempty" binding:"omitempty,max=255"`
+	AgentAvatarURL   *string  `json:"agent_avatar_url,omitempty" binding:"omitempty,url"`
+	CustomGreeting   *string  `json:"custom_greeting,omitempty" binding:"omitempty,max=500"`
 }
 
 // InitiateChatRequest represents a request to start a chat session

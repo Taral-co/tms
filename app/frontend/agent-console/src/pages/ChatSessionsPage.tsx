@@ -181,7 +181,8 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       setSendingMessage(true)
       const messageData: SendChatMessageRequest = {
         content: newMessage.trim(),
-        message_type: 'text'
+        message_type: 'text',
+        sender_name: user?.name || 'Unknown'
       }
       
       await apiClient.sendChatMessage(selectedSession.id, messageData)

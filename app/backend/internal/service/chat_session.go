@@ -159,7 +159,7 @@ func (s *ChatSessionService) AssignAgent(ctx context.Context, tenantID, projectI
 
 	// Send system message about agent assignment
 	_, err = s.SendMessage(ctx, tenantID, projectID, sessionID, &models.SendChatMessageRequest{
-		Content: "An agent has joined the conversation",
+		Content: fmt.Sprintf("Our agent %s has joined the conversation", *session.AssignedAgentName),
 	}, "system", nil, "System")
 
 	return err

@@ -110,6 +110,7 @@ export interface SendChatMessageRequest {
   message_type?: 'text' | 'file' | 'image'
   is_private?: boolean
   metadata?: Record<string, any>
+  user_name?: string
 }
 
 export interface AssignChatSessionRequest {

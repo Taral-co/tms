@@ -348,8 +348,8 @@ export function CreateChatWidgetPage() {
                     </label>
                     <textarea
                       id="custom-greeting"
-                      value={formData.custom_greeting}
-                      onChange={(e) => updateFormData({ custom_greeting: e.target.value })}
+                      value={formData.welcome_message}
+                      onChange={(e) => updateFormData({ welcome_message: e.target.value })}
                       rows={3}
                       placeholder="Hi there! 👋 How can we help you today?"
                       className="w-full rounded border border-input bg-background px-3 py-2 text-sm resize-none"
