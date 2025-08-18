@@ -612,7 +612,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
             {/* Message Input */}
             {selectedSession.status === 'active' && (
               <div className="p-4 border-t border-border bg-card">
-                <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
+                <form onSubmit={handleSendMessage} className="flex gap-3 items-start">
                   <div className="flex-1">
                     <textarea
                       value={newMessage}
@@ -639,17 +639,17 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                         forceStopTyping()
                       }}
                       placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-                      className="w-full min-h-[44px] max-h-[280px] px-3 py-2 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                      className="w-full min-h-[44px] max-h-[280px] px-3 py-2.5 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 leading-5"
                       disabled={sendingMessage}
                       aria-label="Message input"
                       rows={1}
                       style={{
-                        height: 'auto',
+                        height: '44px',
                         minHeight: '44px'
                       }}
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement
-                        target.style.height = 'auto'
+                        target.style.height = '44px'
                         target.style.height = Math.min(target.scrollHeight, 280) + 'px'
                       }}
                     />
@@ -657,7 +657,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || sendingMessage}
-                    className="h-11 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors shrink-0"
+                    className="h-[44px] px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors shrink-0"
                     aria-label="Send message"
                   >
                     <Send className="w-4 h-4" />
