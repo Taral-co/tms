@@ -602,7 +602,6 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       padding: 8px;
       font-size: 11px;
       color: #9ca3af;
-      background: #fafbfc;
     }
 
     /* Toggle Button */
@@ -739,7 +738,6 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       }
 
       .tms-powered-by {
-        background: #111827;
         color: #6b7280;
       }
     }
