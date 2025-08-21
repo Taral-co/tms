@@ -40,6 +40,7 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
   // Refs for real-time state (these won't trigger re-renders)
   const typingUsersRef = useRef<Set<string>>(new Set())
   const flashingSessionsRef = useRef<Set<string>>(new Set())
+  const messagesRef = useRef<ChatMessage[]>([])
   
   // Other refs
   const selectedSessionRef = useRef<ChatSession | null>(null)
@@ -47,6 +48,7 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
 
   useEffect(() => { selectedSessionRef.current = selectedSession }, [selectedSession])
   useEffect(() => { sessionsRef.current = sessions }, [sessions])
+  useEffect(() => { messagesRef.current = messages }, [messages])
 
   const targetSessionId = urlSessionId || initialSessionId
 
@@ -69,13 +71,34 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
   const onMessageStable = useCallback((message: ChatMessage) => {
     const currentSelected = selectedSessionRef.current
     const currentSessions = sessionsRef.current
+    const currentMessages = messagesRef.current
     
-    // Prevent duplicates
-    if (messages.some(m => m.id === message.id)) return
+    console.log('onMessageStable called:', message, 'currentSelected:', currentSelected?.id)
+    
+    // Check for duplicates, but allow replacement of optimistic messages
+    const existingIndex = currentMessages.findIndex(m => 
+      m.id === message.id || 
+      (m.id.startsWith('temp-') && 
+       m.content === message.content && 
+       m.author_type === message.author_type &&
+       m.session_id === message.session_id &&
+       Math.abs(new Date(m.created_at).getTime() - new Date(message.created_at).getTime()) < 10000) // Within 10 seconds
+    )
     
     // Only update messages state if it's for the currently selected session
     if (currentSelected?.id === message.session_id) {
-      setMessages(prev => [...prev, message])
+      if (existingIndex >= 0 && currentMessages[existingIndex].id.startsWith('temp-')) {
+        // Replace optimistic message with real message
+        console.log('Replacing optimistic message with real message:', message.id)
+        setMessages(prev => prev.map((m, i) => i === existingIndex ? message : m))
+      } else if (existingIndex === -1) {
+        // Add new message
+        console.log('Adding new message to UI for session:', message.session_id)
+        setMessages(prev => [...prev, message])
+      } else {
+        console.log('Duplicate message detected, skipping:', message.id)
+        return
+      }
     }
 
     // Handle visitor notifications (no state updates)
@@ -121,7 +144,7 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
         ? { ...session, last_activity_at: message.created_at }
         : session
     ))
-  }, [messages, user?.id, soundEnabled, triggerUIUpdate])
+  }, [user?.id, soundEnabled, triggerUIUpdate])
 
   const onSessionUpdateStable = useCallback((updatedSession: ChatSession) => {
     setSessions(prev => {
@@ -247,21 +270,50 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
 
     const messageContent = newMessage.trim()
 
+    // Create optimistic message for immediate UI feedback
+    const optimisticMessage: ChatMessage = {
+      id: `temp-${Date.now()}-${Math.random()}`, // Temporary ID
+      session_id: currentSelected.id,
+      tenant_id: currentSelected.tenant_id,
+      project_id: currentSelected.project_id,
+      content: messageContent,
+      author_type: 'agent',
+      author_id: user.id!,
+      author_name: user.name,
+      created_at: new Date().toISOString(),
+      message_type: 'text',
+      is_private: false,
+      metadata: {},
+      read_by_visitor: false,
+      read_by_agent: true,
+      read_at: undefined
+    }
+
     try {
       setSendingMessage(true)
+      
+      // Add optimistic message immediately
+      setMessages(prev => [...prev, optimisticMessage])
+      setNewMessage('')
+
       const success = await sendChatMessage(currentSelected.id, messageContent, user.name)
 
-      if (success) {
-        setNewMessage('')
-      } else {
+      if (!success) {
+        // Remove optimistic message and restore input on failure
+        setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
+        setNewMessage(messageContent)
         setError('Failed to send message. Please try again.')
       }
+      // If success, the WebSocket echo will replace the optimistic message
     } catch (err: any) {
+      // Remove optimistic message and restore input on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
+      setNewMessage(messageContent)
       setError(`Failed to send message: ${err.message}`)
     } finally {
       setSendingMessage(false)
     }
-  }, [newMessage, sendingMessage, user?.name, sendChatMessage])
+  }, [newMessage, sendingMessage, user?.name, user?.id, sendChatMessage])
 
   const handleAssignSession = useCallback(async (sessionId: string) => {
     if (!user?.id) return

@@ -130,12 +130,12 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
           console.log('Received Agent WebSocket message:', message.type, message)
           switch (message.type) {
             case 'chat_message': {
-              // Skip echo of agent's own message
-              if (message.delivery_type === 'self') break
-
+              console.log('Processing chat_message:', message.delivery_type, message.data)
+              
+              // Always call onMessage for all message types including agent's own messages
+              // The UI layer will decide how to handle them
               options.onMessage?.(message.data)
               break
-
             }
             
 
