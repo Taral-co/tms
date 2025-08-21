@@ -28,13 +28,15 @@ type ChatWebSocketHandler struct {
 	chatSessionService  *service.ChatSessionService
 	connectionManager   *ws.ConnectionManager
 	notificationService *service.NotificationService
+	aiService           *service.AIService
 }
 
-func NewChatWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager, notificationService *service.NotificationService) *ChatWebSocketHandler {
+func NewChatWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager, notificationService *service.NotificationService, aiService *service.AIService) *ChatWebSocketHandler {
 	return &ChatWebSocketHandler{
 		chatSessionService:  chatSessionService,
 		connectionManager:   connectionManager,
 		notificationService: notificationService,
+		aiService:           aiService,
 	}
 }
 
@@ -179,6 +181,15 @@ func (h *ChatWebSocketHandler) processVisitorChatMessage(ctx context.Context, se
 				DeliveryType: ws.Direct,
 			}
 			h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
+
+			// Process AI response if enabled and applicable
+			if h.aiService != nil {
+				go func() {
+					if err := h.aiService.ProcessMessage(ctx, session, message); err != nil {
+						log.Printf("AI processing error for session %s: %v", session.ID, err)
+					}
+				}()
+			}
 
 			// Create notification for assigned agent if session has one
 			if session.AssignedAgentID != nil {

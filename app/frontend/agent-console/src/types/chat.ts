@@ -54,6 +54,7 @@ export interface ChatSession {
   customer_name?: string
   customer_email?: string
   widget_name?: string
+  use_ai?: boolean
 }
 
 export interface ChatMessage {
@@ -63,7 +64,7 @@ export interface ChatMessage {
   session_id: string
   message_type: 'text' | 'file' | 'image' | 'system'
   content: string
-  author_type: 'visitor' | 'agent' | 'system'
+  author_type: 'visitor' | 'agent' | 'system' | 'ai-agent'
   author_id?: string
   author_name: string
   metadata: Record<string, any>
@@ -114,6 +115,32 @@ export interface SendChatMessageRequest {
 
 export interface AssignChatSessionRequest {
   agent_id: string
+}
+
+// AI Assistant Types
+export interface AIStatus {
+  enabled: boolean
+  tenant_id: string
+  project_id: string
+  provider?: string
+  model?: string
+}
+
+export interface AICapabilities {
+  features: string[]
+  supported_providers: string[]
+  handoff_triggers: string[]
+}
+
+export interface AIMetrics {
+  tenant_id: string
+  project_id: string
+  period: string
+  ai_responses_sent: number
+  sessions_handled: number
+  handoffs_triggered: number
+  average_response_time_ms: number
+  customer_satisfaction?: number
 }
 
 export interface ChatSessionFilters {

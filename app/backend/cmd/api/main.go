@@ -96,6 +96,9 @@ func main() {
 	chatWidgetService := service.NewChatWidgetService(chatWidgetRepo, domainValidationRepo)
 	chatSessionService := service.NewChatSessionService(chatSessionRepo, chatMessageRepo, chatWidgetRepo, customerRepo, ticketService, agentService)
 
+	// AI service
+	aiService := service.NewAIService(&cfg.AI, chatSessionService)
+
 	// Integration services
 	integrationService := service.NewIntegrationService(integrationRepo)
 
@@ -116,6 +119,7 @@ func main() {
 	// Chat handlers
 	chatWidgetHandler := handlers.NewChatWidgetHandler(chatWidgetService)
 	chatSessionHandler := handlers.NewChatSessionHandler(chatSessionService, chatWidgetService)
+	aiHandler := handlers.NewAIHandler(aiService)
 
 	// Initialize enterprise connection manager
 	connectionManager := websocket.NewConnectionManager(redisService.GetClient())
@@ -125,7 +129,7 @@ func main() {
 	notificationService := service.NewNotificationService(notificationRepo, connectionManager)
 	notificationHandler := handlers.NewNotificationHandler(notificationService)
 
-	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager, notificationService)
+	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager, notificationService, aiService)
 	agentWebSocketHandler := handlers.NewAgentWebSocketHandler(chatSessionService, connectionManager, agentService)
 
 	// Set up combined message handling - ChatWebSocketHandler handles all Redis pub/sub messages
@@ -133,7 +137,7 @@ func main() {
 	agentWebSocketHandler.SetChatWSHandler(chatWebSocketHandler)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, notificationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler, agentWebSocketHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, notificationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler, agentWebSocketHandler, aiHandler)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -166,7 +170,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler, domainNameHandler *handlers.DomainNameHandler, notificationHandler *handlers.NotificationHandler, chatWidgetHandler *handlers.ChatWidgetHandler, chatSessionHandler *handlers.ChatSessionHandler, chatWebSocketHandler *handlers.ChatWebSocketHandler, agentWebSocketHandler *handlers.AgentWebSocketHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler, domainNameHandler *handlers.DomainNameHandler, notificationHandler *handlers.NotificationHandler, chatWidgetHandler *handlers.ChatWidgetHandler, chatSessionHandler *handlers.ChatSessionHandler, chatWebSocketHandler *handlers.ChatWebSocketHandler, agentWebSocketHandler *handlers.AgentWebSocketHandler, aiHandler *handlers.AIHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -408,6 +412,11 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				chat.GET("/sessions/:session_id/messages", chatSessionHandler.GetChatMessages)
 				chat.POST("/sessions/:session_id/messages", chatSessionHandler.SendMessage)
 				chat.POST("/sessions/:session_id/messages/:message_id/read", chatSessionHandler.MarkAgentMessagesAsRead)
+
+				// AI assistant endpoints
+				chat.GET("/ai/status", aiHandler.GetAIStatus)
+				chat.GET("/ai/capabilities", aiHandler.GetAICapabilities)
+				chat.GET("/ai/metrics", aiHandler.GetAIMetrics)
 
 			}
 		}

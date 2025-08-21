@@ -173,6 +173,9 @@ func (s *ChatWidgetService) UpdateChatWidget(ctx context.Context, tenantID, proj
 	if req.WidgetShape != nil {
 		widget.WidgetShape = *req.WidgetShape
 	}
+	if req.UseAI != nil {
+		widget.UseAI = *req.UseAI
+	}
 
 	err = s.chatWidgetRepo.UpdateChatWidget(ctx, widget)
 	if err != nil {

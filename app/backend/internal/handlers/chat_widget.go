@@ -150,5 +150,8 @@ func (h *ChatWidgetHandler) GetChatWidgetByDomain(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, widget)
+	//typecast widget to widgetPublic
+	widgetPublic := models.ChatWidgetPublic(*widget)
+
+	c.JSON(http.StatusOK, widgetPublic)
 }

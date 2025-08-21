@@ -84,6 +84,7 @@ func runMigrations(database *db.DB) error {
 		"migrations/017_remove_email_address_columns_from_connectors.sql",
 		"migrations/018_chat_system.sql",
 		"migrations/019_enhanced_chat_widgets.sql",
+		"migrations/020_ai_status_widget.sql",
 	}
 
 	for _, migration := range migrations {

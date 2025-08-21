@@ -3,6 +3,7 @@ import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, Search, Set
 import { format } from 'date-fns'
 import { useChatSessionsMinimal } from '../hooks/useChatSessionsMinimal'
 import { SessionCard, MessageBubble, ConnectionStatus } from '../components/chat'
+import { AIStatusWidget } from '../components/chat/AIStatusWidget'
 import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
 
 interface ChatSessionsPageProps {
@@ -283,6 +284,11 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+              
+              {/* AI Status Widget */}
+              <div className="px-4 pb-3">
+                <AIStatusWidget useAI={selectedSession.use_ai} />
               </div>
             </div>
 

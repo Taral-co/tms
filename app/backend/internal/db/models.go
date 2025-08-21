@@ -109,7 +109,7 @@ type TicketMessage struct {
 	TenantID   uuid.UUID  `db:"tenant_id" json:"tenant_id"`
 	ProjectID  uuid.UUID  `db:"project_id" json:"project_id"`
 	TicketID   uuid.UUID  `db:"ticket_id" json:"ticket_id"`
-	AuthorType string     `db:"author_type" json:"author_type" validate:"oneof=agent customer system"`
+	AuthorType string     `db:"author_type" json:"author_type" validate:"oneof=agent customer system ai-agent"`
 	AuthorID   *uuid.UUID `db:"author_id" json:"author_id,omitempty"`
 	Body       string     `db:"body" json:"body" validate:"required"`
 	IsPrivate  bool       `db:"is_private" json:"is_private"`

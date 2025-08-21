@@ -7,7 +7,10 @@ import type {
   UpdateChatWidgetRequest,
   SendChatMessageRequest,
   AssignChatSessionRequest,
-  ChatSessionFilters
+  ChatSessionFilters,
+  AIStatus,
+  AICapabilities,
+  AIMetrics
 } from '../types/chat'
 import type { Notification, NotificationCount } from '../types/notifications'
 
@@ -1081,6 +1084,16 @@ class APIClient {
 
   async markAllNotificationsAsRead(): Promise<void> {
     await this.client.put('/notifications/mark-all-read')
+  }
+
+  async getAICapabilities(): Promise<AICapabilities> {
+    const response: AxiosResponse<AICapabilities> = await this.client.get('/chat/ai/capabilities')
+    return response.data
+  }
+
+  async getAIMetrics(): Promise<AIMetrics> {
+    const response: AxiosResponse<AIMetrics> = await this.client.get('/chat/ai/metrics')
+    return response.data
   }
 
   // WebSocket URL for real-time chat (agent endpoint)

@@ -9,15 +9,16 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server      ServerConfig      `mapstructure:"server"`
-	Database    DatabaseConfig    `mapstructure:"database"`
-	Redis       RedisConfig       `mapstructure:"redis"`
-	MinIO       MinIOConfig       `mapstructure:"minio"`
-	SMTP        SMTPConfig        `mapstructure:"smtp"`
-	JWT         JWTConfig         `mapstructure:"jwt"`
-	Features    FeatureFlags      `mapstructure:"features"`
-	Email       EmailConfig       `mapstructure:"email"`
+	Server        ServerConfig        `mapstructure:"server"`
+	Database      DatabaseConfig      `mapstructure:"database"`
+	Redis         RedisConfig         `mapstructure:"redis"`
+	MinIO         MinIOConfig         `mapstructure:"minio"`
+	SMTP          SMTPConfig          `mapstructure:"smtp"`
+	JWT           JWTConfig           `mapstructure:"jwt"`
+	Features      FeatureFlags        `mapstructure:"features"`
+	Email         EmailConfig         `mapstructure:"email"`
 	Observability ObservabilityConfig `mapstructure:"observability"`
+	AI            AIConfig            `mapstructure:"ai"`
 }
 
 // ServerConfig represents server configuration
@@ -93,10 +94,24 @@ type EmailConfig struct {
 
 // ObservabilityConfig represents observability configuration
 type ObservabilityConfig struct {
-	EnableTracing  bool   `mapstructure:"enable_tracing"`
-	EnableMetrics  bool   `mapstructure:"enable_metrics"`
+	EnableTracing   bool   `mapstructure:"enable_tracing"`
+	EnableMetrics   bool   `mapstructure:"enable_metrics"`
 	TracingEndpoint string `mapstructure:"tracing_endpoint"`
-	MetricsAddr    string `mapstructure:"metrics_addr"`
+	MetricsAddr     string `mapstructure:"metrics_addr"`
+}
+
+// AIConfig represents AI/LLM configuration
+type AIConfig struct {
+	Enabled         bool          `mapstructure:"enabled"`
+	Provider        string        `mapstructure:"provider"` // "openai", "anthropic", "azure"
+	APIKey          string        `mapstructure:"api_key"`
+	Model           string        `mapstructure:"model"`
+	BaseURL         string        `mapstructure:"base_url"`
+	MaxTokens       int           `mapstructure:"max_tokens"`
+	Temperature     float64       `mapstructure:"temperature"`
+	SystemPrompt    string        `mapstructure:"system_prompt"`
+	HandoffKeywords []string      `mapstructure:"handoff_keywords"`
+	AutoHandoffTime time.Duration `mapstructure:"auto_handoff_time"`
 }
 
 // Load loads configuration from environment variables and config files
@@ -123,6 +138,17 @@ func Load() (*Config, error) {
 	viper.BindEnv("database.sslmode", "DB_SSLMODE")
 	viper.BindEnv("redis.host", "REDIS_HOST")
 	viper.BindEnv("redis.port", "REDIS_PORT")
+
+	// AI configuration bindings
+	viper.BindEnv("ai.enabled", "AI_ENABLED")
+	viper.BindEnv("ai.provider", "AI_PROVIDER")
+	viper.BindEnv("ai.api_key", "AI_API_KEY")
+	viper.BindEnv("ai.model", "AI_MODEL")
+	viper.BindEnv("ai.base_url", "AI_BASE_URL")
+	viper.BindEnv("ai.max_tokens", "AI_MAX_TOKENS")
+	viper.BindEnv("ai.temperature", "AI_TEMPERATURE")
+	viper.BindEnv("ai.system_prompt", "AI_SYSTEM_PROMPT")
+	viper.BindEnv("ai.auto_handoff_time", "AI_AUTO_HANDOFF_TIME")
 
 	// Read config file (optional)
 	if err := viper.ReadInConfig(); err != nil {
@@ -186,4 +212,13 @@ func setDefaults() {
 	viper.SetDefault("features.enable_registration", true)
 	viper.SetDefault("features.enable_email_login", true)
 	viper.SetDefault("features.enable_magic_links", true)
+
+	// AI defaults
+	viper.SetDefault("ai.enabled", false)
+	viper.SetDefault("ai.provider", "openai")
+	viper.SetDefault("ai.model", "gpt-4")
+	viper.SetDefault("ai.max_tokens", 1000)
+	viper.SetDefault("ai.temperature", 0.7)
+	viper.SetDefault("ai.system_prompt", "You are a helpful customer support assistant. Be concise, professional, and friendly. If you cannot help with a request, suggest that a human agent will take over.")
+	viper.SetDefault("ai.auto_handoff_time", "10m")
 }

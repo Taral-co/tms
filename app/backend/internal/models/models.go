@@ -426,6 +426,58 @@ type SuccessResponse struct {
 // ChatWidget represents a chat widget configuration
 type ChatWidget struct {
 	ID        uuid.UUID `db:"id" json:"id"`
+	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
+	DomainID  uuid.UUID `db:"domain_id" json:"domain_id"`
+
+	// Widget configuration
+	Name     string `db:"name" json:"name"`
+	IsActive bool   `db:"is_active" json:"is_active"`
+
+	// Appearance settings
+	PrimaryColor    string  `db:"primary_color" json:"primary_color"`
+	SecondaryColor  string  `db:"secondary_color" json:"secondary_color"`
+	Position        string  `db:"position" json:"position"`
+	WidgetShape     string  `db:"widget_shape" json:"widget_shape"`
+	ChatBubbleStyle string  `db:"chat_bubble_style" json:"chat_bubble_style"`
+	WidgetSize      string  `db:"widget_size" json:"widget_size"`
+	AnimationStyle  string  `db:"animation_style" json:"animation_style"`
+	CustomCSS       *string `db:"custom_css" json:"custom_css,omitempty"`
+
+	// Messaging settings
+	WelcomeMessage string  `db:"welcome_message" json:"welcome_message"`
+	OfflineMessage string  `db:"offline_message" json:"offline_message"`
+	CustomGreeting *string `db:"custom_greeting" json:"custom_greeting,omitempty"`
+	AwayMessage    string  `db:"away_message" json:"away_message"`
+
+	// Agent personalization
+	AgentName      string  `db:"agent_name" json:"agent_name"`
+	AgentAvatarURL *string `db:"agent_avatar_url" json:"agent_avatar_url,omitempty"`
+
+	// Behavior settings
+	AutoOpenDelay    int  `db:"auto_open_delay" json:"auto_open_delay"`
+	ShowAgentAvatars bool `db:"show_agent_avatars" json:"show_agent_avatars"`
+	AllowFileUploads bool `db:"allow_file_uploads" json:"allow_file_uploads"`
+	RequireEmail     bool `db:"require_email" json:"require_email"`
+	SoundEnabled     bool `db:"sound_enabled" json:"sound_enabled"`
+	ShowPoweredBy    bool `db:"show_powered_by" json:"show_powered_by"`
+
+	// AI and advanced features
+	UseAI bool `db:"use_ai" json:"use_ai"`
+
+	// Business hours and embed settings
+	BusinessHours JSONMap `db:"business_hours" json:"business_hours"`
+	EmbedCode     *string `db:"embed_code" json:"embed_code,omitempty"`
+
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+
+	// Joined fields
+	DomainName string `db:"domain_name" json:"domain_name,omitempty"`
+}
+
+type ChatWidgetPublic struct {
+	ID        uuid.UUID `db:"id" json:"id"`
 	TenantID  uuid.UUID `db:"tenant_id" json:"-"`
 	ProjectID uuid.UUID `db:"project_id" json:"-"`
 	DomainID  uuid.UUID `db:"domain_id" json:"-"`
@@ -508,6 +560,7 @@ type ChatSession struct {
 	CustomerName      *string `db:"customer_name" json:"customer_name,omitempty"`
 	CustomerEmail     *string `db:"customer_email" json:"customer_email,omitempty"`
 	WidgetName        *string `db:"widget_name" json:"widget_name,omitempty"`
+	UseAI             bool    `db:"use_ai" json:"use_ai"`
 }
 
 // ChatMessage represents a message in a chat session
@@ -568,6 +621,7 @@ type CreateChatWidgetRequest struct {
 	AllowFileUploads bool      `json:"allow_file_uploads"`
 	RequireEmail     bool      `json:"require_email"`
 	BusinessHours    JSONMap   `json:"business_hours"`
+	UseAI            bool      `json:"use_ai"`
 }
 
 // UpdateChatWidgetRequest represents a request to update a chat widget
@@ -589,6 +643,7 @@ type UpdateChatWidgetRequest struct {
 	AgentName        *string  `json:"agent_name,omitempty" binding:"omitempty,max=255"`
 	AgentAvatarURL   *string  `json:"agent_avatar_url,omitempty" binding:"omitempty,url"`
 	CustomGreeting   *string  `json:"custom_greeting,omitempty" binding:"omitempty,max=500"`
+	UseAI            *bool    `json:"use_ai,omitempty"`
 }
 
 // InitiateChatRequest represents a request to start a chat session

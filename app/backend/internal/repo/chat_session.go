@@ -44,7 +44,7 @@ func (r *ChatSessionRepo) GetChatSession(ctx context.Context, tenantID, projectI
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
-			   cw.name as widget_name
+			   cw.name as widget_name, cw.use_ai as use_ai
 		FROM chat_sessions cs
 		LEFT JOIN agents a ON cs.assigned_agent_id = a.id
 		LEFT JOIN customers c ON cs.customer_id = c.id
@@ -70,7 +70,7 @@ func (r *ChatSessionRepo) GetChatSessionByID(ctx context.Context, tenantID, sess
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
-			   cw.name as widget_name
+			   cw.name as widget_name, cw.use_ai as use_ai
 		FROM chat_sessions cs
 		LEFT JOIN agents a ON cs.assigned_agent_id = a.id
 		LEFT JOIN customers c ON cs.customer_id = c.id
@@ -116,7 +116,7 @@ func (r *ChatSessionRepo) ListChatSessions(ctx context.Context, tenantID, projec
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
-			   cw.name as widget_name
+			   cw.name as widget_name, cw.use_ai as use_ai
 		FROM chat_sessions cs
 		LEFT JOIN agents a ON cs.assigned_agent_id = a.id
 		LEFT JOIN customers c ON cs.customer_id = c.id
@@ -195,7 +195,7 @@ func (r *ChatSessionRepo) GetActiveSessions(ctx context.Context, tenantID uuid.U
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
-			   cw.name as widget_name
+			   cw.name as widget_name, cw.use_ai as use_ai
 		FROM chat_sessions cs
 		LEFT JOIN agents a ON cs.assigned_agent_id = a.id
 		LEFT JOIN customers c ON cs.customer_id = c.id
