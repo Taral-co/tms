@@ -39,7 +39,6 @@ export interface ChatSession {
   tenant_id: string
   project_id: string
   widget_id: string
-  session_token: string
   customer_id?: string
   ticket_id?: string
   status: 'active' | 'ended' | 'transferred'

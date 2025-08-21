@@ -66,19 +66,7 @@ export class SessionStorage {
     try {
       const stored = localStorage.getItem(this.getKey(STORAGE_KEYS.SESSION))
       if (!stored) return null
-
       const session = JSON.parse(stored) as SessionData
-      
-      // Check if session is expired (24 hours)
-      const lastActivity = new Date(session.last_activity)
-      const now = new Date()
-      const hoursDiff = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60)
-      
-      if (hoursDiff > 24) {
-        this.clearSession()
-        return null
-      }
-
       return session
     } catch (error) {
       console.warn('Failed to get session:', error)
@@ -182,21 +170,6 @@ export class SessionStorage {
     }
   }
 
-  // Utility methods
-  hasActiveSession(): boolean {
-    const session = this.getSession()
-    return session !== null && session.session_token !== ''
-  }
-
-  getSessionAge(): number {
-    const session = this.getSession()
-    if (!session) return 0
-
-    const lastActivity = new Date(session.last_activity)
-    const now = new Date()
-    return Math.floor((now.getTime() - lastActivity.getTime()) / 1000) // seconds
-  }
-
   cleanup(): void {
     if (!this.isStorageAvailable()) return
 
@@ -216,16 +189,6 @@ export class SessionStorage {
     }
   }
 
-  // Export/import for debugging
-  exportData(): Record<string, any> {
-    return {
-      session: this.getSession(),
-      messages: this.getMessages(),
-      visitorInfo: this.getVisitorInfo(),
-      widgetState: this.getWidgetState()
-    }
-  }
-
   importData(data: Record<string, any>): void {
     if (data.session) this.saveSession(data.session)
     if (data.messages) this.saveMessages(data.messages)
@@ -236,40 +199,161 @@ export class SessionStorage {
 
 // Global utilities
 export function generateVisitorFingerprint(): Promise<string> {
-  // This is a simplified version - you might want to use a more sophisticated fingerprinting library
   return new Promise((resolve) => {
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    
-    if (ctx) {
-      canvas.width = 200
-      canvas.height = 50
-      ctx.fillStyle = '#f60'
-      ctx.fillRect(0, 0, 200, 50)
-      ctx.fillStyle = '#069'
-      ctx.font = '14px Arial'
-      ctx.fillText(`${navigator.userAgent.slice(0, 50)}`, 2, 20)
+    // Mixpanel-style fingerprinting approach
+    const getDeviceFingerprint = () => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      let canvasHash = ''
       
-      const fingerprint = [
-        navigator.userAgent,
-        navigator.language,
-        screen.width + 'x' + screen.height,
-        new Date().getTimezoneOffset(),
-        canvas.toDataURL()
-      ].join('|')
-      
-      // Simple hash function
-      let hash = 0
-      for (let i = 0; i < fingerprint.length; i++) {
-        const char = fingerprint.charCodeAt(i)
-        hash = ((hash << 5) - hash) + char
-        hash = hash & hash // Convert to 32-bit integer
+      if (ctx) {
+        canvas.width = 200
+        canvas.height = 50
+        ctx.textBaseline = 'top'
+        ctx.font = '14px Arial'
+        ctx.fillStyle = '#f60'
+        ctx.fillRect(125, 1, 62, 20)
+        ctx.fillStyle = '#069'
+        ctx.fillText('🌍 Hello, world! 123', 2, 15)
+        ctx.fillStyle = '#f00'
+        ctx.fillText('Canvas fingerprint', 2, 30)
+        canvasHash = ctx.getImageData(0, 0, canvas.width, canvas.height).data.slice(0, 100).join('')
       }
       
-      resolve(Math.abs(hash).toString(36))
-    } else {
-      resolve(Math.random().toString(36).substring(2))
+      // Collect comprehensive device characteristics
+      const characteristics = [
+        navigator.userAgent,
+        navigator.language,
+        JSON.stringify(navigator.languages || []),
+        screen.width,
+        screen.height,
+        screen.availWidth,
+        screen.availHeight,
+        screen.colorDepth,
+        screen.pixelDepth,
+        new Date().getTimezoneOffset(),
+        Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+        navigator.platform,
+        navigator.cookieEnabled,
+        navigator.doNotTrack || '',
+        navigator.maxTouchPoints || 0,
+        navigator.hardwareConcurrency || 0,
+        window.devicePixelRatio || 1,
+        // Audio context fingerprint
+        (() => {
+          try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+            const oscillator = audioCtx.createOscillator()
+            const analyser = audioCtx.createAnalyser()
+            const gain = audioCtx.createGain()
+            const scriptProcessor = audioCtx.createScriptProcessor(4096, 1, 1)
+            
+            gain.gain.value = 0
+            oscillator.frequency.value = 1000
+            oscillator.type = 'triangle'
+            
+            oscillator.connect(analyser)
+            analyser.connect(scriptProcessor)
+            scriptProcessor.connect(gain)
+            gain.connect(audioCtx.destination)
+            
+            oscillator.start(0)
+            
+            const freqData = new Uint8Array(analyser.frequencyBinCount)
+            analyser.getByteFrequencyData(freqData)
+            
+            oscillator.stop()
+            audioCtx.close()
+            
+            return freqData.slice(0, 30).join('')
+          } catch {
+            return 'no-audio'
+          }
+        })(),
+        canvasHash
+      ].join('###')
+      
+      return characteristics
     }
+    
+    // Generate multiple hash values like Mixpanel does
+    const deviceData = getDeviceFingerprint()
+    
+    // Create long hash using multiple algorithms (like Mixpanel)
+    const createMixpanelStyleHash = (input: string): string => {
+      // Multiple hash functions for maximum entropy
+      const hashFunctions = [
+        // DJB2 hash
+        (str: string, seed: number) => {
+          let hash = seed
+          for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash) + str.charCodeAt(i)
+            hash = hash & 0xFFFFFFFF
+          }
+          return Math.abs(hash).toString(36)
+        },
+        
+        // FNV-1a hash
+        (str: string, seed: number) => {
+          let hash = seed
+          for (let i = 0; i < str.length; i++) {
+            hash ^= str.charCodeAt(i)
+            hash = (hash * 16777619) & 0xFFFFFFFF
+          }
+          return Math.abs(hash).toString(36)
+        },
+        
+        // SDBM hash
+        (str: string, seed: number) => {
+          let hash = seed
+          for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + (hash << 6) + (hash << 16) - hash
+            hash = hash & 0xFFFFFFFF
+          }
+          return Math.abs(hash).toString(36)
+        },
+        
+        // Jenkins hash
+        (str: string, seed: number) => {
+          let hash = seed
+          for (let i = 0; i < str.length; i++) {
+            hash = (hash + str.charCodeAt(i)) & 0xFFFFFFFF
+            hash = (hash + (hash << 10)) & 0xFFFFFFFF
+            hash = (hash ^ (hash >>> 6)) & 0xFFFFFFFF
+          }
+          hash = (hash + (hash << 3)) & 0xFFFFFFFF
+          hash = (hash ^ (hash >>> 11)) & 0xFFFFFFFF
+          hash = (hash + (hash << 15)) & 0xFFFFFFFF
+          return Math.abs(hash).toString(36)
+        }
+      ]
+      
+      // Generate multiple segments like Mixpanel
+      const seeds = [0x9E3779B9, 0x85EBCA6B, 0xC2B2AE35, 0x27D4EB2F, 0x165667B1, 0xD3A2646C, 0xFD7046C5, 0xB55A4F09]
+      let result = ''
+      
+      // Create 8 segments of 8 characters each
+      seeds.forEach((seed, index) => {
+        const hashFunc = hashFunctions[index % hashFunctions.length]
+        const segment = hashFunc(input + index.toString(), seed).padStart(8, '0').slice(-8)
+        result += segment
+      })
+      
+      return result
+    }
+    
+    // Generate the long hash
+    const longHash = createMixpanelStyleHash(deviceData)
+    
+    // Add entropy from current session (but stable within session)
+    const sessionSeed = Math.floor(Date.now() / (1000 * 60 * 60)) // Changes hourly
+    const entropyHash = createMixpanelStyleHash(deviceData + sessionSeed.toString()).slice(0, 16)
+    
+    // Combine for final 80-character fingerprint (like Mixpanel's longer IDs)
+    const finalFingerprint = longHash + entropyHash
+    
+    // Return 64 characters for optimal uniqueness (Mixpanel-style length)
+    resolve(finalFingerprint.slice(0, 64))
   })
 }
 

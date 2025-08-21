@@ -426,9 +426,9 @@ type SuccessResponse struct {
 // ChatWidget represents a chat widget configuration
 type ChatWidget struct {
 	ID        uuid.UUID `db:"id" json:"id"`
-	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
-	DomainID  uuid.UUID `db:"domain_id" json:"domain_id"`
+	TenantID  uuid.UUID `db:"tenant_id" json:"-"`
+	ProjectID uuid.UUID `db:"project_id" json:"-"`
+	DomainID  uuid.UUID `db:"domain_id" json:"-"`
 
 	// Widget configuration
 	Name     string `db:"name" json:"name"`
@@ -484,9 +484,8 @@ type ChatSession struct {
 	WidgetID  uuid.UUID `db:"widget_id" json:"widget_id"`
 
 	// Session identity
-	SessionToken string     `db:"session_token" json:"session_token"`
-	CustomerID   *uuid.UUID `db:"customer_id" json:"customer_id,omitempty"`
-	TicketID     *uuid.UUID `db:"ticket_id" json:"ticket_id,omitempty"`
+	CustomerID *uuid.UUID `db:"customer_id" json:"customer_id,omitempty"`
+	TicketID   *uuid.UUID `db:"ticket_id" json:"ticket_id,omitempty"`
 
 	// Session metadata
 	Status      string  `db:"status" json:"status"`
@@ -641,4 +640,5 @@ type WSMessage struct {
 	SessionID uuid.UUID     `json:"session_id"`
 	Data      interface{}   `json:"data"`
 	Timestamp time.Time     `json:"timestamp"`
+	MessageID *uuid.UUID    `json:"message_id"`
 }

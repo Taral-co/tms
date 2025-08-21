@@ -122,25 +122,35 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
           switch (message.type) {
             case 'chat_message':
               if (options.onMessage && message.data && message.session_id) {
-                // Convert WebSocket message data to ChatMessage format
-                const chatMessage: ChatMessage = {
-                  id: message.data.id,
-                  tenant_id: user?.tenant_id || '',
-                  project_id: message.data.project_id || '',
-                  session_id: message.session_id,
-                  content: message.data.content,
-                  author_type: message.data.author_type,
-                  author_id: message.data.author_id,
-                  author_name: message.data.author_name,
-                  created_at: message.data.created_at,
-                  message_type: message.data.message_type || 'text',
-                  is_private: message.data.is_private || false,
-                  metadata: message.data.metadata || {},
-                  read_by_visitor: message.data.read_by_visitor || false,
-                  read_by_agent: message.data.read_by_agent || false,
-                  read_at: message.data.read_at
+                // Filter out messages sent by this agent to prevent echo/duplication
+                const messageAuthorType = message.data.author_type
+                const messageAuthorName = message.data.author_name
+                const currentAgentName = user?.name
+                
+                // Only filter out agent messages that were sent by the current agent
+                const isOwnMessage = messageAuthorType === 'agent' && messageAuthorName === currentAgentName
+                
+                if (!isOwnMessage) {
+                  // Convert WebSocket message data to ChatMessage format
+                  const chatMessage: ChatMessage = {
+                    id: message.data.id,
+                    tenant_id: user?.tenant_id || '',
+                    project_id: message.data.project_id || '',
+                    session_id: message.session_id,
+                    content: message.data.content,
+                    author_type: message.data.author_type,
+                    author_id: message.data.author_id,
+                    author_name: message.data.author_name,
+                    created_at: message.data.created_at,
+                    message_type: message.data.message_type || 'text',
+                    is_private: message.data.is_private || false,
+                    metadata: message.data.metadata || {},
+                    read_by_visitor: message.data.read_by_visitor || false,
+                    read_by_agent: message.data.read_by_agent || false,
+                    read_at: message.data.read_at
+                  }
+                  options.onMessage(chatMessage)
                 }
-                options.onMessage(chatMessage)
               }
               break
 
@@ -153,20 +163,32 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
 
             case 'typing_start':
               if (options.onTyping && message.session_id) {
-                options.onTyping({ 
-                  isTyping: true, 
-                  agentName: message.data?.author_name,
-                  sessionId: message.session_id
-                })
+                // Filter out own typing indicators
+                const typingAgentName = message.data?.author_name
+                const currentAgentName = user?.name
+                
+                if (typingAgentName !== currentAgentName) {
+                  options.onTyping({ 
+                    isTyping: true, 
+                    agentName: typingAgentName,
+                    sessionId: message.session_id
+                  })
+                }
               }
               break
 
             case 'typing_stop':
               if (options.onTyping && message.session_id) {
-                options.onTyping({ 
-                  isTyping: false,
-                  sessionId: message.session_id
-                })
+                // Filter out own typing indicators
+                const typingAgentName = message.data?.author_name
+                const currentAgentName = user?.name
+                
+                if (typingAgentName !== currentAgentName) {
+                  options.onTyping({ 
+                    isTyping: false,
+                    sessionId: message.session_id
+                  })
+                }
               }
               break
 

@@ -45,7 +45,7 @@ func (r *ChatMessageRepo) GetChatMessage(ctx context.Context, tenantID, projectI
 		FROM chat_messages
 		WHERE tenant_id = $1 AND project_id = $2 AND id = $3
 	`
-	
+
 	var message models.ChatMessage
 	err := r.db.GetContext(ctx, &message, query, tenantID, projectID, messageID)
 	if err != nil {
@@ -66,15 +66,15 @@ func (r *ChatMessageRepo) ListChatMessages(ctx context.Context, tenantID, projec
 		FROM chat_messages
 		WHERE tenant_id = $1 AND project_id = $2 AND session_id = $3
 	`
-	
+
 	args := []interface{}{tenantID, projectID, sessionID}
-	
+
 	if !includePrivate {
 		query += " AND is_private = false"
 	}
-	
+
 	query += " ORDER BY created_at ASC"
-	
+
 	var messages []*models.ChatMessage
 	err := r.db.SelectContext(ctx, &messages, query, args...)
 	if err != nil {
@@ -93,7 +93,7 @@ func (r *ChatMessageRepo) ListChatMessagesForSession(ctx context.Context, sessio
 		WHERE session_id = $1 AND is_private = false
 		ORDER BY created_at ASC
 	`
-	
+
 	var messages []*models.ChatMessage
 	err := r.db.SelectContext(ctx, &messages, query, sessionID)
 	if err != nil {
@@ -103,34 +103,58 @@ func (r *ChatMessageRepo) ListChatMessagesForSession(ctx context.Context, sessio
 }
 
 // MarkMessagesAsRead marks messages as read by visitor or agent
-func (r *ChatMessageRepo) MarkMessagesAsRead(ctx context.Context, sessionID uuid.UUID, readerType string) error {
+func (r *ChatMessageRepo) MarkAgentMessagesAsRead(ctx context.Context, tenantID, projectID, sessionID, messageID uuid.UUID, readerType string) error {
 	var query string
-	
+
 	switch readerType {
 	case "visitor":
 		query = `
 			UPDATE chat_messages 
 			SET read_by_visitor = true, read_at = NOW() 
-			WHERE session_id = $1 AND author_type = 'agent' AND read_by_visitor = false
+			WHERE tenant_id = $1 AND project_id = $2 AND session_id = $3 AND id = $4 AND author_type = 'agent'
 		`
 	case "agent":
 		query = `
 			UPDATE chat_messages 
-			SET read_by_agent = true, read_at = NOW() 
-			WHERE session_id = $1 AND author_type = 'visitor' AND read_by_agent = false
+			SET read_by_agent = true, read_at = NOW()
+			WHERE tenant_id = $1 AND project_id = $2 AND session_id = $3 AND id = $4 AND author_type = 'visitor'
 		`
 	default:
 		return fmt.Errorf("invalid reader type: %s", readerType)
 	}
-	
-	_, err := r.db.ExecContext(ctx, query, sessionID)
+
+	_, err := r.db.ExecContext(ctx, query, tenantID, projectID, sessionID, messageID)
+	return err
+}
+
+func (r *ChatMessageRepo) MarkVisitorMessagesAsRead(ctx context.Context, sessionID, messageID uuid.UUID, readerType string) error {
+	var query string
+
+	switch readerType {
+	case "visitor":
+		query = `
+			UPDATE chat_messages 
+			SET read_by_visitor = true, read_at = NOW() 
+			WHERE session_id = $1 AND id = $2 AND author_type = 'agent'
+		`
+	case "agent":
+		query = `
+			UPDATE chat_messages 
+			SET read_by_agent = true, read_at = NOW()
+			WHERE session_id = $1 AND id = $2 AND author_type = 'visitor'
+		`
+	default:
+		return fmt.Errorf("invalid reader type: %s", readerType)
+	}
+
+	_, err := r.db.ExecContext(ctx, query, sessionID, messageID)
 	return err
 }
 
 // GetUnreadMessageCount gets count of unread messages for a session
 func (r *ChatMessageRepo) GetUnreadMessageCount(ctx context.Context, sessionID uuid.UUID, readerType string) (int, error) {
 	var query string
-	
+
 	switch readerType {
 	case "visitor":
 		query = `
@@ -147,7 +171,7 @@ func (r *ChatMessageRepo) GetUnreadMessageCount(ctx context.Context, sessionID u
 	default:
 		return 0, fmt.Errorf("invalid reader type: %s", readerType)
 	}
-	
+
 	var count int
 	err := r.db.GetContext(ctx, &count, query, sessionID)
 	return count, err
@@ -165,7 +189,7 @@ func (r *ChatMessageRepo) GetRecentMessages(ctx context.Context, tenantID, agent
 		ORDER BY cm.created_at DESC
 		LIMIT $3
 	`
-	
+
 	var messages []*models.ChatMessage
 	err := r.db.SelectContext(ctx, &messages, query, tenantID, agentID, limit)
 	if err != nil {

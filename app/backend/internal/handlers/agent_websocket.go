@@ -3,7 +3,9 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,21 +22,42 @@ type AgentWebSocketHandler struct {
 	chatSessionService *service.ChatSessionService
 	connectionManager  *ws.ConnectionManager
 	agentService       *service.AgentService
+	chatWSHandler      *ChatWebSocketHandler // Reference to main WebSocket handler
 }
 
 func NewAgentWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager, agentService *service.AgentService) *AgentWebSocketHandler {
-	return &AgentWebSocketHandler{
+	handler := &AgentWebSocketHandler{
 		chatSessionService: chatSessionService,
 		connectionManager:  connectionManager,
 		agentService:       agentService,
+		chatWSHandler:      nil, // Will be set later
 	}
+
+	return handler
 }
 
-// HandleAgentGlobalWebSocket handles a single WebSocket connection per agent for all sessions
-func (h *AgentWebSocketHandler) HandleAgentGlobalWebSocket(c *gin.Context) {
-	agentUUID := middleware.GetAgentID(c)
+// HandleAgentWebSocket handles a single WebSocket connection per agent for all sessions
+func (h *AgentWebSocketHandler) HandleAgentWebSocket(c *gin.Context) {
+	agentID := middleware.GetAgentID(c)
 	tenantID := middleware.GetTenantID(c)
 	// Note: No project_id needed for global agent connection
+
+	// Get agent information
+	agent, err := h.agentService.GetAgent(c.Request.Context(), tenantID, agentID)
+	if err != nil {
+		log.Printf("Failed to get agent information: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Agent not found"})
+		return
+	}
+
+	projects, err := h.agentService.GetAgentProjectsList(c.Request.Context(), tenantID, agentID)
+	if err != nil {
+		log.Printf("Failed to get agent projects: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get agent projects"})
+		return
+	}
+
+	fmt.Println("Agent projects:", projects)
 
 	// Upgrade connection
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -44,17 +67,13 @@ func (h *AgentWebSocketHandler) HandleAgentGlobalWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	// Register agent connection with special "agent-global" session ID
-	userIDStr := agentUUID.String()
-	agentGlobalSessionID := "agent-global-" + agentUUID.String()
-	agent, _ := h.agentService.GetAgent(c, tenantID, agentUUID)
-
-	connection, err := h.connectionManager.AddConnection(
-		agentGlobalSessionID,
+	// Register connection with the enterprise connection manager (with WebSocket)
+	connectionID, err := h.connectionManager.AddConnection(
 		ws.ConnectionTypeAgent,
-		tenantID.String(),
-		&userIDStr,
-		conn,
+		agent.ID,
+		projects,
+		&agentID,
+		conn, // Pass WebSocket connection to connection manager
 	)
 	if err != nil {
 		log.Printf("Failed to register agent global connection: %v", err)
@@ -62,25 +81,26 @@ func (h *AgentWebSocketHandler) HandleAgentGlobalWebSocket(c *gin.Context) {
 	}
 
 	defer func() {
-		h.connectionManager.RemoveConnection(connection.ID)
+		h.connectionManager.RemoveConnection(connectionID)
 	}()
 
 	// Send welcome message to agent
 	welcomeMsg := &ws.Message{
 		Type:      "agent_connected",
-		SessionID: agentGlobalSessionID,
+		SessionID: agent.ID,
 		Data: json.RawMessage(`{
 			"type": "connected",
-			"message": "Connected to + "` + agent.Name + `" + console",
-			"agent_id": "` + agentUUID.String() + `"
+			"message": "Connected to ` + agent.Name + ` console",
+			"agent_id": "` + agent.ID.String() + `"
 		}`),
-		FromType: ws.ConnectionTypeAgent,
+		FromType:     ws.ConnectionTypeAgent,
+		DeliveryType: ws.Self,
 	}
-	h.connectionManager.SendToConnection(connection.ID, welcomeMsg)
+	h.connectionManager.SendToConnection(connectionID, welcomeMsg)
 
 	// Set up ping handler for connection health
 	conn.SetPongHandler(func(string) error {
-		h.connectionManager.UpdateConnectionPing(connection.ID)
+		h.connectionManager.UpdateConnectionPing(connectionID)
 		return nil
 	})
 
@@ -94,12 +114,12 @@ func (h *AgentWebSocketHandler) HandleAgentGlobalWebSocket(c *gin.Context) {
 			}
 			break
 		}
-
-		h.handleAgentGlobalMessage(c.Request.Context(), tenantID, agentUUID, agent.Name, msg, connection.ID)
+		h.handleAgentGlobalMessage(c.Request.Context(), tenantID, agentID, agent.Name, msg, connectionID)
 	}
 }
 
 func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, tenantID, agentUUID uuid.UUID, agentName string, msg models.WSMessage, connectionID string) {
+	fmt.Println(msg)
 	switch msg.Type {
 	case models.WSMsgTypeChatMessage:
 		if msg.Data != nil && msg.SessionID != uuid.Nil {
@@ -114,18 +134,18 @@ func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, te
 				return
 			}
 			// Handle message for specific session via agent's global connection
-			h.handleChatMessage(ctx, tenantID, session.ProjectID, agentUUID, msg.SessionID.String(), agentName, msg, connectionID)
+			h.handleChatMessage(ctx, tenantID, session.ProjectID, agentUUID, msg.SessionID, agentName, msg, connectionID)
 		}
 	case models.WSMsgTypeTypingStart, models.WSMsgTypeTypingStop:
 		if msg.SessionID != uuid.Nil {
-			// Broadcast typing indicator to session
-			h.broadcastTypingIndicator(ctx, msg.SessionID.String(), string(msg.Type), agentUUID.String())
+			// Broadcast typing indicator to session (agents will filter out their own on frontend)
+			h.broadcastTypingIndicator(ctx, msg.SessionID, string(msg.Type), agentName)
 		}
 	case "ping":
 		// Respond to ping
 		pongMsg := &ws.Message{
 			Type:      "pong",
-			SessionID: "agent-global-" + agentUUID.String(),
+			SessionID: agentUUID,
 			Data:      json.RawMessage(`{"timestamp":"` + time.Now().Format(time.RFC3339) + `"}`),
 			FromType:  ws.ConnectionTypeAgent,
 		}
@@ -143,7 +163,7 @@ func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, te
 	}
 }
 
-func (h *AgentWebSocketHandler) handleChatMessage(ctx context.Context, tenantID, projectID, agentUUID uuid.UUID, sessionID string, agentName string, msg models.WSMessage, connectionID string) {
+func (h *AgentWebSocketHandler) handleChatMessage(ctx context.Context, tenantID, projectID, agentUUID, sessionID uuid.UUID, agentName string, msg models.WSMessage, connectionID string) {
 	// Parse message data
 	var messageData struct {
 		Content     string `json:"content"`
@@ -167,13 +187,6 @@ func (h *AgentWebSocketHandler) handleChatMessage(ctx context.Context, tenantID,
 		return
 	}
 
-	// Parse sessionID to UUID
-	sessionUUID, err := uuid.Parse(sessionID)
-	if err != nil {
-		log.Printf("Invalid session ID: %v", err)
-		return
-	}
-
 	// Create message request using the correct SendChatMessageRequest structure
 	request := &models.SendChatMessageRequest{
 		Content:     messageData.Content,
@@ -184,7 +197,7 @@ func (h *AgentWebSocketHandler) handleChatMessage(ctx context.Context, tenantID,
 	}
 
 	// Send message via service layer with correct parameters
-	chatMessage, err := h.chatSessionService.SendMessage(ctx, tenantID, projectID, sessionUUID, request, "agent", &agentUUID, "Agent")
+	chatMessage, err := h.chatSessionService.SendMessage(ctx, tenantID, projectID, sessionID, request, "agent", &agentUUID, "Agent")
 	if err != nil {
 		log.Printf("Failed to send chat message: %v", err)
 		// Send error back to agent
@@ -206,10 +219,10 @@ func (h *AgentWebSocketHandler) handleChatMessage(ctx context.Context, tenantID,
 		Data:      json.RawMessage(messageBytes),
 		FromType:  ws.ConnectionTypeAgent,
 	}
-	h.connectionManager.BroadcastToSession(sessionID, sessionMsg)
+	h.connectionManager.DeliverWebSocketMessage(sessionID, sessionMsg)
 }
 
-func (h *AgentWebSocketHandler) broadcastTypingIndicator(ctx context.Context, sessionID, typingType, agentName string) {
+func (h *AgentWebSocketHandler) broadcastTypingIndicator(ctx context.Context, sessionID uuid.UUID, typingType, agentName string) {
 	typingData := map[string]interface{}{
 		"author_type": "agent",
 		"author_name": agentName,
@@ -223,16 +236,46 @@ func (h *AgentWebSocketHandler) broadcastTypingIndicator(ctx context.Context, se
 		Data:      json.RawMessage(typingBytes),
 		FromType:  ws.ConnectionTypeAgent,
 	}
-	h.connectionManager.BroadcastToSession(sessionID, typingMsg)
+	// Note: This broadcasts to session which includes customers and other agents
+	// The agent sending the typing indicator should not receive their own typing event (handled on frontend)
+	h.connectionManager.DeliverWebSocketMessage(sessionID, typingMsg)
+}
+
+// SetChatWSHandler sets the reference to the main ChatWebSocketHandler
+func (h *AgentWebSocketHandler) SetChatWSHandler(chatWSHandler *ChatWebSocketHandler) {
+	h.chatWSHandler = chatWSHandler
 }
 
 func (h *AgentWebSocketHandler) subscribeAgentToSession(ctx context.Context, agentUUID uuid.UUID, sessionID, connectionID string) {
-	// For now, just log the subscription - agent will receive messages for all sessions they have access to
-	// In future iterations, we could implement more granular subscription management
-	log.Printf("Agent %s subscribed to session %s", agentUUID.String(), sessionID)
+	// Store the subscription in Redis so the agent receives messages for this session
+	subscriptionKey := fmt.Sprintf("agent_subscription:%s:%s", agentUUID.String(), sessionID)
+
+	// Store the connection ID for this subscription
+	err := h.connectionManager.GetRedisClient().Set(ctx, subscriptionKey, connectionID, time.Hour).Err()
+	if err != nil {
+		log.Printf("Failed to store agent subscription: %v", err)
+		return
+	}
+
+	// Also add to a reverse lookup (session -> agents)
+	sessionAgentsKey := fmt.Sprintf("session_agents:%s", sessionID)
+	err = h.connectionManager.GetRedisClient().SAdd(ctx, sessionAgentsKey, agentUUID.String()).Err()
+	if err != nil {
+		log.Printf("Failed to add agent to session agents list: %v", err)
+	}
+	h.connectionManager.GetRedisClient().Expire(ctx, sessionAgentsKey, time.Hour)
+
+	log.Printf("Agent %s subscribed to session %s (connection: %s)", agentUUID.String(), sessionID, connectionID)
 }
 
 func (h *AgentWebSocketHandler) unsubscribeAgentFromSession(ctx context.Context, agentUUID uuid.UUID, sessionID, connectionID string) {
-	// For now, just log the unsubscription
+	// Remove the subscription from Redis
+	subscriptionKey := fmt.Sprintf("agent_subscription:%s:%s", agentUUID.String(), sessionID)
+	h.connectionManager.GetRedisClient().Del(ctx, subscriptionKey)
+
+	// Remove from reverse lookup
+	sessionAgentsKey := fmt.Sprintf("session_agents:%s", sessionID)
+	h.connectionManager.GetRedisClient().SRem(ctx, sessionAgentsKey, agentUUID.String())
+
 	log.Printf("Agent %s unsubscribed from session %s", agentUUID.String(), sessionID)
 }

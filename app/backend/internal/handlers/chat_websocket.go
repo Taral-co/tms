@@ -36,15 +36,11 @@ func NewChatWebSocketHandler(chatSessionService *service.ChatSessionService, con
 }
 
 // HandleWebSocket handles WebSocket connections for real-time chat from visitors
-func (h *ChatWebSocketHandler) HandleWebSocket(c *gin.Context) {
-	sessionToken := c.Param("session_token")
-	if sessionToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session_token is required"})
-		return
-	}
+func (h *ChatWebSocketHandler) HandleWebSocketPublic(c *gin.Context) {
+	sessionID := middleware.GetSessionID(c)
 
 	// Validate session
-	session, err := h.chatSessionService.GetChatSessionByToken(c.Request.Context(), sessionToken)
+	session, err := h.chatSessionService.GetChatSessionOnlyByID(c.Request.Context(), sessionID)
 	if err != nil || session == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session token"})
 		return
@@ -59,10 +55,10 @@ func (h *ChatWebSocketHandler) HandleWebSocket(c *gin.Context) {
 	defer conn.Close()
 
 	// Register connection with the enterprise connection manager
-	connection, err := h.connectionManager.AddConnection(
-		session.ID.String(),
+	connectionID, err := h.connectionManager.AddConnection(
 		ws.ConnectionTypeVisitor,
-		session.TenantID.String(),
+		session.ID,
+		[]uuid.UUID{session.ProjectID},
 		nil, // No user ID for visitors
 		conn,
 	)
@@ -73,24 +69,25 @@ func (h *ChatWebSocketHandler) HandleWebSocket(c *gin.Context) {
 
 	// Clean up on disconnect
 	defer func() {
-		h.connectionManager.RemoveConnection(connection.ID)
+		h.connectionManager.RemoveConnection(connectionID)
 	}()
 
 	// Send welcome message
 	welcomeMsg := &ws.Message{
 		Type:      "session_update",
-		SessionID: session.ID.String(),
+		SessionID: session.ID,
 		Data: json.RawMessage(`{
 			"type": "connected",
 			"message": "Connected to chat session"
 		}`),
-		FromType: ws.ConnectionTypeVisitor,
+		FromType:     ws.ConnectionTypeVisitor,
+		DeliveryType: ws.Self,
 	}
-	h.connectionManager.SendToConnection(connection.ID, welcomeMsg)
+	h.connectionManager.SendToConnection(connectionID, welcomeMsg)
 
 	// Set up ping handler for connection health
 	conn.SetPongHandler(func(string) error {
-		h.connectionManager.UpdateConnectionPing(connection.ID)
+		h.connectionManager.UpdateConnectionPing(connectionID)
 		return nil
 	})
 
@@ -105,78 +102,7 @@ func (h *ChatWebSocketHandler) HandleWebSocket(c *gin.Context) {
 			break
 		}
 
-		h.handleVisitorMessage(c.Request.Context(), session, msg, connection.ID)
-	}
-}
-
-// HandleAgentWebSocket handles WebSocket connections for agents
-func (h *ChatWebSocketHandler) HandleAgentWebSocket(c *gin.Context) {
-	sessionID := c.Param("session_id")
-	agentUUID := middleware.GetAgentID(c)
-	tenantID := middleware.GetTenantID(c)
-	projectID := middleware.GetProjectID(c)
-
-	sessionUUID, err := uuid.Parse(sessionID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid session ID"})
-		return
-	}
-	// Upgrade connection
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Printf("Failed to upgrade WebSocket: %v", err)
-		return
-	}
-	defer conn.Close()
-
-	// Register agent connection
-	userIDStr := agentUUID.String()
-	connection, err := h.connectionManager.AddConnection(
-		sessionUUID.String(),
-		ws.ConnectionTypeAgent,
-		tenantID.String(),
-		&userIDStr,
-		conn,
-	)
-	if err != nil {
-		log.Printf("Failed to register agent connection: %v", err)
-		return
-	}
-
-	defer func() {
-		h.connectionManager.RemoveConnection(connection.ID)
-	}()
-
-	// Send welcome message to agent
-	welcomeMsg := &ws.Message{
-		Type:      "session_joined",
-		SessionID: sessionUUID.String(),
-		Data: json.RawMessage(`{
-			"type": "agent_connected",
-			"message": "Agent connected to session"
-		}`),
-		FromType: ws.ConnectionTypeAgent,
-	}
-	h.connectionManager.SendToConnection(connection.ID, welcomeMsg)
-
-	// Set up ping handler
-	conn.SetPongHandler(func(string) error {
-		h.connectionManager.UpdateConnectionPing(connection.ID)
-		return nil
-	})
-
-	// Handle agent messages
-	for {
-		var msg models.WSMessage
-		err := conn.ReadJSON(&msg)
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
-			}
-			break
-		}
-
-		h.handleAgentMessage(c.Request.Context(), tenantID, projectID, sessionUUID, agentUUID, msg, connection.ID)
+		h.handleVisitorMessage(c.Request.Context(), session, msg, connectionID)
 	}
 }
 
@@ -190,23 +116,23 @@ func (h *ChatWebSocketHandler) handleVisitorMessage(ctx context.Context, session
 	case models.WSMsgTypeTypingStop:
 		h.processVisitorTyping(session, msg, false)
 	case models.WSMsgTypeReadReceipt:
-		h.processReadReceipt(ctx, session.ID, "visitor", connID)
+		h.processReadReceipt(ctx, session, msg, "visitor")
 	}
 }
 
-// handleAgentMessage handles incoming WebSocket messages from agents
-func (h *ChatWebSocketHandler) handleAgentMessage(ctx context.Context, tenantID, projectID, sessionID, agentID uuid.UUID, msg models.WSMessage, connID string) {
-	switch msg.Type {
-	case models.WSMsgTypeChatMessage:
-		h.processAgentChatMessage(ctx, tenantID, projectID, sessionID, agentID, msg, connID)
-	case models.WSMsgTypeTypingStart:
-		h.processAgentTyping(ctx, tenantID, projectID, sessionID, agentID, msg, true)
-	case models.WSMsgTypeTypingStop:
-		h.processAgentTyping(ctx, tenantID, projectID, sessionID, agentID, msg, false)
-	case models.WSMsgTypeReadReceipt:
-		h.processReadReceipt(ctx, sessionID, "agent", connID)
-	}
-}
+// // handleAgentMessage handles incoming WebSocket messages from agents
+// func (h *ChatWebSocketHandler) handleAgentMessage(ctx context.Context, tenantID, projectID, sessionID, agentID uuid.UUID, msg models.WSMessage, connID string) {
+// 	switch msg.Type {
+// 	case models.WSMsgTypeChatMessage:
+// 		h.processAgentChatMessage(ctx, tenantID, projectID, sessionID, agentID, msg, connID)
+// 	case models.WSMsgTypeTypingStart:
+// 		h.processAgentTyping(ctx, tenantID, projectID, sessionID, agentID, msg, true)
+// 	case models.WSMsgTypeTypingStop:
+// 		h.processAgentTyping(ctx, tenantID, projectID, sessionID, agentID, msg, false)
+// 	case models.WSMsgTypeReadReceipt:
+// 		h.processReadReceipt(ctx, sessionID, "agent", connID)
+// 	}
+// }
 
 // processVisitorChatMessage processes chat messages from visitors
 func (h *ChatWebSocketHandler) processVisitorChatMessage(ctx context.Context, session *models.ChatSession, msg models.WSMessage, connID string) {
@@ -240,12 +166,16 @@ func (h *ChatWebSocketHandler) processVisitorChatMessage(ctx context.Context, se
 			// Broadcast to all connections in this session using enterprise manager
 			messageData, _ := json.Marshal(message)
 			broadcastMsg := &ws.Message{
-				Type:      "chat_message",
-				SessionID: session.ID.String(),
-				Data:      messageData,
-				FromType:  ws.ConnectionTypeVisitor,
+				Type:         "chat_message",
+				SessionID:    session.ID,
+				Data:         messageData,
+				FromType:     ws.ConnectionTypeVisitor,
+				ProjectID:    &session.ProjectID,
+				TenantID:     &session.TenantID,
+				AgentID:      session.AssignedAgentID,
+				DeliveryType: ws.Direct,
 			}
-			h.connectionManager.BroadcastToSession(session.ID.String(), broadcastMsg)
+			h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
 		}
 	}
 }
@@ -271,11 +201,11 @@ func (h *ChatWebSocketHandler) processAgentChatMessage(ctx context.Context, tena
 			messageData, _ := json.Marshal(message)
 			broadcastMsg := &ws.Message{
 				Type:      "chat_message",
-				SessionID: sessionID.String(),
+				SessionID: sessionID,
 				Data:      messageData,
 				FromType:  ws.ConnectionTypeAgent,
 			}
-			h.connectionManager.BroadcastToSession(sessionID.String(), broadcastMsg)
+			h.connectionManager.DeliverWebSocketMessage(sessionID, broadcastMsg)
 		}
 	}
 }
@@ -299,11 +229,14 @@ func (h *ChatWebSocketHandler) processVisitorTyping(session *models.ChatSession,
 
 	broadcastMsg := &ws.Message{
 		Type:      msgType,
-		SessionID: session.ID.String(),
+		SessionID: session.ID,
 		Data:      typingData,
 		FromType:  ws.ConnectionTypeVisitor,
+		ProjectID: &session.ProjectID,
+		TenantID:  &session.TenantID,
+		AgentID:   session.AssignedAgentID,
 	}
-	h.connectionManager.BroadcastToSession(session.ID.String(), broadcastMsg)
+	h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
 }
 
 // processAgentTyping handles agent typing indicators
@@ -323,20 +256,27 @@ func (h *ChatWebSocketHandler) processAgentTyping(ctx context.Context, tenantID,
 
 		broadcastMsg := &ws.Message{
 			Type:      msgType,
-			SessionID: sessionID.String(),
+			SessionID: sessionID,
 			Data:      typingData,
 			FromType:  ws.ConnectionTypeAgent,
 		}
-		h.connectionManager.BroadcastToSession(sessionID.String(), broadcastMsg)
+		h.connectionManager.DeliverWebSocketMessage(sessionID, broadcastMsg)
 	}
 }
 
 // processReadReceipt handles read receipt processing
-func (h *ChatWebSocketHandler) processReadReceipt(ctx context.Context, sessionID uuid.UUID, readerType string, connID string) {
-	err := h.chatSessionService.MarkMessagesAsRead(ctx, sessionID, readerType)
-	if err != nil {
-		h.sendError(connID, "Failed to mark messages as read: "+err.Error())
+func (h *ChatWebSocketHandler) processReadReceipt(ctx context.Context, session *models.ChatSession, msg models.WSMessage, readerType string) {
+	broadcastMsg := &ws.Message{
+		Type:      "read_receipt_confirmed",
+		SessionID: session.ID,
+		Data:      json.RawMessage(`{"status":"acknowledged"}`),
+		FromType:  ws.ConnectionTypeVisitor,
+		ProjectID: &session.ProjectID,
+		TenantID:  &session.TenantID,
+		AgentID:   session.AssignedAgentID,
 	}
+	go h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
+	go h.chatSessionService.MarkVisitorMessagesAsRead(ctx, session.ID, *msg.MessageID, readerType)
 }
 
 // sendError sends an error message to a specific connection
@@ -353,7 +293,7 @@ func (h *ChatWebSocketHandler) sendError(connID string, errorMsg string) {
 }
 
 // BroadcastToAgents broadcasts a message to all agent connections in a tenant
-func (h *ChatWebSocketHandler) BroadcastToAgents(tenantID string, msg *ws.Message) {
+func (h *ChatWebSocketHandler) BroadcastToAgents(tenantID uuid.UUID, msg *ws.Message) {
 	agents, err := h.connectionManager.GetActiveAgents(tenantID)
 	if err != nil {
 		log.Printf("Failed to get active agents: %v", err)
@@ -370,9 +310,9 @@ func (h *ChatWebSocketHandler) NotifyAgentOfNewSession(session *models.ChatSessi
 	sessionData, _ := json.Marshal(session)
 	msg := &ws.Message{
 		Type:      "new_session",
-		SessionID: session.ID.String(),
+		SessionID: session.ID,
 		Data:      sessionData,
 		FromType:  ws.ConnectionTypeVisitor,
 	}
-	h.BroadcastToAgents(session.TenantID.String(), msg)
+	h.BroadcastToAgents(session.TenantID, msg)
 }

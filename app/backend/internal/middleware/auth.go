@@ -334,6 +334,16 @@ func GetProjectID(c *gin.Context) uuid.UUID {
 	panic(err)
 }
 
+func GetSessionID(c *gin.Context) uuid.UUID {
+	if sessionID, exists := c.Params.Get("session_id"); exists {
+		sessionUUID, _ := uuid.Parse(sessionID)
+		return sessionUUID
+	}
+	// raise error
+	err := errors.New("session ID not found")
+	panic(err)
+}
+
 func GetEmail(c *gin.Context) uuid.UUID {
 	if email, exists := c.Get("email"); exists {
 		if id, ok := email.(string); ok {

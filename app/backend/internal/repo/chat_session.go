@@ -24,11 +24,11 @@ func NewChatSessionRepo(db *sqlx.DB) *ChatSessionRepo {
 func (r *ChatSessionRepo) CreateChatSession(ctx context.Context, session *models.ChatSession) error {
 	query := `
 		INSERT INTO chat_sessions (
-			id, tenant_id, project_id, widget_id, session_token, customer_id, ticket_id,
+			id, tenant_id, project_id, widget_id, customer_id, ticket_id,
 			status, visitor_info, assigned_agent_id, assigned_at, started_at, ended_at,
 			last_activity_at, created_at, updated_at
 		) VALUES (
-			:id, :tenant_id, :project_id, :widget_id, :session_token, :customer_id, :ticket_id,
+			:id, :tenant_id, :project_id, :widget_id, :customer_id, :ticket_id,
 			:status, :visitor_info, :assigned_agent_id, :assigned_at, :started_at, :ended_at,
 			:last_activity_at, :created_at, :updated_at
 		)
@@ -40,7 +40,7 @@ func (r *ChatSessionRepo) CreateChatSession(ctx context.Context, session *models
 // GetChatSession gets a chat session by ID
 func (r *ChatSessionRepo) GetChatSession(ctx context.Context, tenantID, projectID, sessionID uuid.UUID) (*models.ChatSession, error) {
 	query := `
-		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.session_token, cs.customer_id, cs.ticket_id,
+		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.customer_id, cs.ticket_id,
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
@@ -51,35 +51,9 @@ func (r *ChatSessionRepo) GetChatSession(ctx context.Context, tenantID, projectI
 		LEFT JOIN chat_widgets cw ON cs.widget_id = cw.id
 		WHERE cs.tenant_id = $1 AND cs.project_id = $2 AND cs.id = $3
 	`
-	
+
 	var session models.ChatSession
 	err := r.db.GetContext(ctx, &session, query, tenantID, projectID, sessionID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &session, nil
-}
-
-// GetChatSessionByToken gets a chat session by session token (for public access)
-func (r *ChatSessionRepo) GetChatSessionByToken(ctx context.Context, sessionToken string) (*models.ChatSession, error) {
-	query := `
-		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.session_token, cs.customer_id, cs.ticket_id,
-			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
-			   cs.last_activity_at, cs.created_at, cs.updated_at,
-			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
-			   cw.name as widget_name
-		FROM chat_sessions cs
-		LEFT JOIN agents a ON cs.assigned_agent_id = a.id
-		LEFT JOIN customers c ON cs.customer_id = c.id
-		LEFT JOIN chat_widgets cw ON cs.widget_id = cw.id
-		WHERE cs.session_token = $1
-	`
-	
-	var session models.ChatSession
-	err := r.db.GetContext(ctx, &session, query, sessionToken)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -92,7 +66,7 @@ func (r *ChatSessionRepo) GetChatSessionByToken(ctx context.Context, sessionToke
 // GetChatSessionByID gets a chat session by ID for any tenant (used for global agent operations)
 func (r *ChatSessionRepo) GetChatSessionByID(ctx context.Context, tenantID, sessionID uuid.UUID) (*models.ChatSession, error) {
 	query := `
-		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.session_token, cs.customer_id, cs.ticket_id,
+		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.customer_id, cs.ticket_id,
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
@@ -103,9 +77,29 @@ func (r *ChatSessionRepo) GetChatSessionByID(ctx context.Context, tenantID, sess
 		LEFT JOIN chat_widgets cw ON cs.widget_id = cw.id
 		WHERE cs.id = $1 AND cs.tenant_id = $2
 	`
-	
+
 	var session models.ChatSession
 	err := r.db.GetContext(ctx, &session, query, sessionID, tenantID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &session, nil
+}
+
+// GetChatSessionOnlyByID gets a chat session by ID for any tenant (used for global agent operations)
+func (r *ChatSessionRepo) GetChatSessionOnlyByID(ctx context.Context, sessionID uuid.UUID) (*models.ChatSession, error) {
+	query := `
+		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.customer_id, cs.ticket_id,
+			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
+			   cs.last_activity_at, cs.created_at, cs.updated_at
+		FROM chat_sessions cs
+		WHERE cs.id = $1
+	`
+	var session models.ChatSession
+	err := r.db.GetContext(ctx, &session, query, sessionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -118,7 +112,7 @@ func (r *ChatSessionRepo) GetChatSessionByID(ctx context.Context, tenantID, sess
 // ListChatSessions lists chat sessions with filters
 func (r *ChatSessionRepo) ListChatSessions(ctx context.Context, tenantID, projectID uuid.UUID, filters ChatSessionFilters) ([]*models.ChatSession, error) {
 	baseQuery := `
-		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.session_token, cs.customer_id, cs.ticket_id,
+		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.customer_id, cs.ticket_id,
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
@@ -169,7 +163,7 @@ func (r *ChatSessionRepo) ListChatSessions(ctx context.Context, tenantID, projec
 // UpdateChatSession updates a chat session
 func (r *ChatSessionRepo) UpdateChatSession(ctx context.Context, session *models.ChatSession) error {
 	session.UpdatedAt = time.Now()
-	
+
 	query := `
 		UPDATE chat_sessions SET
 			customer_id = :customer_id,
@@ -197,7 +191,7 @@ func (r *ChatSessionRepo) UpdateLastActivity(ctx context.Context, sessionID uuid
 // GetActiveSessions gets active sessions for an agent
 func (r *ChatSessionRepo) GetActiveSessions(ctx context.Context, tenantID uuid.UUID, agentID uuid.UUID) ([]*models.ChatSession, error) {
 	query := `
-		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.session_token, cs.customer_id, cs.ticket_id,
+		SELECT cs.id, cs.tenant_id, cs.project_id, cs.widget_id, cs.customer_id, cs.ticket_id,
 			   cs.status, cs.visitor_info, cs.assigned_agent_id, cs.assigned_at, cs.started_at, cs.ended_at,
 			   cs.last_activity_at, cs.created_at, cs.updated_at,
 			   a.name as assigned_agent_name, c.name as customer_name, c.email as customer_email,
@@ -209,7 +203,7 @@ func (r *ChatSessionRepo) GetActiveSessions(ctx context.Context, tenantID uuid.U
 		WHERE cs.tenant_id = $1 AND cs.assigned_agent_id = $2 AND cs.status = 'active'
 		ORDER BY cs.last_activity_at DESC
 	`
-	
+
 	var sessions []*models.ChatSession
 	err := r.db.SelectContext(ctx, &sessions, query, tenantID, agentID)
 	if err != nil {

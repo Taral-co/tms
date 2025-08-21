@@ -1055,8 +1055,8 @@ class APIClient {
     return response.data
   }
 
-  async markChatMessagesAsRead(sessionId: string): Promise<void> {
-    await this.client.post(`/chat/sessions/${sessionId}/read`)
+  async markChatMessagesAsRead(sessionId: string, messageId: string): Promise<void> {
+    await this.client.post(`/chat/sessions/${sessionId}/messages/${messageId}/read`, )
   }
 
   // WebSocket URL for real-time chat (agent endpoint)

@@ -93,7 +93,7 @@ func main() {
 
 	// Chat services
 	chatWidgetService := service.NewChatWidgetService(chatWidgetRepo, domainValidationRepo)
-	chatSessionService := service.NewChatSessionService(chatSessionRepo, chatMessageRepo, chatWidgetRepo, customerRepo, ticketService)
+	chatSessionService := service.NewChatSessionService(chatSessionRepo, chatMessageRepo, chatWidgetRepo, customerRepo, ticketService, agentService)
 
 	// Integration services
 	integrationService := service.NewIntegrationService(integrationRepo)
@@ -122,6 +122,10 @@ func main() {
 
 	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager)
 	agentWebSocketHandler := handlers.NewAgentWebSocketHandler(chatSessionService, connectionManager, agentService)
+
+	// Set up combined message handling - ChatWebSocketHandler handles all Redis pub/sub messages
+	// since it manages both visitor and agent connections
+	agentWebSocketHandler.SetChatWSHandler(chatWebSocketHandler)
 
 	// Setup router
 	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler, agentWebSocketHandler)
@@ -201,7 +205,7 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 	api.Use(middleware.AuthMiddleware(jwtAuth))
 	{
 		// Global agent WebSocket endpoint (not session-specific)
-		api.GET("/chat/agent/ws", agentWebSocketHandler.HandleAgentGlobalWebSocket)
+		api.GET("/chat/agent/ws", agentWebSocketHandler.HandleAgentWebSocket)
 
 		// Authentication endpoints that require auth
 		auth := api.Group("/auth")
@@ -389,9 +393,8 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				chat.POST("/sessions/:session_id/assign", chatSessionHandler.AssignAgent)
 				chat.GET("/sessions/:session_id/messages", chatSessionHandler.GetChatMessages)
 				chat.POST("/sessions/:session_id/messages", chatSessionHandler.SendMessage)
+				chat.POST("/sessions/:session_id/messages/:message_id/read", chatSessionHandler.MarkAgentMessagesAsRead)
 
-				// WebSocket endpoint for real-time chat
-				chat.GET("/ws/:session_id", chatWebSocketHandler.HandleAgentWebSocket)
 			}
 		}
 
@@ -405,12 +408,12 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			publicChat.POST("/widgets/:widget_id/initiate", chatSessionHandler.InitiateChat)
 
 			// Public chat session endpoints (token-based auth)
-			publicChat.GET("/sessions/:session_token", chatSessionHandler.GetChatSessionByToken)
-			publicChat.GET("/sessions/:session_token/messages", chatSessionHandler.GetVisitorMessages)
-			publicChat.POST("/sessions/:session_token/messages", chatSessionHandler.SendVisitorMessage)
+			publicChat.POST("/sessions/:session_id/messages/:message_id/read", chatSessionHandler.MarkVisitorMessagesAsRead)
+
+			publicChat.POST("/sessions/:session_id/messages", chatSessionHandler.SendVisitorMessage)
 
 			// WebSocket endpoint for visitors
-			publicChat.GET("/ws/:session_token", chatWebSocketHandler.HandleWebSocket)
+			publicChat.GET("/ws/:session_id", chatWebSocketHandler.HandleWebSocketPublic)
 		}
 	}
 

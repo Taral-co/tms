@@ -15,7 +15,7 @@ export class ChatAPI {
     return response.json()
   }
 
-  async initiateChat(widgetId: string, request: InitiateChatRequest): Promise<{ session_id: string, session_token: string }> {
+  async initiateChat(widgetId: string, request: InitiateChatRequest): Promise<{ session_id: string }> {
     const response = await fetch(`${this.baseUrl}/public/chat/widgets/${widgetId}/initiate`, {
       method: 'POST',
       headers: {
@@ -39,13 +39,6 @@ export class ChatAPI {
     return response.json()
   }
 
-  async getMessages(sessionToken: string): Promise<{ messages: ChatMessage[] }> {
-    const response = await fetch(`${this.baseUrl}/public/chat/sessions/${sessionToken}/messages`)
-    if (!response.ok) {
-      throw new Error(`Failed to get messages: ${response.statusText}`)
-    }
-    return response.json()
-  }
 
   async sendMessage(sessionToken: string, request: SendMessageRequest): Promise<ChatMessage> {
     const response = await fetch(`${this.baseUrl}/public/chat/sessions/${sessionToken}/messages`, {

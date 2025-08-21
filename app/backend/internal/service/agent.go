@@ -334,3 +334,21 @@ func (s *AgentService) GetAgentProjects(ctx context.Context, tenantID, agentID u
 
 	return projects, nil
 }
+
+func (s *AgentService) GetAgentProjectsList(ctx context.Context, tenantID, agentID uuid.UUID) ([]uuid.UUID, error) {
+	// Get the agent's role bindings
+	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agentID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role bindings: %w", err)
+	}
+
+	// Get project details for each role binding
+	var projectIDs []uuid.UUID
+	for _, binding := range roleBindings {
+		if binding.ProjectID != nil {
+			projectIDs = append(projectIDs, *binding.ProjectID)
+		}
+	}
+
+	return projectIDs, nil
+}

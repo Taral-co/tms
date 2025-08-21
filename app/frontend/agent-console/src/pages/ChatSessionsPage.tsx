@@ -151,8 +151,9 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         setSelectedSession(updatedSession)
       }
     }, [selectedSession?.id]),
-    onTyping: useCallback((data: { isTyping: boolean; agentName?: string }) => {
-      if (data.agentName) {
+    onTyping: useCallback((data: { isTyping: boolean; agentName?: string; sessionId: string }) => {
+      // Only update typing indicators for the currently selected session
+      if (data.agentName && selectedSession?.id === data.sessionId) {
         setTypingUsers(prev => {
           const newSet = new Set(prev)
           if (data.isTyping) {
@@ -163,7 +164,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           return newSet
         })
       }
-    }, []),
+    }, [selectedSession?.id]),
     onError: useCallback((error: string) => {
       setError(`WebSocket error: ${error}`)
     }, [])
@@ -187,7 +188,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   // Mark message as read (placeholder implementation)
   const markMessageAsRead = useCallback(async (sessionId: string, _messageId: string): Promise<boolean> => {
     try {
-      await apiClient.markChatMessagesAsRead(sessionId)
+      await apiClient.markChatMessagesAsRead(sessionId, _messageId)
       return true
     } catch (error) {
       console.error('Failed to mark message as read:', error)
@@ -267,6 +268,8 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
 
     // Force stop typing when switching sessions
     forceStopTyping()
+    // Clear typing indicators when switching sessions
+    setTypingUsers(new Set())
     setSelectedSession(session)
     loadMessages(session.id)
 

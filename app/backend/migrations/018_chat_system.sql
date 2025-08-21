@@ -43,7 +43,6 @@ CREATE TABLE chat_sessions (
     widget_id UUID NOT NULL REFERENCES chat_widgets(id) ON DELETE CASCADE,
     
     -- Session identity
-    session_token VARCHAR(255) NOT NULL UNIQUE, -- For anonymous users
     customer_id UUID REFERENCES customers(id) ON DELETE SET NULL, -- If customer is known
     ticket_id UUID REFERENCES tickets(id) ON DELETE SET NULL, -- Associated ticket if created
     
@@ -114,7 +113,6 @@ CREATE INDEX idx_chat_sessions_widget ON chat_sessions(widget_id);
 CREATE INDEX idx_chat_sessions_status ON chat_sessions(status, last_activity_at);
 CREATE INDEX idx_chat_sessions_assigned_agent ON chat_sessions(assigned_agent_id) WHERE assigned_agent_id IS NOT NULL;
 CREATE INDEX idx_chat_sessions_customer ON chat_sessions(customer_id) WHERE customer_id IS NOT NULL;
-CREATE INDEX idx_chat_sessions_token ON chat_sessions(session_token);
 
 CREATE INDEX idx_chat_messages_session ON chat_messages(session_id, created_at);
 CREATE INDEX idx_chat_messages_author ON chat_messages(author_type, author_id);

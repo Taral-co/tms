@@ -56,9 +56,8 @@ func (h *ChatSessionHandler) InitiateChat(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"session_id":    session.ID,
-		"session_token": session.SessionToken,
-		"widget_id":     session.WidgetID,
+		"session_id": session.ID,
+		"widget_id":  session.WidgetID,
 	})
 }
 
@@ -75,27 +74,6 @@ func (h *ChatSessionHandler) GetChatSession(c *gin.Context) {
 	}
 
 	session, err := h.chatSessionService.GetChatSession(c.Request.Context(), tenantID, projectID, sessionID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
-		return
-	}
-	if session == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Chat session not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, session)
-}
-
-// GetChatSessionByToken gets a chat session by token (public endpoint)
-func (h *ChatSessionHandler) GetChatSessionByToken(c *gin.Context) {
-	sessionToken := c.Param("session_token")
-	if sessionToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Session token is required"})
-		return
-	}
-
-	session, err := h.chatSessionService.GetChatSessionByToken(c.Request.Context(), sessionToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get chat session"})
 		return
@@ -247,14 +225,10 @@ func (h *ChatSessionHandler) SendMessage(c *gin.Context) {
 
 // SendVisitorMessage sends a message in a chat session (visitor endpoint)
 func (h *ChatSessionHandler) SendVisitorMessage(c *gin.Context) {
-	sessionToken := c.Param("session_token")
-	if sessionToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Session token is required"})
-		return
-	}
+	sessionID := middleware.GetSessionID(c)
 
 	// Get session to validate token
-	session, err := h.chatSessionService.GetChatSessionByToken(c.Request.Context(), sessionToken)
+	session, err := h.chatSessionService.GetChatSessionOnlyByID(c.Request.Context(), sessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session: " + err.Error()})
 		return
@@ -312,48 +286,19 @@ func (h *ChatSessionHandler) GetChatMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"messages": messages})
 }
 
-// GetVisitorMessages gets messages for a chat session (visitor endpoint)
-func (h *ChatSessionHandler) GetVisitorMessages(c *gin.Context) {
-	sessionToken := c.Param("session_token")
-	if sessionToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Session token is required"})
-		return
-	}
-
-	// Get session to validate token
-	session, err := h.chatSessionService.GetChatSessionByToken(c.Request.Context(), sessionToken)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session: " + err.Error()})
-		return
-	}
-	if session == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid session token"})
-		return
-	}
-
-	messages, err := h.chatSessionService.GetChatMessagesForSession(c.Request.Context(), session.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get messages"})
-		return
-	}
-
-	if messages == nil {
-		messages = []*models.ChatMessage{}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"messages": messages})
-}
-
 // MarkMessagesAsRead marks messages as read
-func (h *ChatSessionHandler) MarkMessagesAsRead(c *gin.Context) {
-	sessionIDStr := c.Param("session_id")
-	sessionID, err := uuid.Parse(sessionIDStr)
+func (h *ChatSessionHandler) MarkAgentMessagesAsRead(c *gin.Context) {
+	tenantID := middleware.GetTenantID(c)
+	projectID := middleware.GetProjectID(c)
+	sessionID := middleware.GetSessionID(c)
+	messageIDStr := c.Param("message_id")
+	messageID, err := uuid.Parse(messageIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid session ID format"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid message ID format"})
 		return
 	}
 
-	err = h.chatSessionService.MarkMessagesAsRead(c.Request.Context(), sessionID, "agent")
+	err = h.chatSessionService.MarkAgentMessagesAsRead(c.Request.Context(), tenantID, projectID, sessionID, messageID, "agent")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark messages as read"})
 		return
@@ -364,24 +309,15 @@ func (h *ChatSessionHandler) MarkMessagesAsRead(c *gin.Context) {
 
 // MarkVisitorMessagesAsRead marks messages as read (visitor endpoint)
 func (h *ChatSessionHandler) MarkVisitorMessagesAsRead(c *gin.Context) {
-	sessionToken := c.Param("session_token")
-	if sessionToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Session token is required"})
-		return
-	}
-
-	// Get session to validate token
-	session, err := h.chatSessionService.GetChatSessionByToken(c.Request.Context(), sessionToken)
+	sessionID := middleware.GetSessionID(c)
+	messageID := c.Param("message_id")
+	messageIDParsed, err := uuid.Parse(messageID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate session"})
-		return
-	}
-	if session == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid session token"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid message ID format"})
 		return
 	}
 
-	err = h.chatSessionService.MarkMessagesAsRead(c.Request.Context(), session.ID, "visitor")
+	err = h.chatSessionService.MarkVisitorMessagesAsRead(c.Request.Context(), sessionID, messageIDParsed, "visitor")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark messages as read"})
 		return

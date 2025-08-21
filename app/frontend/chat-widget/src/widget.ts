@@ -93,11 +93,6 @@ export class TMSChatWidget {
       // Create and inject widget UI
       this.createWidget()
       
-      // Load existing messages if we have a session
-      if (this.session) {
-        await this.loadMessages()
-        this.connectWebSocket()
-      }
       
       // Auto-open if configured and no existing session
       if (this.widget.auto_open_delay > 0 && !this.session) {
@@ -115,7 +110,6 @@ export class TMSChatWidget {
     if (existingSession) {
       this.session = {
         id: existingSession.session_id,
-        session_token: existingSession.session_token,
         widget_id: existingSession.widget_id,
         status: 'active'
       }
@@ -420,6 +414,7 @@ export class TMSChatWidget {
     if (!this.session) {
       await this.startChatSession()
     } else {
+      await this.startChatSession()
       // Update activity for existing session
       this.storage.updateSessionActivity()
     }
@@ -568,7 +563,6 @@ export class TMSChatWidget {
 
       this.session = {
         id: response.session_id,
-        session_token: response.session_token,
         widget_id: this.widget.id,
         status: 'active'
       }
@@ -576,7 +570,6 @@ export class TMSChatWidget {
       // Save session to storage
       this.storage.saveSession({
         session_id: response.session_id,
-        session_token: response.session_token,
         widget_id: this.widget.id,
         visitor_name: visitorName,
         visitor_email: visitorEmail,
@@ -586,9 +579,6 @@ export class TMSChatWidget {
 
       // Connect WebSocket for real-time communication
       this.connectWebSocket()
-
-      // Load existing messages
-      await this.loadMessages()
 
       this.emitter.emit('session:started', this.session)
 
@@ -711,7 +701,7 @@ export class TMSChatWidget {
     if (!this.session) return
 
     try {
-      const wsUrl = this.api.getWebSocketUrl(this.session.session_token)
+      const wsUrl = this.api.getWebSocketUrl(this.session.id)
       this.websocket = new WebSocket(wsUrl)
 
       this.websocket.onopen = () => {
@@ -864,17 +854,6 @@ export class TMSChatWidget {
     }
   }
 
-  private async loadMessages() {
-    if (!this.session) return
-
-    try {
-      const response = await this.api.getMessages(this.session.session_token)
-      response.messages.forEach(message => this.addMessage(message))
-    } catch (error) {
-      console.error('Failed to load messages:', error)
-    }
-  }
-
   private addMessage(message: ChatMessage) {
     this.messages.push(message)
     this.displayMessage(message)
@@ -931,7 +910,7 @@ export class TMSChatWidget {
       } else {
         // Fallback to HTTP API if WebSocket is not connected
         console.log('WebSocket not connected, using HTTP API fallback')
-        const message = await this.api.sendMessage(this.session.session_token, {
+        const message = await this.api.sendMessage(this.session.id, {
           content,
           message_type: 'text',
           sender_name: 'You'
@@ -1160,26 +1139,6 @@ export class TMSChatWidget {
 
   public toggleWidget() {
     this.toggle()
-  }
-
-  public sendExternalMessage(content: string) {
-    if (!this.session) return
-    
-    const input = document.getElementById('tms-chat-input') as HTMLTextAreaElement
-    if (input) {
-      input.value = content
-      this.sendMessage()
-    }
-  }
-
-  public getSessionInfo() {
-    return {
-      hasActiveSession: this.session !== null,
-      isOpen: this.isOpen,
-      unreadCount: this.unreadCount,
-      sessionAge: this.storage.getSessionAge(),
-      messageCount: this.messages.length
-    }
   }
 
   public updateWidgetConfig(updates: Partial<ChatWidget>) {

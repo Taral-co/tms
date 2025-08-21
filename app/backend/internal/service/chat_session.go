@@ -18,6 +18,7 @@ type ChatSessionService struct {
 	chatWidgetRepo  *repo.ChatWidgetRepo
 	customerRepo    repo.CustomerRepository
 	ticketService   *TicketService
+	agentService    *AgentService
 }
 
 func NewChatSessionService(
@@ -26,6 +27,7 @@ func NewChatSessionService(
 	chatWidgetRepo *repo.ChatWidgetRepo,
 	customerRepo repo.CustomerRepository,
 	ticketService *TicketService,
+	agentService *AgentService,
 ) *ChatSessionService {
 	return &ChatSessionService{
 		chatSessionRepo: chatSessionRepo,
@@ -33,6 +35,7 @@ func NewChatSessionService(
 		chatWidgetRepo:  chatWidgetRepo,
 		customerRepo:    customerRepo,
 		ticketService:   ticketService,
+		agentService:    agentService,
 	}
 }
 
@@ -45,11 +48,6 @@ func (s *ChatSessionService) InitiateChat(ctx context.Context, widgetID uuid.UUI
 	}
 	if widget == nil || !widget.IsActive {
 		return nil, fmt.Errorf("widget not found or inactive")
-	}
-
-	// Check if email is required
-	if widget.RequireEmail && req.VisitorEmail == "" {
-		return nil, fmt.Errorf("email is required for this chat widget")
 	}
 
 	// Find or create customer if email provided
@@ -77,19 +75,12 @@ func (s *ChatSessionService) InitiateChat(ctx context.Context, widgetID uuid.UUI
 		}
 	}
 
-	// Generate session token
-	sessionToken, err := generateSessionToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate session token: %w", err)
-	}
-
 	// Create chat session
 	session := &models.ChatSession{
 		ID:             uuid.New(),
 		TenantID:       widget.TenantID,
 		ProjectID:      widget.ProjectID,
 		WidgetID:       widget.ID,
-		SessionToken:   sessionToken,
 		CustomerID:     customerID,
 		Status:         "active",
 		VisitorInfo:    req.VisitorInfo,
@@ -123,14 +114,14 @@ func (s *ChatSessionService) GetChatSession(ctx context.Context, tenantID, proje
 	return s.chatSessionRepo.GetChatSession(ctx, tenantID, projectID, sessionID)
 }
 
-// GetChatSessionByToken gets a chat session by token (for public access)
-func (s *ChatSessionService) GetChatSessionByToken(ctx context.Context, sessionToken string) (*models.ChatSession, error) {
-	return s.chatSessionRepo.GetChatSessionByToken(ctx, sessionToken)
-}
-
 // GetChatSessionByID gets a chat session by ID for any tenant (used for global agent operations)
 func (s *ChatSessionService) GetChatSessionByID(ctx context.Context, tenantID, sessionID uuid.UUID) (*models.ChatSession, error) {
 	return s.chatSessionRepo.GetChatSessionByID(ctx, tenantID, sessionID)
+}
+
+// GetChatSessionByID gets a chat session by ID for any tenant (used for global agent operations)
+func (s *ChatSessionService) GetChatSessionOnlyByID(ctx context.Context, sessionID uuid.UUID) (*models.ChatSession, error) {
+	return s.chatSessionRepo.GetChatSessionOnlyByID(ctx, sessionID)
 }
 
 // ListChatSessions lists chat sessions for a project
@@ -162,9 +153,16 @@ func (s *ChatSessionService) AssignAgent(ctx context.Context, tenantID, projectI
 		return fmt.Errorf("failed to assign agent: %w", err)
 	}
 
+	// Fetch agent details for the system message
+	agent, agentErr := s.agentService.GetAgent(ctx, tenantID, agentID)
+	agentName := "Agent"
+	if agentErr == nil && agent != nil && agent.Name != "" {
+		agentName = agent.Name
+	}
+
 	// Send system message about agent assignment
 	_, err = s.SendMessage(ctx, tenantID, projectID, sessionID, &models.SendChatMessageRequest{
-		Content: fmt.Sprintf("Our agent %s has joined the conversation", *session.AssignedAgentName),
+		Content: fmt.Sprintf("Our agent %s has joined the conversation", agentName),
 	}, "system", nil, "System")
 
 	return err
@@ -288,8 +286,16 @@ func (s *ChatSessionService) GetChatMessagesForSession(ctx context.Context, sess
 }
 
 // MarkMessagesAsRead marks messages as read
-func (s *ChatSessionService) MarkMessagesAsRead(ctx context.Context, sessionID uuid.UUID, readerType string) error {
-	return s.chatMessageRepo.MarkMessagesAsRead(ctx, sessionID, readerType)
+func (s *ChatSessionService) MarkAgentMessagesAsRead(ctx context.Context, tenantID, projectID, sessionID, messageID uuid.UUID, readerType string) error {
+	return s.chatMessageRepo.MarkAgentMessagesAsRead(ctx, tenantID, projectID, sessionID, messageID, readerType)
+}
+
+// MarkVisitorMessagesAsRead marks messages as read unauthenticated
+func (s *ChatSessionService) MarkVisitorMessagesAsRead(ctx context.Context, sessionID, messageID uuid.UUID, readerType string) error {
+	if messageID == uuid.Nil {
+		return fmt.Errorf("invalid message ID")
+	}
+	return s.chatMessageRepo.MarkVisitorMessagesAsRead(ctx, sessionID, messageID, readerType)
 }
 
 // CreateTicketFromChat creates a ticket from a chat session
