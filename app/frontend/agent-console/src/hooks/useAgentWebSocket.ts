@@ -147,11 +147,9 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
               break
 
             case 'typing_start': {
-              console.log('Processing typing_start:', message)
               const sessionId = message.session_id || message.data?.session_id
               const authorName = message.data?.author_name || message.data?.agentName
               
-              console.log('Typing start - sessionId:', sessionId, 'authorName:', authorName, 'current user:', user?.name)
               
               if (options.onTyping && sessionId && authorName) {
                 if (authorName !== user?.name) {
@@ -162,11 +160,9 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
             }
 
             case 'typing_stop': {
-              console.log('Processing typing_stop:', message)
               const sessionId = message.session_id || message.data?.session_id
               const authorName = message.data?.author_name || message.data?.agentName
               
-              console.log('Typing stop - sessionId:', sessionId, 'authorName:', authorName, 'current user:', user?.name)
               
               if (options.onTyping && sessionId && authorName) {
                 if (authorName !== user?.name) {
