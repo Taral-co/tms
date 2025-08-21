@@ -91,7 +91,7 @@ export function ChatPage() {
   ]
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background">
       {/* Header with Tabs */}
       <div className="border-b border-border bg-card">
         <div className="px-6 py-4">
@@ -150,8 +150,8 @@ export function ChatPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1">
+  {/* Content */}
+  <div className="flex-1 min-h-0 overflow-hidden">
         {guidedSetup.loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center gap-3">

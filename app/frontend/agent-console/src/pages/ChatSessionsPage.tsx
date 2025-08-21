@@ -107,9 +107,9 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   }
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
+    <div className="h-full flex bg-background">
       {/* Sessions Sidebar */}
-      <div className="w-96 border-r border-border bg-card flex flex-col">
+      <div className="w-96 border-r border-border bg-card flex flex-col min-h-0">
         {/* Controls */}
         <div className="p-4 border-b border-border">
           {/* Search */}
@@ -162,7 +162,9 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         {/* Sessions List */}
         <div className="flex-1 min-h-0">
           {filteredSessions.length > 0 ? (
-            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
+            <div
+              className="h-full overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400"
+            >
               {filteredSessions.map((session) => (
                 <SessionCard
                   key={session.id}
@@ -223,7 +225,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+  <div className="flex-1 flex flex-col min-h-0">
         {selectedSession ? (
           <>
             {/* Chat Header */}
@@ -292,7 +294,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-4 bg-background scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
               {messages.map((message) => (
                 <MessageBubble
                   key={message.id}

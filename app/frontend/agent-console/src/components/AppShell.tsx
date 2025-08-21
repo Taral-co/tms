@@ -217,8 +217,8 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-auto bg-background">
+  {/* Page content */}
+  <main className="flex-1 overflow-hidden bg-background">
           {children}
         </main>
       </div>
