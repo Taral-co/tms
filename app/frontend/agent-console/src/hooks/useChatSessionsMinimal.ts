@@ -339,11 +339,6 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
     }
   }, [navigate])
 
-  useEffect(() => {
-    const interval = setInterval(loadSessions, 30000)
-    return () => clearInterval(interval)
-  }, [loadSessions])
-
   return {
     // State
     sessions,

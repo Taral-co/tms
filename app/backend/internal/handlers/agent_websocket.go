@@ -149,7 +149,8 @@ func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, te
 			Data:      json.RawMessage(`{"timestamp":"` + time.Now().Format(time.RFC3339) + `"}`),
 			FromType:  ws.ConnectionTypeAgent,
 		}
-		h.connectionManager.SendToConnection(connectionID, pongMsg)
+		fmt.Println("Sending pong message:", pongMsg)
+		// h.connectionManager.SendToConnection(connectionID, pongMsg)
 	case "session_subscribe":
 		// Agent wants to receive updates for a specific session
 		if msg.SessionID != uuid.Nil {

@@ -120,7 +120,10 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
         try {
           const message: WSMessage = JSON.parse(event.data) as WSMessage
 
-          setState(prev => ({ ...prev, lastMessage: message }))
+          // Don't update state for heartbeat responses to avoid unnecessary re-renders
+          if (message.type !== 'pong') {
+            setState(prev => ({ ...prev, lastMessage: message }))
+          }
 
           // Handle different message types
           switch (message.type) {
