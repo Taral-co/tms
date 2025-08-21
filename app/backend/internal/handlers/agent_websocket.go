@@ -119,7 +119,6 @@ func (h *AgentWebSocketHandler) HandleAgentWebSocket(c *gin.Context) {
 }
 
 func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, tenantID, agentUUID uuid.UUID, agentName string, msg models.WSMessage, connectionID string) {
-	fmt.Println(msg)
 	switch msg.Type {
 	case models.WSMsgTypeChatMessage:
 		if msg.Data != nil && msg.SessionID != uuid.Nil {
