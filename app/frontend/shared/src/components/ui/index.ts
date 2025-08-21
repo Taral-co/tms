@@ -1,4 +1,5 @@
 // Enterprise UI Components - Professional shadcn/ui extensions
+export * from './avatar'
 export * from './badge'
 export * from './button' 
 export * from './card'
