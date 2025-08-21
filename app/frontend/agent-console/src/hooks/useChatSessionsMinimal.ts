@@ -143,13 +143,24 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
 
   const onTypingStable = useCallback((data: { isTyping: boolean; agentName?: string; sessionId: string }) => {
     const currentSelected = selectedSessionRef.current
-    if (data.agentName && currentSelected?.id === data.sessionId) {
+    console.log('onTypingStable called:', data, 'currentSelected:', currentSelected?.id)
+    
+    if (currentSelected?.id === data.sessionId) {
       // Update ref without triggering re-render
-      if (data.isTyping) {
-        typingUsersRef.current.add(data.agentName!)
+      if (data.isTyping && data.agentName) {
+        console.log('Adding typing user:', data.agentName)
+        typingUsersRef.current.add(data.agentName)
       } else {
-        typingUsersRef.current.delete(data.agentName!)
+        // For stop events, try to remove the agent name if provided, otherwise clear all for this session
+        if (data.agentName) {
+          console.log('Removing specific typing user:', data.agentName)
+          typingUsersRef.current.delete(data.agentName)
+        } else {
+          console.log('Clearing all typing users for session')
+          typingUsersRef.current.clear()
+        }
       }
+      console.log('Updated typing users:', Array.from(typingUsersRef.current))
       triggerUIUpdate() // Minimal UI update
     }
   }, [triggerUIUpdate])

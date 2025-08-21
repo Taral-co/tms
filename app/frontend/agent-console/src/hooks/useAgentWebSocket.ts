@@ -5,9 +5,10 @@ import type { ChatMessage, ChatSession } from '../types/chat'
 
 interface WSMessage {
   type: 'chat_message' | 'typing_start' | 'typing_stop' | 'session_update' | 'agent_joined' | 'session_assigned' | 'error' | 'pong'
-  data: ChatMessage
+  data: any // Changed from ChatMessage to any to handle different data types
   timestamp: string
   from_type: 'visitor' | 'agent' | 'system'
+  session_id?: string // Add session_id at top level for typing messages
   // Chat message fields (when type is 'chat_message')
   delivery_type: 'direct' | 'broadcast' | 'self'
   // Error field (when type is 'error')
@@ -126,6 +127,7 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
           }
 
           // Handle different message types
+          console.log('Received Agent WebSocket message:', message.type, message)
           switch (message.type) {
             case 'chat_message': {
               // Skip echo of agent's own message
@@ -145,22 +147,30 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
               break
 
             case 'typing_start': {
-              const d = message.data
-              if (options.onTyping && d?.session_id) {
-                const typingAgentName = d.author_name
-                if (typingAgentName !== user?.name) {
-                  options.onTyping({ isTyping: true, agentName: typingAgentName, sessionId: d.session_id })
+              console.log('Processing typing_start:', message)
+              const sessionId = message.session_id || message.data?.session_id
+              const authorName = message.data?.author_name || message.data?.agentName
+              
+              console.log('Typing start - sessionId:', sessionId, 'authorName:', authorName, 'current user:', user?.name)
+              
+              if (options.onTyping && sessionId && authorName) {
+                if (authorName !== user?.name) {
+                  options.onTyping({ isTyping: true, agentName: authorName, sessionId })
                 }
               }
               break
             }
 
             case 'typing_stop': {
-              const d = message.data
-              if (options.onTyping && d?.session_id) {
-                const typingAgentName = d.author_name
-                if (typingAgentName !== user?.name) {
-                  options.onTyping({ isTyping: false, sessionId: d.session_id })
+              console.log('Processing typing_stop:', message)
+              const sessionId = message.session_id || message.data?.session_id
+              const authorName = message.data?.author_name || message.data?.agentName
+              
+              console.log('Typing stop - sessionId:', sessionId, 'authorName:', authorName, 'current user:', user?.name)
+              
+              if (options.onTyping && sessionId && authorName) {
+                if (authorName !== user?.name) {
+                  options.onTyping({ isTyping: false, agentName: authorName, sessionId })
                 }
               }
               break

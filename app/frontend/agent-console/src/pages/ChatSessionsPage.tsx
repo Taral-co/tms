@@ -52,7 +52,10 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     markMessageAsRead,
     startTyping,
     forceStopTyping,
-    manualRetry
+    manualRetry,
+    
+    // UI update key for forcing re-renders
+    uiUpdateKey
   } = useChatSessionsMinimal({ initialSessionId })
 
   // Memoized callback for marking messages as read to prevent re-renders
@@ -66,7 +69,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, uiUpdateKey]) // Include uiUpdateKey to trigger scroll on typing changes
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
