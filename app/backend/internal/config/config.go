@@ -214,9 +214,9 @@ func setDefaults() {
 	viper.SetDefault("features.enable_magic_links", true)
 
 	// AI defaults
-	viper.SetDefault("ai.enabled", false)
+	viper.SetDefault("ai.enabled", true)
 	viper.SetDefault("ai.provider", "openai")
-	viper.SetDefault("ai.model", "gpt-4")
+	viper.SetDefault("ai.model", "gpt-4o-mini")
 	viper.SetDefault("ai.max_tokens", 1000)
 	viper.SetDefault("ai.temperature", 0.7)
 	viper.SetDefault("ai.system_prompt", "You are a helpful customer support assistant. Be concise, professional, and friendly. If you cannot help with a request, suggest that a human agent will take over.")

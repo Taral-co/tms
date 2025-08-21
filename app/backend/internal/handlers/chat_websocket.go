@@ -183,13 +183,27 @@ func (h *ChatWebSocketHandler) processVisitorChatMessage(ctx context.Context, se
 			h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
 
 			// Process AI response if enabled and applicable
-			if h.aiService != nil {
-				go func() {
-					if err := h.aiService.ProcessMessage(ctx, session, message); err != nil {
-						log.Printf("AI processing error for session %s: %v", session.ID, err)
-					}
-				}()
-			}
+			fmt.Println("should respond iwth AI: h.aiService -> ", h.aiService != nil)
+			fmt.Println("should respond iwth AI: session.UseAI -> ", session.UseAI)
+			fmt.Println("should respond iwth AI: session.AssignedAgentID == nil -> ", session.AssignedAgentID == nil)
+			go func() {
+				chatMessage, err := h.aiService.ProcessMessage(ctx, session, message)
+				if err != nil {
+					log.Printf("AI processing error for session %s: %v", session.ID, err)
+				}
+				messageData, _ := json.Marshal(chatMessage)
+				aiResponse := &ws.Message{
+					Type:         "chat_message",
+					SessionID:    session.ID,
+					Data:         messageData,
+					FromType:     ws.ConnectionTypeVisitor,
+					ProjectID:    &session.ProjectID,
+					TenantID:     &session.TenantID,
+					AgentID:      session.AssignedAgentID,
+					DeliveryType: ws.Direct,
+				}
+				h.connectionManager.SendToConnection(connID, aiResponse)
+			}()
 
 			// Create notification for assigned agent if session has one
 			if session.AssignedAgentID != nil {

@@ -25,6 +25,8 @@ type AIService struct {
 
 // NewAIService creates a new AI service instance
 func NewAIService(cfg *config.AIConfig, chatSessionService *ChatSessionService) *AIService {
+	fmt.Println("Creating AI Service")
+	fmt.Println("AI API Key:", cfg.APIKey)
 	return &AIService{
 		config:             cfg,
 		chatSessionService: chatSessionService,
@@ -91,20 +93,23 @@ func (s *AIService) ShouldHandleSession(ctx context.Context, session *models.Cha
 }
 
 // ProcessMessage handles incoming visitor messages and generates AI responses
-func (s *AIService) ProcessMessage(ctx context.Context, session *models.ChatSession, message *models.ChatMessage) error {
+func (s *AIService) ProcessMessage(ctx context.Context, session *models.ChatSession, message *models.ChatMessage) (*models.ChatMessage, error) {
+	fmt.Println("hel")
 	if !s.ShouldHandleSession(ctx, session) {
-		return nil
+		return nil, nil
 	}
+	fmt.Println("hel2")
 
 	// Check for handoff keywords
 	if s.shouldHandoffToAgent(message.Content) {
-		return s.requestHumanAgent(ctx, session, "Customer requested human assistance")
+		s.requestHumanAgent(ctx, session, "Customer requested human assistance")
+		return nil, nil
 	}
 
 	// Get conversation history
 	messages, err := s.chatSessionService.GetChatMessages(ctx, session.TenantID, session.ProjectID, session.ID, false)
 	if err != nil {
-		return fmt.Errorf("failed to get conversation history: %w", err)
+		return nil, fmt.Errorf("failed to get conversation history: %w", err)
 	}
 
 	// Convert to slice and limit to recent messages
@@ -124,8 +129,11 @@ func (s *AIService) ProcessMessage(ctx context.Context, session *models.ChatSess
 	// Generate AI response
 	response, err := s.generateResponse(ctx, recentMessages)
 	if err != nil {
-		return fmt.Errorf("failed to generate AI response: %w", err)
+		fmt.Println("Error generating AI response:", err.Error())
+		return nil, fmt.Errorf("failed to generate AI response: %w", err)
 	}
+
+	fmt.Println("Response from ai -", response)
 
 	// Send AI response
 	aiMessageReq := &models.SendChatMessageRequest{
@@ -138,7 +146,7 @@ func (s *AIService) ProcessMessage(ctx context.Context, session *models.ChatSess
 	// Create AI agent UUID (deterministic based on session)
 	aiAgentID := s.generateAIAgentID(session.ID)
 
-	_, err = s.chatSessionService.SendMessage(
+	messageAI, err := s.chatSessionService.SendMessage(
 		ctx,
 		session.TenantID,
 		session.ProjectID,
@@ -149,7 +157,7 @@ func (s *AIService) ProcessMessage(ctx context.Context, session *models.ChatSess
 		"AI Assistant",
 	)
 
-	return err
+	return messageAI, nil
 }
 
 // generateAIAgentID creates a deterministic UUID for AI agent
