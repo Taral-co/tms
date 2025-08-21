@@ -163,7 +163,7 @@ CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-    recipient_agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
     type notification_type NOT NULL,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
@@ -244,7 +244,7 @@ CREATE INDEX idx_knowledge_articles_category ON knowledge_articles(category) WHE
 CREATE INDEX idx_knowledge_articles_tags ON knowledge_articles USING GIN(tags);
 CREATE INDEX idx_knowledge_articles_published_at ON knowledge_articles(published_at) WHERE published_at IS NOT NULL;
 
-CREATE INDEX idx_notifications_recipient ON notifications(recipient_agent_id);
+CREATE INDEX idx_notifications_recipient ON notifications(agent_id);
 CREATE INDEX idx_notifications_type_priority ON notifications(type, priority);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read, created_at);
 CREATE INDEX idx_notifications_expires_at ON notifications(expires_at) WHERE expires_at IS NOT NULL;

@@ -632,6 +632,7 @@ const (
 	WSMsgTypeTypingStop    WSMessageType = "typing_stop"
 	WSMsgTypeReadReceipt   WSMessageType = "read_receipt"
 	WSMsgTypeSessionUpdate WSMessageType = "session_update"
+	WSMsgTypeNotification  WSMessageType = "notification"
 )
 
 // WSMessage represents a WebSocket message
@@ -641,4 +642,66 @@ type WSMessage struct {
 	Data      interface{}   `json:"data"`
 	Timestamp time.Time     `json:"timestamp"`
 	MessageID *uuid.UUID    `json:"message_id"`
+}
+
+// Notification types from advanced features subsystem
+type NotificationType string
+
+const (
+	NotificationTypeTicketAssigned      NotificationType = "ticket_assigned"
+	NotificationTypeTicketUpdated       NotificationType = "ticket_updated"
+	NotificationTypeTicketEscalated     NotificationType = "ticket_escalated"
+	NotificationTypeTicketResolved      NotificationType = "ticket_resolved"
+	NotificationTypeMessageReceived     NotificationType = "message_received"
+	NotificationTypeMentionReceived     NotificationType = "mention_received"
+	NotificationTypeSLAWarning          NotificationType = "sla_warning"
+	NotificationTypeSLABreach           NotificationType = "sla_breach"
+	NotificationTypeSystemAlert         NotificationType = "system_alert"
+	NotificationTypeMaintenanceNotice   NotificationType = "maintenance_notice"
+	NotificationTypeFeatureAnnouncement NotificationType = "feature_announcement"
+)
+
+type NotificationChannel string
+
+const (
+	NotificationChannelWeb   NotificationChannel = "web"
+	NotificationChannelEmail NotificationChannel = "email"
+	NotificationChannelSlack NotificationChannel = "slack"
+	NotificationChannelSMS   NotificationChannel = "sms"
+	NotificationChannelPush  NotificationChannel = "push"
+)
+
+type NotificationPriority string
+
+const (
+	NotificationPriorityLow    NotificationPriority = "low"
+	NotificationPriorityNormal NotificationPriority = "normal"
+	NotificationPriorityHigh   NotificationPriority = "high"
+	NotificationPriorityUrgent NotificationPriority = "urgent"
+)
+
+// Notification represents a system notification
+type Notification struct {
+	ID        uuid.UUID             `db:"id" json:"id"`
+	TenantID  uuid.UUID             `db:"tenant_id" json:"tenant_id"`
+	ProjectID *uuid.UUID            `db:"project_id" json:"project_id,omitempty"`
+	AgentID   uuid.UUID             `db:"agent_id" json:"agent_id"`
+	Type      NotificationType      `db:"type" json:"type"`
+	Title     string                `db:"title" json:"title"`
+	Message   string                `db:"message" json:"message"`
+	Priority  NotificationPriority  `db:"priority" json:"priority"`
+	Channels  []NotificationChannel `db:"channels" json:"channels"`
+	ActionURL *string               `db:"action_url" json:"action_url,omitempty"`
+	Metadata  interface{}           `db:"metadata" json:"metadata,omitempty"`
+	IsRead    bool                  `db:"is_read" json:"is_read"`
+	ReadAt    *time.Time            `db:"read_at" json:"read_at,omitempty"`
+	ExpiresAt *time.Time            `db:"expires_at" json:"expires_at,omitempty"`
+	CreatedAt time.Time             `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time             `db:"updated_at" json:"updated_at"`
+}
+
+// NotificationCount represents notification count summary
+type NotificationCount struct {
+	Total  int `json:"total"`
+	Unread int `json:"unread"`
 }

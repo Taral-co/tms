@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { ThemeProvider } from './components/ThemeProvider'
+import { NotificationProvider } from './contexts/NotificationContext'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
@@ -56,25 +57,27 @@ function AppContent() {
       } />
       {isAuthenticated ? (
         <Route path="/*" element={
-          <AppShell>
-            <Routes>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/inbox" element={<InboxPage />} />
-              <Route path="/inbox/emails/:id" element={<EmailDetailPage />} />
-              <Route path="/inbox/add" element={<AddInboxPage />} />
-              <Route path="/inbox/connectors" element={<EmailConnectorsPage />} />
-              <Route path="/inbox/mailboxes" element={<EmailMailboxesPage />} />
-              <Route path="/inbox/mailboxes/create" element={<CreateEmailMailboxPage />} />
-              <Route path="/tickets" element={<TicketsPage />} />
-              <Route path="/tickets/:id" element={<TicketDetailPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/integrations" element={<IntegrationsPage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/chat/*" element={<ChatPage />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </AppShell>
+          <NotificationProvider>
+            <AppShell>
+              <Routes>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/inbox" element={<InboxPage />} />
+                <Route path="/inbox/emails/:id" element={<EmailDetailPage />} />
+                <Route path="/inbox/add" element={<AddInboxPage />} />
+                <Route path="/inbox/connectors" element={<EmailConnectorsPage />} />
+                <Route path="/inbox/mailboxes" element={<EmailMailboxesPage />} />
+                <Route path="/inbox/mailboxes/create" element={<CreateEmailMailboxPage />} />
+                <Route path="/tickets" element={<TicketsPage />} />
+                <Route path="/tickets/:id" element={<TicketDetailPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/integrations" element={<IntegrationsPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/chat/*" element={<ChatPage />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </AppShell>
+          </NotificationProvider>
         } />
       ) : (
         <Route path="*" element={<Navigate to="/login" replace />} />

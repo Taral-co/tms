@@ -65,6 +65,7 @@ func main() {
 	tenantRepo := repo.NewTenantRepository(database.DB.DB)
 	emailInboxRepo := repo.NewEmailInboxRepository(database.DB.DB)
 	domainValidationRepo := repo.NewDomainValidationRepo(database.DB)
+	notificationRepo := repo.NewNotificationRepo(database.DB)
 
 	// Chat repositories
 	chatWidgetRepo := repo.NewChatWidgetRepo(database.DB)
@@ -120,7 +121,11 @@ func main() {
 	connectionManager := websocket.NewConnectionManager(redisService.GetClient())
 	defer connectionManager.Shutdown()
 
-	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager)
+	// Notification service (needs connection manager for WebSocket delivery)
+	notificationService := service.NewNotificationService(notificationRepo, connectionManager)
+	notificationHandler := handlers.NewNotificationHandler(notificationService)
+
+	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager, notificationService)
 	agentWebSocketHandler := handlers.NewAgentWebSocketHandler(chatSessionService, connectionManager, agentService)
 
 	// Set up combined message handling - ChatWebSocketHandler handles all Redis pub/sub messages
@@ -128,7 +133,7 @@ func main() {
 	agentWebSocketHandler.SetChatWSHandler(chatWebSocketHandler)
 
 	// Setup router
-	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler, agentWebSocketHandler)
+	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, notificationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler, agentWebSocketHandler)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -161,7 +166,7 @@ func main() {
 	log.Println("Server exited")
 }
 
-func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler, domainNameHandler *handlers.DomainNameHandler, chatWidgetHandler *handlers.ChatWidgetHandler, chatSessionHandler *handlers.ChatSessionHandler, chatWebSocketHandler *handlers.ChatWebSocketHandler, agentWebSocketHandler *handlers.AgentWebSocketHandler) *gin.Engine {
+func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.AuthHandler, projectHandler *handlers.ProjectHandler, ticketHandler *handlers.TicketHandler, publicHandler *handlers.PublicHandler, integrationHandler *handlers.IntegrationHandler, emailHandler *handlers.EmailHandler, emailInboxHandler *handlers.EmailInboxHandler, agentHandler *handlers.AgentHandler, apiKeyHandler *handlers.ApiKeyHandler, settingsHandler *handlers.SettingsHandler, tenantHandler *handlers.TenantHandler, domainNameHandler *handlers.DomainNameHandler, notificationHandler *handlers.NotificationHandler, chatWidgetHandler *handlers.ChatWidgetHandler, chatSessionHandler *handlers.ChatSessionHandler, chatWebSocketHandler *handlers.ChatWebSocketHandler, agentWebSocketHandler *handlers.AgentWebSocketHandler) *gin.Engine {
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -299,6 +304,15 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				settings.PUT("/branding", middleware.ProjectAdminMiddleware(), settingsHandler.UpdateBrandingSettings)
 				settings.GET("/automation", middleware.ProjectAdminMiddleware(), settingsHandler.GetAutomationSettings)
 				settings.PUT("/automation", middleware.ProjectAdminMiddleware(), settingsHandler.UpdateAutomationSettings)
+			}
+
+			// Notifications endpoints
+			notifications := projects.Group("/notifications")
+			{
+				notifications.GET("", notificationHandler.GetNotifications)
+				notifications.GET("/count", notificationHandler.GetNotificationCount)
+				notifications.PUT("/:notification_id/read", notificationHandler.MarkNotificationAsRead)
+				notifications.PUT("/mark-all-read", notificationHandler.MarkAllNotificationsAsRead)
 			}
 
 			// Integrations - using the available methods

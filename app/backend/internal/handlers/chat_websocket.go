@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -24,14 +25,16 @@ var upgrader = websocket.Upgrader{
 }
 
 type ChatWebSocketHandler struct {
-	chatSessionService *service.ChatSessionService
-	connectionManager  *ws.ConnectionManager
+	chatSessionService  *service.ChatSessionService
+	connectionManager   *ws.ConnectionManager
+	notificationService *service.NotificationService
 }
 
-func NewChatWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager) *ChatWebSocketHandler {
+func NewChatWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager, notificationService *service.NotificationService) *ChatWebSocketHandler {
 	return &ChatWebSocketHandler{
-		chatSessionService: chatSessionService,
-		connectionManager:  connectionManager,
+		chatSessionService:  chatSessionService,
+		connectionManager:   connectionManager,
+		notificationService: notificationService,
 	}
 }
 
@@ -176,6 +179,26 @@ func (h *ChatWebSocketHandler) processVisitorChatMessage(ctx context.Context, se
 				DeliveryType: ws.Direct,
 			}
 			h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
+
+			// Create notification for assigned agent if session has one
+			if session.AssignedAgentID != nil {
+				// Create a message received notification
+				actionURL := fmt.Sprintf("/chat/session/%s", session.ID.String())
+				err = h.notificationService.CreateSystemNotification(
+					ctx,
+					session.TenantID,
+					&session.ProjectID,
+					*session.AssignedAgentID,
+					models.NotificationTypeMessageReceived,
+					fmt.Sprintf("New message from %s", visitorName),
+					content, // Use the message content directly
+					models.NotificationPriorityNormal,
+					&actionURL,
+				)
+				if err != nil {
+					log.Printf("Failed to create notification for agent %s: %v", *session.AssignedAgentID, err)
+				}
+			}
 		}
 	}
 }

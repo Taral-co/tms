@@ -9,6 +9,7 @@ import type {
   AssignChatSessionRequest,
   ChatSessionFilters
 } from '../types/chat'
+import type { Notification, NotificationCount } from '../types/notifications'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/v1'
 
@@ -457,11 +458,14 @@ class APIClient {
           config.url.startsWith('/email') || 
           config.url.startsWith('/settings') ||
           config.url.startsWith('/analytics') ||
-          config.url.startsWith('/chat')
+          config.url.startsWith('/chat') ||
+          config.url.startsWith('/notifications')
         ) && !config.url.includes('/tenants/')) {
           config.url = `/tenants/${tenantId}/projects/${projectId}${config.url}`
         }
       }
+
+      console.log('Final API URL:', config.url)
 
       return config
     })
@@ -1057,6 +1061,26 @@ class APIClient {
 
   async markChatMessagesAsRead(sessionId: string, messageId: string): Promise<void> {
     await this.client.post(`/chat/sessions/${sessionId}/messages/${messageId}/read`, )
+  }
+
+  // Notification methods
+  async getNotifications(limit = 20, offset = 0): Promise<{ notifications: Notification[], limit: number, offset: number }> {
+    const response: AxiosResponse<{ notifications: Notification[], limit: number, offset: number }> = 
+      await this.client.get(`/notifications?limit=${limit}&offset=${offset}`)
+    return response.data
+  }
+
+  async getNotificationCount(): Promise<NotificationCount> {
+    const response: AxiosResponse<NotificationCount> = await this.client.get('/notifications/count')
+    return response.data
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    await this.client.put(`/notifications/${notificationId}/read`)
+  }
+
+  async markAllNotificationsAsRead(): Promise<void> {
+    await this.client.put('/notifications/mark-all-read')
   }
 
   // WebSocket URL for real-time chat (agent endpoint)

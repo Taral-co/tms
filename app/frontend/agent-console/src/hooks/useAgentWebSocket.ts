@@ -4,7 +4,7 @@ import { apiClient } from '../lib/api'
 import type { ChatMessage, ChatSession } from '../types/chat'
 
 interface WSMessage {
-  type: 'chat_message' | 'typing_start' | 'typing_stop' | 'session_update' | 'agent_joined' | 'session_assigned' | 'error' | 'pong'
+  type: 'chat_message' | 'typing_start' | 'typing_stop' | 'session_update' | 'agent_joined' | 'session_assigned' | 'notification' | 'error' | 'pong'
   data: any // Changed from ChatMessage to any to handle different data types
   timestamp: string
   from_type: 'visitor' | 'agent' | 'system'
@@ -19,6 +19,7 @@ interface UseAgentWebSocketOptions {
   onMessage?: (message: ChatMessage) => void
   onSessionUpdate?: (session: ChatSession) => void
   onTyping?: (data: { isTyping: boolean; agentName?: string; sessionId: string }) => void
+  onNotification?: (notification: any) => void
   onError?: (error: string) => void
 }
 
@@ -127,7 +128,6 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
           }
 
           // Handle different message types
-          console.log('Received Agent WebSocket message:', message.type, message)
           switch (message.type) {
             case 'chat_message': {
               console.log('Processing chat_message:', message.delivery_type, message.data)
@@ -181,6 +181,14 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
               setState(prev => ({ ...prev, error: errorMsg }))
               if (options.onError) {
                 options.onError(errorMsg)
+              }
+              break
+            }
+
+            case 'notification': {
+              console.log('Processing notification:', message)
+              if (options.onNotification && message.data) {
+                options.onNotification(message.data)
               }
               break
             }

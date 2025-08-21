@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   Search, 
   Settings, 
-  Bell, 
   User, 
   Inbox, 
   BarChart3, 
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '../components/ThemeProvider'
 import { useAuth } from '../hooks/useAuth'
+import { NotificationBell } from './NotificationBell'
 import { CommandPalette } from './CommandPalette'
 import { ProjectSelector } from './ProjectSelector'
 import { apiClient } from '../lib/api'
@@ -192,9 +192,7 @@ export function AppShell({ children }: AppShellProps) {
             </button>
 
             {/* Notifications */}
-            <button className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 hover:shadow-sm">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
 
             {/* User menu */}
             <div className="flex items-center space-x-3 pl-4 border-l border-border/60">
