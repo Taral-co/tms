@@ -435,13 +435,6 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         )}
       </div>
 
-      {/* Create Session Modal */}
-      <CreateChatSessionModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSessionCreated={handleCreateSession}
-      />
-
       {/* General Error Toast */}
       {error && (
         <div className="fixed bottom-4 right-4 bg-destructive text-destructive-foreground px-4 py-2 rounded-md shadow-lg flex items-center gap-2 max-w-sm z-50">
