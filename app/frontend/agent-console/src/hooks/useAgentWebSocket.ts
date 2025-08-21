@@ -5,10 +5,13 @@ import type { ChatMessage, ChatSession } from '../types/chat'
 
 interface WSMessage {
   type: 'chat_message' | 'typing_start' | 'typing_stop' | 'session_update' | 'agent_joined' | 'session_assigned' | 'error' | 'pong'
-  session_id?: string
-  data: any
+  data: ChatMessage
   timestamp: string
   from_type: 'visitor' | 'agent' | 'system'
+  // Chat message fields (when type is 'chat_message')
+  delivery_type: 'direct' | 'broadcast' | 'self'
+  // Error field (when type is 'error')
+  error?: string
 }
 
 interface UseAgentWebSocketOptions {
@@ -32,8 +35,9 @@ interface WebSocketState {
 export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
   const { user, isAuthenticated } = useAuth()
   const wsRef = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  // Use environment-agnostic timer types to avoid Node vs DOM mismatch
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectAttemptsRef = useRef(0)
   const maxReconnectAttempts = 5
   const baseReconnectDelay = 1000
@@ -114,86 +118,53 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
 
       ws.onmessage = (event) => {
         try {
-          const message: WSMessage = JSON.parse(event.data)
-          
+          const message: WSMessage = JSON.parse(event.data) as WSMessage
+
           setState(prev => ({ ...prev, lastMessage: message }))
 
           // Handle different message types
           switch (message.type) {
-            case 'chat_message':
-              if (options.onMessage && message.data && message.session_id) {
-                // Filter out messages sent by this agent to prevent echo/duplication
-                const messageAuthorType = message.data.author_type
-                const messageAuthorName = message.data.author_name
-                const currentAgentName = user?.name
-                
-                // Only filter out agent messages that were sent by the current agent
-                const isOwnMessage = messageAuthorType === 'agent' && messageAuthorName === currentAgentName
-                
-                if (!isOwnMessage) {
-                  // Convert WebSocket message data to ChatMessage format
-                  const chatMessage: ChatMessage = {
-                    id: message.data.id,
-                    tenant_id: user?.tenant_id || '',
-                    project_id: message.data.project_id || '',
-                    session_id: message.session_id,
-                    content: message.data.content,
-                    author_type: message.data.author_type,
-                    author_id: message.data.author_id,
-                    author_name: message.data.author_name,
-                    created_at: message.data.created_at,
-                    message_type: message.data.message_type || 'text',
-                    is_private: message.data.is_private || false,
-                    metadata: message.data.metadata || {},
-                    read_by_visitor: message.data.read_by_visitor || false,
-                    read_by_agent: message.data.read_by_agent || false,
-                    read_at: message.data.read_at
-                  }
-                  options.onMessage(chatMessage)
-                }
-              }
+            case 'chat_message': {
+              // Skip echo of agent's own message
+              if (message.delivery_type === 'self') break
+
+              options.onMessage?.(message.data)
               break
+
+            }
+            
 
             case 'session_update':
             case 'session_assigned':
               if (options.onSessionUpdate && message.data) {
-                options.onSessionUpdate(message.data)
+                options.onSessionUpdate(message.data as unknown as ChatSession)
               }
               break
 
-            case 'typing_start':
-              if (options.onTyping && message.session_id) {
-                // Filter out own typing indicators
-                const typingAgentName = message.data?.author_name
-                const currentAgentName = user?.name
-                
-                if (typingAgentName !== currentAgentName) {
-                  options.onTyping({ 
-                    isTyping: true, 
-                    agentName: typingAgentName,
-                    sessionId: message.session_id
-                  })
+            case 'typing_start': {
+              const d = message.data
+              if (options.onTyping && d?.session_id) {
+                const typingAgentName = d.author_name
+                if (typingAgentName !== user?.name) {
+                  options.onTyping({ isTyping: true, agentName: typingAgentName, sessionId: d.session_id })
                 }
               }
               break
+            }
 
-            case 'typing_stop':
-              if (options.onTyping && message.session_id) {
-                // Filter out own typing indicators
-                const typingAgentName = message.data?.author_name
-                const currentAgentName = user?.name
-                
-                if (typingAgentName !== currentAgentName) {
-                  options.onTyping({ 
-                    isTyping: false,
-                    sessionId: message.session_id
-                  })
+            case 'typing_stop': {
+              const d = message.data
+              if (options.onTyping && d?.session_id) {
+                const typingAgentName = d.author_name
+                if (typingAgentName !== user?.name) {
+                  options.onTyping({ isTyping: false, sessionId: d.session_id })
                 }
               }
               break
+            }
 
             case 'error': {
-              const errorMsg = message.data?.error || 'WebSocket error occurred'
+              const errorMsg = message.error || 'WebSocket error occurred'
               setState(prev => ({ ...prev, error: errorMsg }))
               if (options.onError) {
                 options.onError(errorMsg)

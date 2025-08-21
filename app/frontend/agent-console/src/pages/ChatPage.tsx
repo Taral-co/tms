@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useLocation, useNavigate, Routes, Route } from 'react-router-dom'
+import { useLocation, useNavigate, Routes, Route, useParams } from 'react-router-dom'
 import { MessageCircle, Settings } from 'lucide-react'
 import { ChatSessionsPage } from './ChatSessionsPage'
 import { ChatWidgetsPage } from './ChatWidgetsPage'
@@ -12,6 +12,12 @@ interface GuidedSetupState {
   hasWidgets: boolean
   hasSessions: boolean
   loading: boolean
+}
+
+// Wrapper component to extract sessionId from URL params
+function ChatSessionPageWrapper() {
+  const { sessionId } = useParams<{ sessionId: string }>()
+  return <ChatSessionsPage initialSessionId={sessionId} />
 }
 
 export function ChatPage() {
@@ -56,7 +62,7 @@ export function ChatPage() {
         hasSessions: sessions.length > 0,
         loading: false
       })
-    } catch (error) {
+    } catch (_error) {
       setGuidedSetup(prev => ({ ...prev, loading: false }))
     }
   }
@@ -155,6 +161,7 @@ export function ChatPage() {
           </div>
         ) : (
           <Routes>
+            <Route path="/sessions/:sessionId" element={<ChatSessionPageWrapper />} />
             <Route path="/sessions" element={<ChatSessionsPage />} />
             <Route path="/widgets" element={<ChatWidgetsPage />} />
             <Route path="/widget/create" element={<CreateChatWidgetPage />} />

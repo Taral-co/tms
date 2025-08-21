@@ -6,6 +6,7 @@
 class NotificationSound {
   private audioContext: AudioContext | null = null
   private isEnabled: boolean = true
+  private unlocked: boolean = false
 
   constructor() {
     // Initialize audio context on first user interaction
@@ -17,6 +18,7 @@ class NotificationSound {
       // Create audio context when needed (after user interaction)
       if (!this.audioContext && (window.AudioContext || (window as any).webkitAudioContext)) {
         this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+        this.unlocked = this.audioContext.state !== 'suspended'
       }
     } catch (error) {
       console.warn('AudioContext not supported:', error)
@@ -42,14 +44,20 @@ class NotificationSound {
       }
 
       if (this.audioContext.state === 'suspended') {
+        // If not yet unlocked by a gesture, don't spam resume calls
+        if (!this.unlocked) {
+          throw new Error('AudioContext suspended until user gesture')
+        }
         await this.audioContext.resume()
       }
 
       // Create a pleasant notification sound (two-tone chime)
       this.createNotificationTone()
-    } catch (error) {
-      console.warn('Audio playback failed:', error)
-      this.playFallbackSound()
+      this.unlocked = true
+  } catch (_error) {
+      // Avoid noisy warnings for autoplay policy; log once at debug level
+      // console.debug('Audio playback not allowed yet:', error)
+      // No fallback to avoid repeated autoplay warnings; will work after a user gesture
     }
   }
 
@@ -110,6 +118,18 @@ class NotificationSound {
   }
 
   /**
+   * Mark audio as unlocked after any user gesture to allow playback
+   */
+  unlock() {
+    this.unlocked = true
+    if (!this.audioContext) this.initializeAudioContext()
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      // Try once on unlock
+      this.audioContext.resume().catch(() => {})
+    }
+  }
+
+  /**
    * Check if notification sounds are enabled
    */
   isNotificationEnabled(): boolean {
@@ -132,9 +152,7 @@ export const notificationSound = new NotificationSound()
 
 // Auto-initialize on first user interaction
 const initializeOnUserInteraction = () => {
-  notificationSound.play().catch(() => {
-    // Initial play might fail, that's ok
-  })
+  notificationSound.unlock()
   
   // Remove listeners after first interaction
   document.removeEventListener('click', initializeOnUserInteraction)

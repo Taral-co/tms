@@ -1,341 +1,78 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, X, Plus, Search, Settings, ArrowRight, Wifi, WifiOff, Volume2, VolumeX } from 'lucide-react'
-import { apiClient } from '../lib/api'
-import { useAuth } from '../hooks/useAuth'
-import { useAgentWebSocket } from '../hooks/useAgentWebSocket'
-import { useTypingIndicator } from '../hooks/useTypingIndicator'
-import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
-import { notificationSound } from '../utils/notificationSound'
-import { browserNotifications } from '../utils/browserNotifications'
-import type { ChatSession, ChatMessage } from '../types/chat'
+import React, { useRef, useEffect, useCallback } from 'react'
+import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, Search, Settings, ArrowRight, Volume2, VolumeX, WifiOff } from 'lucide-react'
 import { format } from 'date-fns'
+import { useChatSessionsMinimal } from '../hooks/useChatSessionsMinimal'
+import { SessionCard, MessageBubble, ConnectionStatus } from '../components/chat'
+import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
 
 interface ChatSessionsPageProps {
   initialSessionId?: string
 }
 
 export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
-  const { user } = useAuth()
-  const [sessions, setSessions] = useState<ChatSession[]>([])
-  const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [newMessage, setNewMessage] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [sendingMessage, setSendingMessage] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'active' | 'unassigned'>('all')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [hasWidgets, setHasWidgets] = useState<boolean | null>(null)
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set())
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    // Load sound preference from localStorage, default to true
-    const saved = localStorage.getItem('tms_agent_sound_enabled')
-    return saved ? JSON.parse(saved) : true
-  })
-  const [flashingSessions, setFlashingSessions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const renderCountRef = useRef(0)
+  
+  renderCountRef.current++
+  
+  // Debug log to track re-renders
+  console.log(`[ChatSessionsPage] Render #${renderCountRef.current}`)
 
-  // Function to play notification sound
-  const playNotificationSound = useCallback(() => {
-    if (user?.id && soundEnabled) {
-      notificationSound.play().catch(() => {
-        // Handle cases where audio playback fails silently
-      })
-    }
-  }, [user?.id, soundEnabled])
-
-  // Sync sound enabled state with notification sound utility
-  useEffect(() => {
-    notificationSound.setEnabled(soundEnabled)
-    // Persist sound preference in localStorage
-    localStorage.setItem('tms_agent_sound_enabled', JSON.stringify(soundEnabled))
-  }, [soundEnabled])
-
-  // Global Agent WebSocket connection for real-time updates
   const {
-    isConnected: wsConnected,
-    isConnecting: wsConnecting,
-    error: wsError,
-    sendTypingIndicator,
-    sendChatMessage,
-    subscribeToSession,
-    unsubscribeFromSession,
+    // State
+    sessions,
+    selectedSession,
+    messages,
+    newMessage,
+    loading,
+    sendingMessage,
+    error,
+    filter,
+    searchTerm,
+    hasWidgets,
+    typingUsers,
+    soundEnabled,
+    flashingSessions,
+    filteredSessions,
+    
+    // WebSocket state
+    wsConnected,
+    wsConnecting,
+    wsError,
+    
+    // Actions
+    setNewMessage,
+    setError,
+    setFilter,
+    setSearchTerm,
+    setSoundEnabled,
+    handleSessionSelect,
+    handleSendMessage,
+    handleAssignSession,
+    markMessageAsRead,
+    startTyping,
+    forceStopTyping,
     manualRetry
-  } = useAgentWebSocket({
-    onMessage: useCallback((message: ChatMessage) => {
-      // Only add message if it's for the currently selected session
-      if (selectedSession?.id === message.session_id) {
-        setMessages(prev => {
-          // Check if message already exists to avoid duplicates
-          const exists = prev.some(m => m.id === message.id)
-          if (exists) return prev
+  } = useChatSessionsMinimal({ initialSessionId })
 
-          // Play notification sound for visitor messages (not agent's own messages)
-          if (message.author_type === 'visitor') {
-            playNotificationSound()
-
-            // Show browser notification if page is not visible
-            const session = sessions.find(s => s.id === message.session_id)
-            if (session) {
-              browserNotifications.showMessageNotification({
-                customerName: session.customer_name,
-                customerEmail: session.customer_email,
-                messagePreview: message.content,
-                sessionId: message.session_id
-              })
-            }
-
-            // Add flash effect to the session
-            setFlashingSessions(prev => new Set(prev).add(message.session_id))
-            setTimeout(() => {
-              setFlashingSessions(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(message.session_id)
-                return newSet
-              })
-            }, 2000)
-          }
-
-          return [...prev, message]
-        })
-      } else {
-        // Message for a different session - still play notification if it's from a visitor
-        if (message.author_type === 'visitor') {
-          playNotificationSound()
-
-          // Show browser notification if page is not visible
-          const session = sessions.find(s => s.id === message.session_id)
-          if (session) {
-            browserNotifications.showMessageNotification({
-              customerName: session.customer_name,
-              customerEmail: session.customer_email,
-              messagePreview: message.content,
-              sessionId: message.session_id
-            })
-          }
-
-          // Add flash effect to the session
-          setFlashingSessions(prev => new Set(prev).add(message.session_id))
-          setTimeout(() => {
-            setFlashingSessions(prev => {
-              const newSet = new Set(prev)
-              newSet.delete(message.session_id)
-              return newSet
-            })
-          }, 2000)
-        }
-      }
-
-      // Update session list to reflect new activity
-      setSessions(prev => prev.map(session =>
-        session.id === message.session_id
-          ? { ...session, last_activity_at: message.created_at }
-          : session
-      ))
-    }, [selectedSession?.id, playNotificationSound]),
-    onSessionUpdate: useCallback((updatedSession: ChatSession) => {
-      setSessions(prev => {
-        const exists = prev.some(s => s.id === updatedSession.id)
-        if (exists) {
-          return prev.map(session =>
-            session.id === updatedSession.id ? updatedSession : session
-          )
-        } else {
-          // New session - add to list and refresh
-          return [updatedSession, ...prev]
-        }
-      })
-
-      if (selectedSession?.id === updatedSession.id) {
-        setSelectedSession(updatedSession)
-      }
-    }, [selectedSession?.id]),
-    onTyping: useCallback((data: { isTyping: boolean; agentName?: string; sessionId: string }) => {
-      // Only update typing indicators for the currently selected session
-      if (data.agentName && selectedSession?.id === data.sessionId) {
-        setTypingUsers(prev => {
-          const newSet = new Set(prev)
-          if (data.isTyping) {
-            newSet.add(data.agentName!)
-          } else {
-            newSet.delete(data.agentName!)
-          }
-          return newSet
-        })
-      }
-    }, [selectedSession?.id]),
-    onError: useCallback((error: string) => {
-      setError(`WebSocket error: ${error}`)
-    }, [])
-  })
-
-  // Typing indicator management
-  const { startTyping, forceStopTyping } = useTypingIndicator({
-    onTypingStart: () => {
-      if (selectedSession?.id) {
-        sendTypingIndicator(true, selectedSession.id)
-      }
-    },
-    onTypingStop: () => {
-      if (selectedSession?.id) {
-        sendTypingIndicator(false, selectedSession.id)
-      }
-    },
-    debounceMs: 2000
-  })
-
-  // Mark message as read (placeholder implementation)
-  const markMessageAsRead = useCallback(async (sessionId: string, _messageId: string): Promise<boolean> => {
-    try {
-      await apiClient.markChatMessagesAsRead(sessionId, _messageId)
-      return true
-    } catch (error) {
-      console.error('Failed to mark message as read:', error)
-      return false
+  // Memoized callback for marking messages as read to prevent re-renders
+  const handleMarkAsRead = useCallback((messageId: string) => {
+    if (selectedSession?.id) {
+      markMessageAsRead(selectedSession.id, messageId)
     }
-  }, [])
+  }, [selectedSession?.id, markMessageAsRead])
 
-  useEffect(() => {
-    loadSessions()
-    checkWidgets()
-  }, [filter])
-
-  const checkWidgets = async () => {
-    try {
-      const widgets = await apiClient.listChatWidgets()
-      setHasWidgets(widgets.length > 0)
-    } catch (_error) {
-      setHasWidgets(false)
-    }
-  }
-
-  useEffect(() => {
-    if (initialSessionId) {
-      loadSessionById(initialSessionId)
-    }
-  }, [initialSessionId])
+  const [showCreateModal, setShowCreateModal] = React.useState(false)
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
 
-  // Auto-refresh sessions every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(loadSessions, 30000)
-    return () => clearInterval(interval)
-  }, [filter])
-
-  const loadSessions = async () => {
-    try {
-      setLoading(true)
-      const data = await apiClient.listChatSessions({
-        status: filter === 'all' ? undefined : filter,
-        assigned_agent_id: filter === 'unassigned' ? 'null' : undefined
-      })
-      setSessions(data)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load sessions')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadSessionById = async (sessionId: string) => {
-    try {
-      const session = await apiClient.getChatSession(sessionId)
-      setSelectedSession(session)
-      loadMessages(sessionId)
-    } catch (err: any) {
-      setError(`Failed to load session: ${err.message}`)
-    }
-  }
-
-  const loadMessages = async (sessionId: string) => {
-    try {
-      const data = await apiClient.getChatMessages(sessionId)
-      setMessages(data)
-    } catch (err: any) {
-      setError(`Failed to load messages: ${err.message}`)
-    }
-  }
-
-  const handleSessionSelect = (session: ChatSession) => {
-    // Unsubscribe from previous session
-    if (selectedSession?.id) {
-      unsubscribeFromSession(selectedSession.id)
-    }
-
-    // Force stop typing when switching sessions
-    forceStopTyping()
-    // Clear typing indicators when switching sessions
-    setTypingUsers(new Set())
-    setSelectedSession(session)
-    loadMessages(session.id)
-
-    // Subscribe to new session for real-time updates
-    subscribeToSession(session.id)
-
-    // Clear any existing error when selecting a new session
-    setError(null)
-    // Clear flash effect for this session
-    setFlashingSessions(prev => {
-      const newSet = new Set(prev)
-      newSet.delete(session.id)
-      return newSet
-    })
-  }
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedSession || !newMessage.trim() || sendingMessage || !user?.name) return
-
-    const messageContent = newMessage.trim()
-
-    try {
-      setSendingMessage(true)
-
-      // Use WebSocket-first messaging for real-time delivery
-      const success = await sendChatMessage(selectedSession.id, messageContent, user.name)
-
-      if (success) {
-        setNewMessage('')
-        // Force stop typing indicator when message is sent
-        forceStopTyping()
-      } else {
-        setError('Failed to send message. Please try again.')
-      }
-    } catch (err: any) {
-      setError(`Failed to send message: ${err.message}`)
-    } finally {
-      setSendingMessage(false)
-    }
-  }
-
-  const handleAssignSession = async (sessionId: string) => {
-    if (!user?.id) return
-
-    try {
-      await apiClient.assignChatSession(sessionId, { agent_id: user.id })
-      await loadSessions()
-      if (selectedSession?.id === sessionId) {
-        await loadSessionById(sessionId)
-      }
-    } catch (err: any) {
-      setError(`Failed to assign session: ${err.message}`)
-    }
-  }
-
-  const handleCreateSession = async (sessionId: string) => {
-    await loadSessions()
-    await loadSessionById(sessionId)
-  }
-
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  }, [])
 
-  const getStatusStyles = (status: string) => {
+  const getStatusStyles = useCallback((status: string) => {
     switch (status) {
       case 'active': return 'bg-success/10 text-success'
       case 'waiting': return 'bg-warning/10 text-warning'
@@ -343,62 +80,17 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       case 'transferred': return 'bg-info/10 text-info'
       default: return 'bg-muted text-muted-foreground'
     }
-  }
+  }, [])
 
-  // Connection status notification component
-  const ConnectionStatus = () => {
-    if (!selectedSession) return null
-
-    if (wsConnected) {
-      return (
-        <div className="flex items-center gap-1 text-success" title="Real-time connection active">
-          <Wifi className="w-3 h-3" />
-          <span className="text-xs">Live</span>
-        </div>
-      )
-    }
-
-    if (wsConnecting) {
-      return (
-        <div className="flex items-center gap-1 text-warning" title="Connecting to real-time updates...">
-          <WifiOff className="w-3 h-3 animate-pulse" />
-          <span className="text-xs">Connecting...</span>
-        </div>
-      )
-    }
-
-    if (wsError) {
-      return (
-        <div className="flex items-center gap-1 text-destructive" title={wsError}>
-          <WifiOff className="w-3 h-3" />
-          <span className="text-xs">Error</span>
-        </div>
-      )
-    }
-
-    return (
-      <div className="flex items-center gap-1 text-muted-foreground" title="Disconnected from real-time updates">
-        <WifiOff className="w-3 h-3" />
-        <span className="text-xs">Offline</span>
-      </div>
-    )
-  }
+  const handleCreateSession = useCallback(async (sessionId: string) => {
+    // This will be handled by the hook's session loading
+    console.log('Session created:', sessionId)
+  }, [])
 
   // Manual retry handler for connection failures
-  const handleRetryConnection = () => {
+  const handleRetryConnection = useCallback(() => {
     manualRetry()
-  }
-
-  // Filter sessions based on search term
-  const filteredSessions = useMemo(() => {
-    if (!searchTerm) return sessions
-    const term = searchTerm.toLowerCase()
-    return sessions.filter(session =>
-      session.customer_name?.toLowerCase().includes(term) ||
-      session.customer_email?.toLowerCase().includes(term) ||
-      session.widget_name?.toLowerCase().includes(term)
-    )
-  }, [sessions, searchTerm])
+  }, [manualRetry])
 
   if (loading && sessions.length === 0) {
     return (
@@ -417,7 +109,6 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       <div className="w-96 border-r border-border bg-card flex flex-col">
         {/* Controls */}
         <div className="p-4 border-b border-border">
-
           {/* Search */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -551,7 +242,12 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                       <Clock className="w-3 h-3" />
                       <span>{format(new Date(selectedSession.created_at), 'MMM d, h:mm a')}</span>
                       <span>•</span>
-                      <ConnectionStatus />
+                      <ConnectionStatus 
+                        isConnected={wsConnected}
+                        isConnecting={wsConnecting}
+                        error={wsError}
+                        selectedSession={selectedSession}
+                      />
                     </div>
                   </div>
                 </div>
@@ -593,7 +289,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                 <MessageBubble
                   key={message.id}
                   message={message}
-                  onMarkAsRead={(messageId) => markMessageAsRead(selectedSession.id, messageId)}
+                  onMarkAsRead={handleMarkAsRead}
                 />
               ))}
 
@@ -638,7 +334,6 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                       value={newMessage}
                       onChange={(e) => {
                         setNewMessage(e.target.value)
-                        // Use typing indicator hook for better debouncing
                         if (e.target.value.trim()) {
                           startTyping()
                         } else {
@@ -650,12 +345,10 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                           e.preventDefault()
                           handleSendMessage(e)
                         } else if (e.key === 'Escape') {
-                          // Stop typing on Escape
                           forceStopTyping()
                         }
                       }}
                       onBlur={() => {
-                        // Stop typing indicator when input loses focus
                         forceStopTyping()
                       }}
                       placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
@@ -692,32 +385,30 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         ) : (
           <div className="flex-1 flex items-center justify-center bg-muted/20">
             {hasWidgets === false ? (
-              <>
-                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                  <h3 className="font-medium text-card-foreground mb-1">No chat widgets created</h3>
-                  <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                    Before you can manage chat sessions, you need to create and embed a chat widget on your website.
-                  </p>
-                  <div className="space-y-3">
-                    <a
-                      href="/chat/widgets"
-                      className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-                    >
-                      <Settings className="w-4 h-4" />
-                      Create Your First Widget
-                    </a>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>1. Create widget</span>
-                      <ArrowRight className="w-3 h-3" />
-                      <span>2. Embed on site</span>
-                      <ArrowRight className="w-3 h-3" />
-                      <span>3. Handle sessions</span>
-                    </div>
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                <h3 className="font-medium text-card-foreground mb-1">No chat widgets created</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+                  Before you can manage chat sessions, you need to create and embed a chat widget on your website.
+                </p>
+                <div className="space-y-3">
+                  <a
+                    href="/chat/widgets"
+                    className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Create Your First Widget
+                  </a>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>1. Create widget</span>
+                    <ArrowRight className="w-3 h-3" />
+                    <span>2. Embed on site</span>
+                    <ArrowRight className="w-3 h-3" />
+                    <span>3. Handle sessions</span>
                   </div>
                 </div>
-              </>
-            ) :
-              (<div className="text-center max-w-sm">
+              </div>
+            ) : (
+              <div className="text-center max-w-sm">
                 <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center mx-auto mb-4">
                   <MessageCircle className="w-8 h-8 text-muted-foreground" />
                 </div>
@@ -729,7 +420,8 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                 >
                   Start New Chat
                 </button>
-              </div>)}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -740,6 +432,19 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         onClose={() => setShowCreateModal(false)}
         onSessionCreated={handleCreateSession}
       />
+
+      {/* General Error Toast */}
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-destructive text-destructive-foreground px-4 py-2 rounded-md shadow-lg flex items-center gap-2 max-w-sm z-50">
+          <span className="text-sm">{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-2 text-destructive-foreground/70 hover:text-destructive-foreground"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* WebSocket Error Toast */}
       {wsError && wsError.includes('multiple attempts') && (
@@ -764,123 +469,6 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
           <span className="text-sm">{wsError}</span>
         </div>
       )}
-    </div>
-  )
-}
-
-interface SessionCardProps {
-  session: ChatSession
-  isSelected: boolean
-  isFlashing?: boolean
-  onClick: () => void
-  onAssign: () => void
-}
-
-function SessionCard({ session, isSelected, isFlashing = false, onClick, onAssign }: SessionCardProps) {
-  const getStatusStyles = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-success/10 text-success'
-      case 'waiting': return 'bg-warning/10 text-warning'
-      case 'ended': return 'bg-muted text-muted-foreground'
-      case 'transferred': return 'bg-info/10 text-info'
-      default: return 'bg-muted text-muted-foreground'
-    }
-  }
-
-  return (
-    <div
-      className={`p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5 border-l-4 border-l-primary' : ''
-        } ${isFlashing ? 'animate-pulse bg-primary/10' : ''
-        }`}
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="text-sm font-medium text-card-foreground truncate">
-              {session.customer_name || session.customer_email}
-            </h4>
-            <span className={`px-2 py-1 rounded-md text-xs font-medium ${getStatusStyles(session.status)}`}>
-              {session.status}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-1">{session.widget_name}</p>
-          <p className="text-xs text-muted-foreground">
-            {format(new Date(session.created_at), 'MMM d, h:mm a')}
-          </p>
-          {session.assigned_agent_name && (
-            <p className="text-xs text-primary mt-1">
-              Assigned to {session.assigned_agent_name}
-            </p>
-          )}
-        </div>
-        {!session.assigned_agent_id && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onAssign()
-            }}
-            className="text-primary hover:text-primary/80 text-xs font-medium px-2 py-1 rounded hover:bg-primary/10 transition-colors"
-          >
-            Assign
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-interface MessageBubbleProps {
-  message: ChatMessage
-  onMarkAsRead?: (messageId: string) => void
-}
-
-function MessageBubble({ message, onMarkAsRead }: MessageBubbleProps) {
-  const isAgent = message.author_type === 'agent'
-  const messageRef = useRef<HTMLDivElement>(null)
-
-  // Mark visitor messages as read when they come into view
-  useEffect(() => {
-    if (!isAgent && !message.read_by_agent && onMarkAsRead && messageRef.current) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          const [entry] = entries
-          if (entry.isIntersecting) {
-            onMarkAsRead(message.id)
-            observer.disconnect()
-          }
-        },
-        { threshold: 0.5 }
-      )
-
-      observer.observe(messageRef.current)
-      return () => observer.disconnect()
-    }
-  }, [isAgent, message.read_by_agent, message.id, onMarkAsRead])
-
-  return (
-    <div ref={messageRef} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isAgent
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-muted text-card-foreground'
-        }`}>
-        <p className="text-sm">{message.content}</p>
-        <div className="flex items-center justify-between mt-1">
-          <p className={`text-xs ${isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
-            }`}>
-            {format(new Date(message.created_at), 'h:mm a')}
-          </p>
-          {isAgent && (
-            <div className="flex items-center gap-1 ml-2">
-              {message.read_by_visitor ? (
-                <span className="text-xs text-primary-foreground/70">✓✓</span>
-              ) : (
-                <span className="text-xs text-primary-foreground/50">✓</span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
