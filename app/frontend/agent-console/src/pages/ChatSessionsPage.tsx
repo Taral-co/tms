@@ -4,7 +4,6 @@ import { format } from 'date-fns'
 import { useChatSessionsMinimal } from '../hooks/useChatSessionsMinimal'
 import { SessionCard, MessageBubble, ConnectionStatus } from '../components/chat'
 import { AIStatusWidget } from '../components/chat/AIStatusWidget'
-import { CreateChatSessionModal } from '../components/CreateChatSessionModal'
 
 interface ChatSessionsPageProps {
   initialSessionId?: string
