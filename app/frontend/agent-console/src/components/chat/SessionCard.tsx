@@ -72,22 +72,31 @@ export const SessionCard = React.memo(function SessionCard({
       }}
     >
       <div className="flex items-start gap-3">
-        {/* Customer Avatar */}
-        <Avatar className="h-10 w-10 shrink-0">
-          <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-            {getCustomerInitials()}
-          </AvatarFallback>
-        </Avatar>
+        {/* Customer Avatar - Enterprise Design */}
+        <div className="relative">
+          <Avatar className="h-11 w-11 shrink-0 ring-2 ring-primary/10 transition-all group-hover:ring-primary/20">
+            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-sm font-semibold">
+              {getCustomerInitials()}
+            </AvatarFallback>
+          </Avatar>
+          {/* Online status indicator for active sessions */}
+          {session.status === 'active' && (
+            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-success border-2 border-background rounded-full animate-pulse" />
+          )}
+        </div>
 
         {/* Session Content */}
-        <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex-1 min-w-0 space-y-3">
           {/* Header with name and status */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               <h4 className="text-sm font-semibold text-foreground truncate">
                 {session.customer_name || session.customer_email || 'Guest User'}
               </h4>
-              <Badge variant={getStatusVariant(session.status)} className="shrink-0">
+              <Badge 
+                variant={getStatusVariant(session.status)} 
+                className="shrink-0 text-xs px-2 py-1 font-medium"
+              >
                 {getStatusLabel(session.status)}
               </Badge>
             </div>
@@ -101,16 +110,16 @@ export const SessionCard = React.memo(function SessionCard({
                   e.stopPropagation()
                   onAssign()
                 }}
-                className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-8 px-3 text-xs opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-primary/10"
                 aria-label="Assign session"
               >
-                <User className="h-3 w-3 mr-1" />
+                <User className="h-3 w-3 mr-1.5" />
                 Assign
               </Button>
             ) : (
-              <div className="flex items-center gap-1 text-xs text-primary opacity-75">
+              <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/5 px-2 py-1 rounded-md">
                 <User className="h-3 w-3" />
-                <span className="truncate max-w-20" title={session.assigned_agent_name}>
+                <span className="truncate max-w-20 font-medium" title={session.assigned_agent_name}>
                   {session.assigned_agent_name}
                 </span>
               </div>
@@ -119,15 +128,15 @@ export const SessionCard = React.memo(function SessionCard({
 
           {/* Widget and metadata */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <MessageCircle className="h-3 w-3" />
-              <span className="truncate" title={session.widget_name}>
+            <div className="flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span className="truncate font-medium" title={session.widget_name}>
                 {session.widget_name}
               </span>
             </div>
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span title={format(new Date(session.created_at), 'PPpp')}>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              <span title={format(new Date(session.created_at), 'PPpp')} className="font-medium">
                 {timeAgo}
               </span>
             </div>
@@ -135,20 +144,23 @@ export const SessionCard = React.memo(function SessionCard({
 
           {/* Additional info for selected state */}
           {isSelected && (
-            <div className="text-xs text-muted-foreground">
-              <div>Created: {format(new Date(session.created_at), 'MMM d, h:mm a')}</div>
+            <div className="pt-2 border-t border-border/50 space-y-1 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span>Created:</span>
+                <span className="font-medium">{format(new Date(session.created_at), 'MMM d, h:mm a')}</span>
+              </div>
               {session.customer_email && session.customer_name && (
-                <div className="truncate">{session.customer_email}</div>
+                <div className="flex items-center justify-between">
+                  <span>Email:</span>
+                  <span className="truncate font-mono text-xs ml-2" title={session.customer_email}>
+                    {session.customer_email}
+                  </span>
+                </div>
               )}
             </div>
           )}
         </div>
       </div>
-
-      {/* Active session indicator */}
-      {session.status === 'active' && (
-        <div className="absolute top-2 right-2 h-2 w-2 bg-success rounded-full animate-pulse" />
-      )}
     </div>
   )
 })
