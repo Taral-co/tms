@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { apiClient, Project, Agent, BrandingSettings, AutomationSettings, DomainValidation } from '../lib/api'
+import { AIStatusWidget } from '../components/chat/AIStatusWidget'
 
 // Tab types for settings navigation
 type SettingsTab = 'projects' | 'roles' | 'domains' | 'branding' | 'automations' | 'api-keys'
@@ -1202,6 +1203,43 @@ export function SettingsPage() {
                 />
               </div>
             )}
+          </div>
+        </div>
+
+        {/* AI Assistant Section */}
+        <div className="border rounded-lg p-6 bg-card">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="font-medium">AI Assistant</h4>
+              <p className="text-sm text-muted-foreground">Configure AI-powered features for automated support</p>
+            </div>
+            <AIStatusWidget useAI={true} variant="compact" />
+          </div>
+          
+          {/* Current AI Status */}
+          <div className="mb-6">
+            <AIStatusWidget 
+              useAI={true} 
+              variant="full"
+              className="w-full"
+            />
+          </div>
+          
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <div className="bg-muted/30 p-4 rounded-md">
+              <p className="font-medium text-foreground mb-2">Available AI Features:</p>
+              <ul className="space-y-1 text-sm">
+                <li>• Automated response suggestions</li>
+                <li>• Intelligent ticket categorization</li>
+                <li>• Real-time language translation</li>
+                <li>• Customer sentiment analysis</li>
+                <li>• Smart escalation recommendations</li>
+              </ul>
+            </div>
+            <p className="text-xs">
+              AI features are automatically enabled based on your subscription plan. 
+              Contact your administrator to modify AI settings or upgrade your plan.
+            </p>
           </div>
         </div>
 

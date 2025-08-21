@@ -229,68 +229,73 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
         {selectedSession ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-border bg-card">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <h2 className="font-medium text-card-foreground">
-                      {selectedSession.customer_name || selectedSession.customer_email}
-                    </h2>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium ${getStatusStyles(selectedSession.status)}`}>
-                        {selectedSession.status}
-                      </span>
-                      <span>•</span>
-                      <Clock className="w-3 h-3" />
-                      <span>{format(new Date(selectedSession.created_at), 'MMM d, h:mm a')}</span>
-                      <span>•</span>
-                      <ConnectionStatus 
-                        isConnected={wsConnected}
-                        isConnecting={wsConnecting}
-                        error={wsError}
-                        selectedSession={selectedSession}
-                      />
+            <div className="border-b border-border bg-card">
+              <div className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h2 className="font-medium text-card-foreground">
+                        {selectedSession.customer_name || selectedSession.customer_email}
+                      </h2>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${getStatusStyles(selectedSession.status)}`}>
+                          {selectedSession.status}
+                        </span>
+                        <span>•</span>
+                        <Clock className="w-3 h-3" />
+                        <span>{format(new Date(selectedSession.created_at), 'MMM d, h:mm a')}</span>
+                        <span>•</span>
+                        <ConnectionStatus 
+                          isConnected={wsConnected}
+                          isConnecting={wsConnecting}
+                          error={wsError}
+                          selectedSession={selectedSession}
+                        />
+                        <span>•</span>
+                        <AIStatusWidget 
+                          useAI={selectedSession.use_ai} 
+                          variant="compact"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {!selectedSession.assigned_agent_id && (
+                  <div className="flex items-center gap-2">
+                    {!selectedSession.assigned_agent_id && (
+                      <button
+                        onClick={() => handleAssignSession(selectedSession.id)}
+                        className="flex items-center gap-2 h-9 px-3 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                        aria-label="Assign session to me"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Assign to Me
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleAssignSession(selectedSession.id)}
-                      className="flex items-center gap-2 h-9 px-3 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-                      aria-label="Assign session to me"
+                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      className={`w-9 h-9 flex items-center justify-center rounded-md transition-colors ${soundEnabled
+                          ? 'text-primary hover:bg-primary/10'
+                          : 'text-muted-foreground hover:bg-muted'
+                        }`}
+                      aria-label={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
+                      title={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
                     >
-                      <UserPlus className="w-4 h-4" />
-                      Assign to Me
+                      {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                     </button>
-                  )}
-                  <button
-                    onClick={() => setSoundEnabled(!soundEnabled)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-md transition-colors ${soundEnabled
-                        ? 'text-primary hover:bg-primary/10'
-                        : 'text-muted-foreground hover:bg-muted'
-                      }`}
-                    aria-label={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
-                    title={soundEnabled ? 'Disable notification sounds' : 'Enable notification sounds'}
-                  >
-                    {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                  </button>
-                  <button
-                    className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-                    aria-label="More options"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
+                    <button
+                      className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                      aria-label="More options"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
               
-              {/* AI Status Widget */}
-              <div className="px-4 pb-3">
-                <AIStatusWidget useAI={selectedSession.use_ai} />
-              </div>
+              {/* AI Features Panel - Only show when AI is enabled and has capabilities */}
+              
             </div>
 
             {/* Messages */}
