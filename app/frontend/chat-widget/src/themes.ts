@@ -567,6 +567,8 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      position: relative; /* allow absolute centering of reactions */
+  width: 100%;
     }
 
     .tms-input-wrapper {
@@ -634,9 +636,14 @@ export function generateWidgetCSS(widget: ChatWidget): string {
     .tms-reaction-group { 
       display: flex; 
       gap: 6px; 
-      margin-left: auto; /* push reactions to the right */
-      justify-content: flex-end; /* ensure buttons are right-aligned */
+      position: absolute; /* center regardless of other controls */
+      left: 50%;
+      transform: translateX(-50%);
+      justify-content: center;
       align-items: center;
+      margin-bottom: 20px;
+      pointer-events: auto;
+      z-index: 2; /* ensure reactions sit above other controls */
     }
     
     .tms-thumb-button {
