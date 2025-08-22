@@ -86,7 +86,7 @@ export function AppearanceSection({
               </div>
             </div>
 
-            {/* Color, Size, and Position */}
+            {/* Colors, Size, and Position */}
             <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-3">
               <div className="space-y-2">
                 <label 
@@ -114,6 +114,35 @@ export function AppearanceSection({
                 </div>
                 <p id="primary-color-description" className="text-xs text-muted-foreground">
                   Main theme color for the widget
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label 
+                  htmlFor="background-color" 
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Background Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="background-color"
+                    type="color"
+                    value={formData.background_color || '#ffffff'}
+                    onChange={(e) => onUpdate({ background_color: e.target.value })}
+                    className="h-10 w-16 rounded-md border border-input bg-background cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-describedby="background-color-description"
+                  />
+                  <input
+                    type="text"
+                    value={formData.background_color || ''}
+                    onChange={(e) => onUpdate({ background_color: e.target.value })}
+                    className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="#ffffff"
+                  />
+                </div>
+                <p id="background-color-description" className="text-xs text-muted-foreground">
+                  Background color used inside the chat window
                 </p>
               </div>
 

@@ -101,10 +101,11 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
                       absolute bottom-full mb-4 
                       ${formData.position === 'bottom-left' ? 'left-0' : 'right-0'}
                       ${getWidgetWindowSize(formData.widget_size || 'medium')}
-                      bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700
+                      rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700
                       transform transition-all duration-300 origin-bottom
                       ${isWidgetOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                     `}
+                    style={{ backgroundColor: formData.background_color || '#ffffff' }}
                   >
                     {/* Chat Header */}
                     <div 
@@ -193,7 +194,8 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
                         <input
                           type="text"
                           placeholder="Type your message..."
-                          className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ backgroundColor: formData.background_color || '#ffffff' }}
                           disabled
                         />
                         <button 

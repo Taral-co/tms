@@ -8,6 +8,7 @@ export interface ChatWidget {
   is_active: boolean
   primary_color: string
   secondary_color: string
+  background_color?: string
   position: 'bottom-right' | 'bottom-left'
   welcome_message: string
   offline_message: string
@@ -80,6 +81,7 @@ export interface CreateChatWidgetRequest {
   name: string
   primary_color?: string
   secondary_color?: string
+  background_color?: string
   position?: 'bottom-right' | 'bottom-left'
   welcome_message?: string
   offline_message?: string
@@ -95,6 +97,7 @@ export interface UpdateChatWidgetRequest {
   is_active?: boolean
   primary_color?: string
   secondary_color?: string
+  background_color?: string
   position?: 'bottom-right' | 'bottom-left'
   welcome_message?: string
   offline_message?: string

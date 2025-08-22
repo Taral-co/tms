@@ -24,7 +24,7 @@ func (r *ChatWidgetRepo) CreateChatWidget(ctx context.Context, widget *models.Ch
 	query := `
 		INSERT INTO chat_widgets (
 			id, tenant_id, project_id, domain_id, name, is_active,
-			primary_color, secondary_color, position, widget_shape, chat_bubble_style,
+			primary_color, secondary_color, background_color, position, widget_shape, chat_bubble_style,
 			widget_size, animation_style, custom_css,
 			welcome_message, offline_message, custom_greeting, away_message,
 			agent_name, agent_avatar_url,
@@ -33,7 +33,7 @@ func (r *ChatWidgetRepo) CreateChatWidget(ctx context.Context, widget *models.Ch
 			business_hours, embed_code, created_at, updated_at
 		) VALUES (
 			:id, :tenant_id, :project_id, :domain_id, :name, :is_active,
-			:primary_color, :secondary_color, :position, :widget_shape, :chat_bubble_style,
+			:primary_color, :secondary_color, :background_color, :position, :widget_shape, :chat_bubble_style,
 			:widget_size, :animation_style, :custom_css,
 			:welcome_message, :offline_message, :custom_greeting, :away_message,
 			:agent_name, :agent_avatar_url,
@@ -50,7 +50,7 @@ func (r *ChatWidgetRepo) CreateChatWidget(ctx context.Context, widget *models.Ch
 func (r *ChatWidgetRepo) GetChatWidget(ctx context.Context, tenantID, projectID, widgetID uuid.UUID) (*models.ChatWidget, error) {
 	query := `
 		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
-			   cw.primary_color, cw.secondary_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
+			   cw.primary_color, cw.secondary_color, cw.background_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
 			   cw.widget_size, cw.animation_style, cw.custom_css,
 			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
 			   cw.agent_name, cw.agent_avatar_url,
@@ -77,7 +77,7 @@ func (r *ChatWidgetRepo) GetChatWidget(ctx context.Context, tenantID, projectID,
 func (r *ChatWidgetRepo) GetChatWidgetById(ctx context.Context, widgetID uuid.UUID) (*models.ChatWidget, error) {
 	query := `
 		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
-			   cw.primary_color, cw.secondary_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
+			   cw.primary_color, cw.secondary_color, cw.background_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
 			   cw.widget_size, cw.animation_style, cw.custom_css,
 			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
 			   cw.agent_name, cw.agent_avatar_url,
@@ -105,7 +105,7 @@ func (r *ChatWidgetRepo) GetChatWidgetById(ctx context.Context, widgetID uuid.UU
 func (r *ChatWidgetRepo) GetChatWidgetByDomain(ctx context.Context, domain string) (*models.ChatWidget, error) {
 	query := `
 		SELECT cw.id, cw.tenant_id, cw.project_id, cw.domain_id, cw.name, cw.is_active,
-			   cw.primary_color, cw.secondary_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
+			   cw.primary_color, cw.secondary_color, cw.background_color, cw.position, cw.widget_shape, cw.chat_bubble_style,
 			   cw.widget_size, cw.animation_style, cw.custom_css,
 			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
 			   cw.agent_name, cw.agent_avatar_url,
@@ -166,6 +166,7 @@ func (r *ChatWidgetRepo) UpdateChatWidget(ctx context.Context, widget *models.Ch
 			is_active = :is_active,
 			primary_color = :primary_color,
 			secondary_color = :secondary_color,
+			background_color = :background_color,
 			position = :position,
 			widget_shape = :widget_shape,
 			chat_bubble_style = :chat_bubble_style,

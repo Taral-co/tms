@@ -46,6 +46,9 @@ func (s *ChatWidgetService) CreateChatWidget(ctx context.Context, tenantID, proj
 	if req.SecondaryColor == "" {
 		req.SecondaryColor = "#f3f4f6"
 	}
+	if req.BackgroundColor == "" {
+		req.BackgroundColor = "#ffffff"
+	}
 	if req.Position == "" {
 		req.Position = "bottom-right"
 	}
@@ -68,6 +71,7 @@ func (s *ChatWidgetService) CreateChatWidget(ctx context.Context, tenantID, proj
 		IsActive:         true,
 		PrimaryColor:     req.PrimaryColor,
 		SecondaryColor:   req.SecondaryColor,
+		BackgroundColor:  req.BackgroundColor,
 		Position:         req.Position,
 		WelcomeMessage:   req.WelcomeMessage,
 		OfflineMessage:   req.OfflineMessage,
@@ -129,6 +133,9 @@ func (s *ChatWidgetService) UpdateChatWidget(ctx context.Context, tenantID, proj
 	}
 	if req.SecondaryColor != nil {
 		widget.SecondaryColor = *req.SecondaryColor
+	}
+	if req.BackgroundColor != nil {
+		widget.BackgroundColor = *req.BackgroundColor
 	}
 	if req.Position != nil {
 		widget.Position = *req.Position

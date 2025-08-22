@@ -437,6 +437,7 @@ type ChatWidget struct {
 	// Appearance settings
 	PrimaryColor    string  `db:"primary_color" json:"primary_color"`
 	SecondaryColor  string  `db:"secondary_color" json:"secondary_color"`
+	BackgroundColor string  `db:"background_color" json:"background_color"`
 	Position        string  `db:"position" json:"position"`
 	WidgetShape     string  `db:"widget_shape" json:"widget_shape"`
 	ChatBubbleStyle string  `db:"chat_bubble_style" json:"chat_bubble_style"`
@@ -489,6 +490,7 @@ type ChatWidgetPublic struct {
 	// Appearance settings
 	PrimaryColor    string  `db:"primary_color" json:"primary_color"`
 	SecondaryColor  string  `db:"secondary_color" json:"secondary_color"`
+	BackgroundColor string  `db:"background_color" json:"background_color"`
 	Position        string  `db:"position" json:"position"`
 	WidgetShape     string  `db:"widget_shape" json:"widget_shape"`
 	ChatBubbleStyle string  `db:"chat_bubble_style" json:"chat_bubble_style"`
@@ -613,6 +615,7 @@ type CreateChatWidgetRequest struct {
 	Name             string    `json:"name" binding:"required,max=255"`
 	PrimaryColor     string    `json:"primary_color" binding:"omitempty,len=7"`
 	SecondaryColor   string    `json:"secondary_color" binding:"omitempty,len=7"`
+	BackgroundColor  string    `json:"background_color" binding:"omitempty,len=7"`
 	Position         string    `json:"position" binding:"omitempty,oneof=bottom-right bottom-left"`
 	WelcomeMessage   string    `json:"welcome_message" binding:"omitempty,max=500"`
 	OfflineMessage   string    `json:"offline_message" binding:"omitempty,max=500"`
@@ -630,6 +633,7 @@ type UpdateChatWidgetRequest struct {
 	IsActive         *bool    `json:"is_active,omitempty"`
 	PrimaryColor     *string  `json:"primary_color,omitempty" binding:"omitempty,len=7"`
 	SecondaryColor   *string  `json:"secondary_color,omitempty" binding:"omitempty,len=7"`
+	BackgroundColor  *string  `json:"background_color,omitempty" binding:"omitempty,len=7"`
 	Position         *string  `json:"position,omitempty" binding:"omitempty,oneof=bottom-right bottom-left"`
 	WelcomeMessage   *string  `json:"welcome_message,omitempty" binding:"omitempty,max=500"`
 	OfflineMessage   *string  `json:"offline_message,omitempty" binding:"omitempty,max=500"`

@@ -81,6 +81,7 @@ export function useChatWidgetForm() {
           away_message: widget.away_message || 'We\'re currently away. Leave us a message and we\'ll get back to you!',
           primary_color: widget.primary_color || '#3b82f6',
           secondary_color: widget.secondary_color || '#6b7280',
+          background_color: widget.background_color || '#ffffff',
           position: widget.position || 'bottom-right',
           widget_shape: widget.widget_shape || 'rounded',
           chat_bubble_style: widget.chat_bubble_style || 'modern',
