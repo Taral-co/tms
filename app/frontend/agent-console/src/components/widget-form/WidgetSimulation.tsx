@@ -43,9 +43,9 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
         </div>
         
         {/* Website Mockup Container */}
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-lg p-6 h-[600px] relative overflow-hidden border">
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-lg p-6 h-[690px] relative overflow-hidden border flex flex-col">
           {/* Mockup Browser UI */}
-          <div className="bg-white dark:bg-slate-800 rounded-t border-b border-slate-200 dark:border-slate-700 p-3 mb-4">
+          <div className="bg-white dark:bg-slate-800 rounded-t border-b border-slate-200 dark:border-slate-700 p-3 flex-shrink-0">
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
                 <div className="w-3 h-3 rounded-full bg-red-400"></div>
@@ -59,13 +59,22 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
           </div>
           
           {/* Website Content Area */}
-          <div className="bg-white dark:bg-slate-800 rounded-b h-full relative">
-            <div className="p-6 space-y-4">
-              <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
-              <div className="space-y-2">
+          <div className="bg-white dark:bg-slate-800 rounded-b flex-1 relative overflow-hidden">
+            <div className="p-6 space-y-6 h-full">
+              {/* Main headline placeholder */}
+              <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-3/4 max-w-md"></div>
+              
+              {/* Content paragraphs placeholder */}
+              <div className="space-y-3 max-w-2xl">
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded"></div>
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-5/6"></div>
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-4/5"></div>
+              </div>
+              
+              {/* Additional content sections */}
+              <div className="space-y-3 max-w-xl">
+                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
+                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
               </div>
             </div>
             
