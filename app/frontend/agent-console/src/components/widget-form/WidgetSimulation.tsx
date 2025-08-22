@@ -140,7 +140,10 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
                         </div>
                         <div className="text-white/80 text-xs">
                           <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <div 
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: '#10b981' }}
+                            ></div>
                             Online now
                           </div>
                         </div>
@@ -165,13 +168,19 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
                             className={`
                               max-w-[80%] p-3 rounded-lg text-sm
                               ${message.type === 'visitor'
-                                ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-br-sm'
+                                ? 'text-white rounded-br-sm'
                                 : message.type === 'system'
                                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 rounded-bl-sm'
                                 : 'bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-bl-sm'
                               }
                             `}
-                            style={message.type === 'visitor' ? { backgroundColor: `${formData.primary_color}20` } : {}}
+                            style={
+                              message.type === 'visitor' 
+                                ? { backgroundColor: formData.primary_color }
+                                : message.type === 'agent'
+                                ? { backgroundColor: formData.secondary_color || '#f8fafc' }
+                                : {}
+                            }
                           >
                             {message.content}
                           </div>
@@ -181,11 +190,29 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
                       {/* Typing Indicator */}
                       {isTyping && (
                         <div className="flex justify-start">
-                          <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg rounded-bl-sm">
+                          <div 
+                            className="p-3 rounded-lg rounded-bl-sm"
+                            style={{ backgroundColor: formData.secondary_color || '#f8fafc' }}
+                          >
                             <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                              <div 
+                                className="w-2 h-2 rounded-full animate-bounce"
+                                style={{ backgroundColor: formData.primary_color || '#6b7280' }}
+                              ></div>
+                              <div 
+                                className="w-2 h-2 rounded-full animate-bounce"
+                                style={{ 
+                                  backgroundColor: formData.primary_color || '#6b7280',
+                                  animationDelay: '0.1s'
+                                }}
+                              ></div>
+                              <div 
+                                className="w-2 h-2 rounded-full animate-bounce"
+                                style={{ 
+                                  backgroundColor: formData.primary_color || '#6b7280',
+                                  animationDelay: '0.2s'
+                                }}
+                              ></div>
                             </div>
                           </div>
                         </div>
@@ -196,20 +223,30 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
                     <div className="p-4 border-t border-slate-200 dark:border-slate-700">
                       <div className="flex gap-2">
                         {formData.allow_file_uploads && (
-                          <button type="button" className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                          <button 
+                            type="button" 
+                            className="p-2 rounded hover:bg-opacity-80 transition-colors"
+                            style={{ 
+                              color: formData.primary_color || '#6b7280',
+                              backgroundColor: formData.secondary_color ? `${formData.secondary_color}40` : '#f3f4f6'
+                            }}
+                          >
                             <Paperclip className="h-4 w-4" />
                           </button>
                         )}
                         <input
                           type="text"
                           placeholder="Type your message..."
-                          className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ backgroundColor: formData.background_color || '#ffffff' }}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none border-2 transition-colors"
+                          style={{ 
+                            backgroundColor: formData.background_color || '#ffffff',
+                            borderColor: formData.secondary_color || '#e5e7eb'
+                          }}
                           disabled
                         />
                         <button 
                           type="button"
-                          className="p-2 text-white rounded-lg"
+                          className="p-2 text-white rounded-lg hover:opacity-90 transition-opacity"
                           style={{ backgroundColor: formData.primary_color }}
                         >
                           <Send className="h-4 w-4" />
@@ -236,14 +273,23 @@ export function WidgetSimulation({ formData, domains }: WidgetSimulationProps) {
           <button
             type="button"
             onClick={toggleWidget}
-            className="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-slate-600 rounded hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            className="flex-1 px-3 py-2 text-xs rounded hover:opacity-90 transition-opacity font-medium"
+            style={{ 
+              backgroundColor: formData.secondary_color || '#f3f4f6',
+              color: formData.primary_color || '#374151',
+              border: `1px solid ${formData.primary_color || '#e5e7eb'}`
+            }}
           >
             {isWidgetOpen ? 'Close Widget' : 'Open Widget'}
           </button>
           <button
             type="button"
             onClick={startTypingDemo}
-            className="px-3 py-2 text-xs border border-slate-200 dark:border-slate-600 rounded hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            className="px-3 py-2 text-xs rounded hover:opacity-90 transition-opacity font-medium"
+            style={{ 
+              backgroundColor: formData.primary_color,
+              color: 'white'
+            }}
           >
             Demo Typing
           </button>
