@@ -76,32 +76,17 @@ export function ChatWidgetsPage() {
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Compact Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Chat Widgets</h1>
-            <p className="text-xs text-muted-foreground">Manage chat widgets for verified domains</p>
-          </div>
-          <button
-            onClick={() => navigate('/chat/widget/create')}
-            disabled={domains.length === 0}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Create Widget
-          </button>
-        </div>
-
+      <div >
         {/* Compact Alerts */}
         {error && (
-          <div className="mt-2 flex items-center gap-2 p-2 rounded-md bg-destructive/10 border border-destructive/20">
+          <div className="mt-2 flex items-center gap-2 p-2 m-2 rounded-md bg-destructive/10 border border-destructive/20">
             <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
             <p className="text-xs text-destructive truncate">{error}</p>
           </div>
         )}
         
         {successMessage && (
-          <div className="mt-2 flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800">
+          <div className="mt-2 flex items-center gap-2 p-2 m-2 rounded-md bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800">
             <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />
             <p className="text-xs text-emerald-700 dark:text-emerald-300 truncate">{successMessage}</p>
           </div>
@@ -121,9 +106,49 @@ export function ChatWidgetsPage() {
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto">
-        {widgets.length > 0 ? (
+        {widgets.length > 0 || domains.length > 0 ? (
           <div className="p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {/* Create Widget Card */}
+              {domains.length > 0 && (
+                <div className="group bg-card rounded-lg border-2 border-dashed border-border hover:border-primary/50 p-3 hover:shadow-md transition-all duration-200 h-fit">
+                  {/* Header Section */}
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                      <Plus className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+
+                  {/* Content Section */}
+                  <div className="text-center mb-3">
+                    <h3 className="text-sm font-medium text-foreground mb-1">Create New Widget</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Add a chat widget to engage with your visitors
+                    </p>
+                  </div>
+
+                  {/* Essential Info Placeholder */}
+                  <div className="space-y-2 mb-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">&nbsp;</span>
+                      <span className="text-foreground font-medium">&nbsp;</span>
+                    </div>
+                    
+                  </div>
+
+                  {/* Action Section */}
+                  <div className="pt-2 border-t border-border">
+                    <button
+                      onClick={() => navigate('/chat/widget/create')}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Create Widget
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               {widgets.map((widget) => (
                 <WidgetCard
                   key={widget.id}
@@ -192,28 +217,28 @@ function WidgetCard({ widget, onEdit, onDelete, onToggleActive, onCopyEmbed }: W
         
         {/* Status Indicator */}
         <div className="flex items-center gap-1">
-          <div className={`w-2 h-2 rounded-full ${widget.is_active ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-0.5">
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+          widget.is_active 
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+            : 'bg-muted text-muted-foreground border border-border'
+        }`}>
+          <div className={`w-1 h-1 rounded-full ${widget.is_active ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
+          {widget.is_active ? 'Active' : 'Inactive'}
+        </div>
             <button
               onClick={onToggleActive}
               className="p-1 hover:bg-muted rounded transition-colors"
               title={widget.is_active ? 'Deactivate' : 'Activate'}
             >
-              {widget.is_active ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-            </button>
-            <button
-              onClick={onEdit}
-              className="p-1 hover:bg-muted rounded transition-colors"
-              title="Edit"
-            >
-              <Edit3 className="h-3 w-3" />
-            </button>
+              {widget.is_active ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+            </button>            
             <button
               onClick={onDelete}
               className="p-1 hover:bg-destructive/10 text-destructive/70 hover:text-destructive rounded transition-colors"
               title="Delete"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -231,17 +256,11 @@ function WidgetCard({ widget, onEdit, onDelete, onToggleActive, onCopyEmbed }: W
             {widget.auto_open_delay > 0 ? `${widget.auto_open_delay}s` : 'Off'}
           </span>
         </div>
-      </div>
-
-      {/* Status Badge */}
-      <div className="mb-3">
-        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-          widget.is_active 
-            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
-            : 'bg-muted text-muted-foreground border border-border'
-        }`}>
-          <div className={`w-1 h-1 rounded-full ${widget.is_active ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-          {widget.is_active ? 'Active' : 'Inactive'}
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">AI Enabled</span>
+          <span className="text-foreground font-medium">
+            {widget.use_ai ? 'On' : 'Off'}
+          </span>
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 export interface ChatMessage {
   id: string
   content: string
-  author_type: 'visitor' | 'agent' | 'system'
+  author_type: 'visitor' | 'agent' | 'system' | 'ai-agent'
   author_name: string
   created_at: string
   message_type: 'text' | 'file' | 'image'

@@ -248,8 +248,8 @@ export class TMSChatWidget {
     const messageWrapper = document.createElement('div')
     messageWrapper.className = `tms-message-wrapper ${message.author_type}`
 
-    const isAgent = message.author_type === 'agent'
-    
+    const isAgent = message.author_type === 'agent' || message.author_type === 'ai-agent'
+
     // Create message bubble with enhanced styling
     const messageBubble = document.createElement('div')
     messageBubble.className = `tms-message-bubble ${message.author_type}`
@@ -440,7 +440,7 @@ export class TMSChatWidget {
 
     // Find recent agent messages that haven't been read
     const recentAgentMessages = this.messages
-      .filter(m => m.author_type === 'agent')
+      .filter(m => m.author_type === 'agent' || m.author_type === 'ai-agent')
       .slice(-5) // Only last 5 messages to avoid spam
     
     recentAgentMessages.forEach(message => {
