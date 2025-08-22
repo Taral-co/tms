@@ -140,20 +140,6 @@ export function ChatPage() {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Setup Progress Indicator */}
-              {!guidedSetup.loading && (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${guidedSetup.hasWidgets ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                    <span className="text-xs text-muted-foreground">Widgets</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${guidedSetup.hasSessions ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                    <span className="text-xs text-muted-foreground">Sessions</span>
-                  </div>
-                </div>
-              )}
-
               {/* Tab Navigation (moved to top-right) */}
               <div className="flex space-x-1 bg-muted/50 p-1 rounded-lg w-fit">
                 {tabs.map((tab) => {
