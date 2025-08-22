@@ -29,6 +29,39 @@ export function ChatPage() {
     if (pathname.includes('/chat/widgets') || pathname.includes('/chat/widget/create')) return 'widgets'
     return 'sessions'
   }
+
+  // Get page title and description based on current route
+  const getPageInfo = (pathname: string) => {
+    if (pathname.includes('/chat/widget/create')) {
+      return {
+        title: 'Create Chat Widget',
+        description: 'Configure a new chat widget for your domain'
+      }
+    }
+    if (pathname.includes('/chat/widget/edit/')) {
+      return {
+        title: 'Edit Chat Widget',
+        description: 'Update chat widget configuration and settings'
+      }
+    }
+    if (pathname.includes('/chat/widgets')) {
+      return {
+        title: 'Chat Widgets',
+        description: 'Manage chat widgets for your domains'
+      }
+    }
+    if (pathname.includes('/chat/sessions/')) {
+      return {
+        title: 'Chat Session',
+        description: 'View and manage individual chat conversation'
+      }
+    }
+    // Default to Chat Sessions
+    return {
+      title: 'Chat Sessions',
+      description: 'Manage live chat conversations with customers'
+    }
+  }
   
   const [activeTab, setActiveTab] = useState<ChatTab>(() => getTabFromPath(location.pathname))
   const [guidedSetup, setGuidedSetup] = useState<GuidedSetupState>({
@@ -73,6 +106,9 @@ export function ChatPage() {
     const newPath = tab === 'widgets' ? '/chat/widgets' : '/chat/sessions'
     navigate(newPath, { replace: true })
   }
+
+  // Get current page info
+  const pageInfo = getPageInfo(location.pathname)
   const tabs = [
     {
       id: 'widgets' as const,
@@ -97,9 +133,9 @@ export function ChatPage() {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">Chat Management</h1>
+              <h1 className="text-2xl font-semibold text-foreground">{pageInfo.title}</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Manage chat sessions and configure widgets for customer support
+                {pageInfo.description}
               </p>
             </div>
 
