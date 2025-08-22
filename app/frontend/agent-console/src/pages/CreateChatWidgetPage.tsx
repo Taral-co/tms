@@ -52,7 +52,7 @@ export function CreateChatWidgetPage() {
 
       {/* Main Content */}
       <div className="w-full">
-        <div className="container mx-auto max-w-screen-2xl px-4 py-6">
+        <div className="container mx-auto max-w-screen-2xl px-4">
           <div className="flex flex-col gap-6">
             {/* Alerts and Messages */}
             <PageHeader 
