@@ -23,6 +23,7 @@ export interface ChatWidget {
   name: string
   primary_color: string
   secondary_color: string
+  background_color: string
   position: 'bottom-right' | 'bottom-left'
   widget_shape: 'rounded' | 'square' | 'minimal' | 'professional' | 'modern' | 'classic'
   chat_bubble_style: 'modern' | 'classic' | 'minimal' | 'rounded'
