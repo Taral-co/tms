@@ -40,6 +40,7 @@ export interface ChatWidget {
   show_agent_avatars: boolean
   allow_file_uploads: boolean
   require_email: boolean
+  require_name: boolean
   sound_enabled: boolean
   show_powered_by: boolean
   use_ai: boolean

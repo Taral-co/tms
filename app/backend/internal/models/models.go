@@ -462,6 +462,7 @@ type ChatWidget struct {
 	RequireEmail     bool `db:"require_email" json:"require_email"`
 	SoundEnabled     bool `db:"sound_enabled" json:"sound_enabled"`
 	ShowPoweredBy    bool `db:"show_powered_by" json:"show_powered_by"`
+	RequireName      bool `db:"require_name" json:"require_name"`
 
 	// AI and advanced features
 	UseAI bool `db:"use_ai" json:"use_ai"`
@@ -515,6 +516,7 @@ type ChatWidgetPublic struct {
 	RequireEmail     bool `db:"require_email" json:"require_email"`
 	SoundEnabled     bool `db:"sound_enabled" json:"sound_enabled"`
 	ShowPoweredBy    bool `db:"show_powered_by" json:"show_powered_by"`
+	RequireName      bool `db:"require_name" json:"require_name"`
 
 	// AI and advanced features
 	UseAI bool `db:"use_ai" json:"use_ai"`
@@ -623,6 +625,7 @@ type CreateChatWidgetRequest struct {
 	ShowAgentAvatars bool      `json:"show_agent_avatars"`
 	AllowFileUploads bool      `json:"allow_file_uploads"`
 	RequireEmail     bool      `json:"require_email"`
+	RequireName      bool      `json:"require_name"`
 	BusinessHours    JSONMap   `json:"business_hours"`
 	UseAI            bool      `json:"use_ai"`
 }
@@ -641,6 +644,7 @@ type UpdateChatWidgetRequest struct {
 	ShowAgentAvatars *bool    `json:"show_agent_avatars,omitempty"`
 	AllowFileUploads *bool    `json:"allow_file_uploads,omitempty"`
 	RequireEmail     *bool    `json:"require_email,omitempty"`
+	RequireName      *bool    `json:"require_name,omitempty"`
 	BusinessHours    *JSONMap `json:"business_hours,omitempty"`
 	ChatBubbleStyle  *string  `json:"chat_bubble_style,omitempty" binding:"omitempty,oneof=modern classic minimal bot"`
 	WidgetShape      *string  `json:"widget_shape,omitempty" binding:"omitempty,oneof=rounded square"`

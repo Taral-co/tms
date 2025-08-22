@@ -22,7 +22,8 @@ export interface CreateChatWidgetRequest {
   agent_avatar_url?: string
   allow_file_uploads?: boolean
   show_agent_avatars?: boolean
-  require_email?: boolean
+  require_email: boolean
+  require_name: boolean
   sound_enabled?: boolean
   show_powered_by?: boolean
   use_ai?: boolean
@@ -48,6 +49,7 @@ const defaultFormData: CreateChatWidgetRequest = {
   allow_file_uploads: false,
   show_agent_avatars: true,
   require_email: false,
+  require_name: false,
   sound_enabled: true,
   show_powered_by: true,
   use_ai: false,
@@ -92,6 +94,7 @@ export function useChatWidgetForm() {
           allow_file_uploads: widget.allow_file_uploads || false,
           show_agent_avatars: widget.show_agent_avatars !== false,
           require_email: widget.require_email || false,
+          require_name: widget.require_name || false,
           sound_enabled: widget.sound_enabled !== false,
           show_powered_by: widget.show_powered_by !== false,
           use_ai: widget.use_ai || false,

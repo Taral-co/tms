@@ -28,7 +28,7 @@ func (r *ChatWidgetRepo) CreateChatWidget(ctx context.Context, widget *models.Ch
 			widget_size, animation_style, custom_css,
 			welcome_message, offline_message, custom_greeting, away_message,
 			agent_name, agent_avatar_url,
-			auto_open_delay, show_agent_avatars, allow_file_uploads, require_email,
+			auto_open_delay, show_agent_avatars, allow_file_uploads, require_email, require_name,
 			sound_enabled, show_powered_by, use_ai,
 			business_hours, embed_code, created_at, updated_at
 		) VALUES (
@@ -37,7 +37,7 @@ func (r *ChatWidgetRepo) CreateChatWidget(ctx context.Context, widget *models.Ch
 			:widget_size, :animation_style, :custom_css,
 			:welcome_message, :offline_message, :custom_greeting, :away_message,
 			:agent_name, :agent_avatar_url,
-			:auto_open_delay, :show_agent_avatars, :allow_file_uploads, :require_email,
+			:auto_open_delay, :show_agent_avatars, :allow_file_uploads, :require_email, :require_name,
 			:sound_enabled, :show_powered_by, :use_ai,
 			:business_hours, :embed_code, :created_at, :updated_at
 		)
@@ -54,7 +54,7 @@ func (r *ChatWidgetRepo) GetChatWidget(ctx context.Context, tenantID, projectID,
 			   cw.widget_size, cw.animation_style, cw.custom_css,
 			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
 			   cw.agent_name, cw.agent_avatar_url,
-			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
+			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email, cw.require_name,
 			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
 			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
@@ -82,7 +82,7 @@ func (r *ChatWidgetRepo) GetChatWidgetById(ctx context.Context, widgetID uuid.UU
 			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
 			   cw.agent_name, cw.agent_avatar_url,
 			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
-			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
+			   cw.require_name, cw.sound_enabled, cw.show_powered_by, cw.use_ai,
 			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
 		FROM chat_widgets cw
@@ -110,7 +110,7 @@ func (r *ChatWidgetRepo) GetChatWidgetByDomain(ctx context.Context, domain strin
 			   cw.welcome_message, cw.offline_message, cw.custom_greeting, cw.away_message,
 			   cw.agent_name, cw.agent_avatar_url,
 			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
-			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
+			   cw.require_name, cw.sound_enabled, cw.show_powered_by, cw.use_ai,
 			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
 		FROM chat_widgets cw
@@ -140,7 +140,7 @@ func (r *ChatWidgetRepo) ListChatWidgets(ctx context.Context, tenantID, projectI
 			   cw.agent_name, cw.agent_avatar_url,
 			   cw.auto_open_delay, cw.show_agent_avatars, cw.allow_file_uploads, cw.require_email,
 			   cw.sound_enabled, cw.show_powered_by, cw.use_ai,
-			   cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
+			   cw.require_name, cw.business_hours, cw.embed_code, cw.created_at, cw.updated_at,
 			   edv.domain as domain_name
 		FROM chat_widgets cw
 		LEFT JOIN email_domain_validations edv ON cw.domain_id = edv.id
@@ -183,6 +183,7 @@ func (r *ChatWidgetRepo) UpdateChatWidget(ctx context.Context, widget *models.Ch
 			show_agent_avatars = :show_agent_avatars,
 			allow_file_uploads = :allow_file_uploads,
 			require_email = :require_email,
+			require_name = :require_name,
 			sound_enabled = :sound_enabled,
 			show_powered_by = :show_powered_by,
 			use_ai = :use_ai,

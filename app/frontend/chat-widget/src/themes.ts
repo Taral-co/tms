@@ -144,17 +144,65 @@ function hexToRgb(hex: string): string {
   return `${r}, ${g}, ${b}`
 }
 
+// Helper function to get RGB values as numbers
+function hexToRgbNumbers(hex: string): { r: number, g: number, b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  if (!result) return { r: 59, g: 130, b: 246 } // Default blue
+  
+  return {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  }
+}
+
+// Calculate luminance to determine if color is light or dark
+function getLuminance(r: number, g: number, b: number): number {
+  const [rs, gs, bs] = [r, g, b].map(c => {
+    c = c / 255
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
+}
+
+// Generate placeholder color that's complementary to background
+function generatePlaceholderColor(backgroundColor: string, secondaryColor: string): string {
+  const bgRgb = hexToRgbNumbers(backgroundColor)
+  
+  // Calculate background luminance
+  const bgLuminance = getLuminance(bgRgb.r, bgRgb.g, bgRgb.b)
+  
+  // If background is dark, make placeholder lighter; if light, make darker
+  if (bgLuminance < 0.5) {
+    // Dark background - blend more white for visibility
+    return `color-mix(in srgb, ${secondaryColor} 60%, #ffffff 40%)`
+  } else {
+    // Light background - blend more black for visibility
+    return `color-mix(in srgb, ${secondaryColor} 65%, #000000 35%)`
+  }
+}
+
 export function generateWidgetCSS(widget: ChatWidget): string {
   const theme = getWidgetTheme(widget)
   const size = WIDGET_SIZES[widget.widget_size] || WIDGET_SIZES.medium
   const animation = ANIMATIONS[widget.animation_style] || ANIMATIONS.smooth
   const bubbleStyle = BUBBLE_STYLES[widget.chat_bubble_style] || BUBBLE_STYLES.modern
 
+  // Generate dynamic placeholder color
+  const placeholderColor = generatePlaceholderColor(
+    widget.background_color || '#ffffff',
+    widget.secondary_color || '#6b7280'
+  )
+
   return `
     :root {
       --tms-primary-color: ${widget.primary_color};
       --tms-primary-color-rgb: ${hexToRgb(widget.primary_color)};
       --tms-secondary-color: ${widget.secondary_color || '#6b7280'};
+      --tms-secondary-color-rgb: ${hexToRgb(widget.secondary_color || '#6b7280')};
+      --tms-background-color: ${widget.background_color || '#ffffff'};
+      --tms-background-color-rgb: ${hexToRgb(widget.background_color || '#ffffff')};
+      --tms-placeholder-color: ${placeholderColor};
       --tms-widget-width: ${size.width};
       --tms-widget-height: ${size.height};
       --tms-border-radius: ${theme.borderRadius};
@@ -182,6 +230,7 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       display: none;
       flex-direction: column;
       backdrop-filter: blur(20px);
+      background: var(--tms-background-color);
     }
 
     .tms-widget-container.open {
@@ -357,7 +406,7 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: #fafbfc;
+      background: var(--tms-background-color);
       min-height: 0;
     }
 
@@ -430,10 +479,10 @@ export function generateWidgetCSS(widget: ChatWidget): string {
     }
 
     .tms-message-bubble.agent {
-      background: white;
-      color: #374151;
+      background: var(--tms-secondary-color);
+      color: color-mix(in srgb, var(--tms-secondary-color) 15%, #000);
       border-bottom-left-radius: 6px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid color-mix(in srgb, var(--tms-secondary-color) 80%, #fff);
     }
 
     .tms-message-bubble.system {
@@ -504,46 +553,57 @@ export function generateWidgetCSS(widget: ChatWidget): string {
 
     /* Input Area */
     .tms-input-area {
-      background: white;
-      border-top: 1px solid #e5e7eb;
-      padding: 16px;
+      background: transparent;
+      border-top: 1px solid rgba(var(--tms-secondary-color-rgb), 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 100px; /* Ensure adequate space for input */
+  /* Keep input area anchored at the bottom while header stays static */
+  margin-top: auto;
+    }
+
+    .tms-input-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .tms-input-wrapper {
+      flex: 1;
       display: flex;
-      align-items: flex-end;
-      gap: 8px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 24px;
-      padding: 8px;
+      background: var(--tms-background-color);
+      border-top: 2px solid rgba(var(--tms-secondary-color-rgb), 0.8);
+      padding: 8px 12px;
       transition: all 0.2s ease;
     }
 
     .tms-input-wrapper:focus-within {
-      border-color: var(--tms-primary-color);
-      box-shadow: 0 0 0 3px rgba(var(--tms-primary-color-rgb), 0.1);
+      /* border: 2px solid color-mix(in srgb, var(--tms-secondary-color) 100%, var(--tms-background-color)); */
+      /* Use a subtle ring mixed from background and black for better theme contrast */
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--tms-background-color) 95%, #000 5%)
     }
 
     .tms-file-upload-btn {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: #f3f4f6;
-      border: none;
+      background: rgba(var(--tms-secondary-color-rgb), 0.1);
+      border: 1px solid rgba(var(--tms-secondary-color-rgb), 0.2);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
-      color: #6b7280;
+      font-size: 14px;
+      color: rgba(var(--tms-secondary-color-rgb), 0.7);
       transition: all 0.2s ease;
       flex-shrink: 0;
     }
 
     .tms-file-upload-btn:hover {
-      background: #e5e7eb;
+      background: rgba(var(--tms-secondary-color-rgb), 0.15);
       color: var(--tms-primary-color);
+      border-color: var(--tms-primary-color);
     }
 
     .tms-message-input {
@@ -553,47 +613,72 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       background: transparent;
       font-size: 14px;
       font-family: inherit;
-      color: #374151;
+      /* min-height: 60px;  Larger input area  */
+      max-height: 120px;
+      line-height: 1.5;
+      padding: 4px 0;
+      overflow-y: auto;
       resize: none;
-      min-height: 20px;
-      max-height: 100px;
-      line-height: 1.4;
-      padding: 8px 12px;
     }
 
-    .tms-message-input::placeholder {
-      color: #9ca3af;
+    /* Enhanced placeholder visibility with complementary colors */
+    .tms-editable:empty:before {
+      content: attr(data-placeholder);
+      color: var(--tms-placeholder-color);
+      pointer-events: none;
+      font-style: italic;
+      opacity: 0.8;
     }
 
-    .tms-send-button {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--tms-primary-color);
-      border: none;
-      cursor: pointer;
-      display: flex;
+    /* Reactions */
+    .tms-reaction-group { 
+      display: flex; 
+      gap: 6px; 
+      margin-left: auto; /* push reactions to the right */
+      justify-content: flex-end; /* ensure buttons are right-aligned */
       align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 16px;
-      transition: all 0.2s ease;
-      flex-shrink: 0;
     }
-
-    .tms-send-button:hover {
-      background: color-mix(in srgb, var(--tms-primary-color) 90%, #000);
+    
+    .tms-thumb-button {
+      width: 32px; 
+      height: 32px; 
+      border-radius: 50%;
+      border: 1px solid rgba(var(--tms-secondary-color-rgb), 0.3);
+      background: rgba(var(--tms-secondary-color-rgb), 0.08);
+      cursor: pointer; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      transition: all 0.2s ease; 
+      flex-shrink: 0; 
+      font-size: 14px;
+      color: rgba(var(--tms-secondary-color-rgb), 0.6);
+    }
+    
+    .tms-thumb-button:hover { 
+      color: var(--tms-primary-color); 
+      border-color: var(--tms-primary-color);
+      background: rgba(var(--tms-primary-color-rgb), 0.1);
       transform: scale(1.05);
     }
 
-    .tms-send-button:active {
+    .tms-thumb-button:active {
       transform: scale(0.95);
     }
-
-    .tms-send-button:disabled {
-      background: #d1d5db;
-      cursor: not-allowed;
-      transform: none;
+    
+    /* Thumb animation */
+    .tms-thumb-animate {
+      animation: thumb-bounce 0.6s ease-out;
+      background: var(--tms-primary-color) !important;
+      color: white !important;
+      border-color: var(--tms-primary-color) !important;
+    }
+    
+    @keyframes thumb-bounce {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.3) rotate(10deg); }
+      60% { transform: scale(1.1) rotate(-5deg); }
+      100% { transform: scale(1) rotate(0deg); }
     }
 
     /* Powered By */
@@ -602,6 +687,106 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       padding: 8px;
       font-size: 11px;
       color: #9ca3af;
+    }
+
+    /* Visitor Info Form */
+    .tms-visitor-info-form {
+      padding: 20px 16px;
+      background: var(--tms-background-color);
+      border-bottom: 1px solid color-mix(in srgb, var(--tms-secondary-color) 20%, var(--tms-background-color));
+    }
+
+    .tms-visitor-info-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: color-mix(in srgb, var(--tms-secondary-color) 15%, #000);
+      margin: 0 0 8px 0;
+      text-align: center;
+    }
+
+    .tms-visitor-info-subtitle {
+      font-size: 14px;
+      color: color-mix(in srgb, var(--tms-secondary-color) 40%, #000);
+      margin: 0 0 16px 0;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .tms-visitor-form-field {
+      margin-bottom: 12px;
+    }
+
+    .tms-visitor-form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: color-mix(in srgb, var(--tms-secondary-color) 20%, #000);
+      margin-bottom: 4px;
+    }
+
+    .tms-visitor-form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid color-mix(in srgb, var(--tms-secondary-color) 100%, var(--tms-background-color));
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--tms-background-color);
+      color: color-mix(in srgb, var(--tms-secondary-color) 20%, #000);
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    .tms-visitor-form-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(var(--tms-primary-color-rgb), 0.15);
+    }
+
+    .tms-visitor-form-input::placeholder {
+      color: var(--tms-placeholder-color);
+      opacity: 0.8;
+    }
+
+    .tms-visitor-form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .tms-visitor-form-button {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .tms-visitor-form-button.primary {
+      background: var(--tms-primary-color);
+      color: white;
+    }
+
+    .tms-visitor-form-button.primary:hover {
+      background: color-mix(in srgb, var(--tms-primary-color) 90%, #000);
+      transform: translateY(-1px);
+    }
+
+    .tms-visitor-form-button.primary:active {
+      transform: translateY(0);
+    }
+
+    .tms-visitor-form-button.secondary {
+      background: color-mix(in srgb, var(--tms-secondary-color) 15%, var(--tms-background-color));
+      color: color-mix(in srgb, var(--tms-secondary-color) 20%, #000);
+      border: 1px solid color-mix(in srgb, var(--tms-secondary-color) 100%, var(--tms-background-color));
+    }
+
+    .tms-visitor-form-button.secondary:hover {
+      background: color-mix(in srgb, var(--tms-secondary-color) 20%, var(--tms-background-color));
     }
 
     /* Toggle Button */
@@ -675,6 +860,33 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       100% { transform: scale(1); }
     }
 
+    /* External Powered By badge (outside container) */
+    .tms-powered-badge {
+      position: fixed;
+      bottom: 96px; /* Above toggle button */
+      ${widget.position === 'bottom-right' ? 'right: 24px;' : 'left: 24px;'}
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      text-decoration: none;
+      z-index: 2147483646;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      opacity: 0.8;
+    }
+
+    .tms-powered-badge:hover {
+      opacity: 1;
+      background: rgba(0, 0, 0, 0.8);
+    }
+    
+    .tms-powered-badge.open { 
+      bottom: ${parseInt(size.height) + 120}px; /* Above open widget */
+    }
+
     /* Mobile Responsiveness */
     @media (max-width: 480px) {
       .tms-widget-container {
@@ -704,44 +916,19 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       .tms-message-bubble {
         max-width: 240px;
       }
+
+      .tms-powered-badge { 
+        bottom: 80px; 
+        ${widget.position === 'bottom-right' ? 'right: 16px;' : 'left: 16px;'}
+      }
+      
+      .tms-powered-badge.open { 
+        bottom: 580px; /* Above mobile widget */
+      }
     }
 
     /* Dark mode support */
-    @media (prefers-color-scheme: dark) {
-      .tms-widget-container {
-        background: #1f2937;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
-      }
-
-      .tms-chat-body {
-        background: #111827;
-      }
-
-      .tms-message-bubble.agent {
-        background: #374151;
-        color: #f9fafb;
-        border-color: #4b5563;
-      }
-
-      .tms-input-area {
-        background: #1f2937;
-        border-color: #374151;
-      }
-
-      .tms-input-wrapper {
-        background: #374151;
-        border-color: #4b5563;
-      }
-
-      .tms-message-input {
-        color: #f9fafb;
-      }
-
-      .tms-powered-by {
-        color: #6b7280;
-      }
-    }
-
+    
     /* Custom CSS */
     ${widget.custom_css || ''}
   `

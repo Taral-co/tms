@@ -56,6 +56,18 @@ export function FeaturesSection({
             Require visitor email
           </label>
         </div>
+        <div className="flex items-center space-x-2">
+          <input
+            id="require-name"
+            type="checkbox"
+            checked={formData.require_name}
+            onChange={(e) => onUpdate({ require_name: e.target.checked })}
+            className="h-4 w-4 rounded border-border text-primary"
+          />
+          <label htmlFor="require-name" className="text-sm text-foreground cursor-pointer">
+            Require visitor Name
+          </label>
+        </div>
 
         <div className="flex items-center space-x-2">
           <input

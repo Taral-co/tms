@@ -16,6 +16,7 @@ export interface ChatWidget {
   show_agent_avatars: boolean
   allow_file_uploads: boolean
   require_email: boolean
+  require_name: boolean
   business_hours: Record<string, any>
   embed_code?: string
   domain_name?: string
@@ -89,6 +90,7 @@ export interface CreateChatWidgetRequest {
   show_agent_avatars?: boolean
   allow_file_uploads?: boolean
   require_email?: boolean
+  require_name?: boolean
   business_hours?: Record<string, any>
 }
 
@@ -105,6 +107,7 @@ export interface UpdateChatWidgetRequest {
   show_agent_avatars?: boolean
   allow_file_uploads?: boolean
   require_email?: boolean
+  require_name?: boolean
   business_hours?: Record<string, any>
 }
 

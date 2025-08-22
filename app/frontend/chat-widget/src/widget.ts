@@ -1,6 +1,6 @@
 import { EventEmitter } from './events'
 import { ChatAPI } from './api'
-import { ChatMessage, ChatSession, ChatWidget, ChatWidgetOptions, WSMessage, SessionData, WidgetState } from './types'
+import { ChatMessage, ChatSession, ChatWidget, ChatWidgetOptions, WSMessage } from './types'
 import { SessionStorage, generateVisitorFingerprint, isBusinessHours } from './storage'
 import { injectWidgetCSS, playNotificationSound } from './themes'
 
@@ -34,6 +34,7 @@ export class TMSChatWidget {
   private reconnectDelay: number = 3000
   private messageQueue: any[] = []
   private isConnected: boolean = false
+  private poweredBadge: HTMLElement | null = null
 
   constructor(private options: ChatWidgetOptions) {
     this.api = new ChatAPI(options.apiUrl)
@@ -153,6 +154,40 @@ export class TMSChatWidget {
     // Create modern body with enhanced messages area
     const bodyHTML = `
       <div class="tms-chat-body">
+        <div id="tms-visitor-info-form" class="tms-visitor-info-form" style="display: none;">
+          <div class="tms-visitor-info-title">Start a conversation</div>
+          <form id="tms-visitor-form">
+          ${this.widget.require_email ? `
+            <div class="tms-visitor-form-field">
+              <label class="tms-visitor-form-label" for="tms-visitor-name">Name *</label>
+              <input 
+                id="tms-visitor-name" 
+                type="text" 
+                class="tms-visitor-form-input"
+                placeholder="Enter your name"
+                required
+              />
+            </div>`:``}
+            ${this.widget.require_email ? `
+              <div class="tms-visitor-form-field">
+                <label class="tms-visitor-form-label" for="tms-visitor-email">Email *</label>
+                <input 
+                  id="tms-visitor-email" 
+                  type="email" 
+                  class="tms-visitor-form-input"
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+            `:``}
+
+            ${this.widget.require_name || this.widget.require_email ? `<div class="tms-visitor-form-actions">
+              <button type="button" id="tms-visitor-cancel" class="tms-visitor-form-button secondary">Cancel</button>
+              <button type="submit" id="tms-visitor-start" class="tms-visitor-form-button primary">Start Chat</button>
+            </div>`:``}
+          </form>
+        </div>
+        
         <div class="tms-messages-container" id="tms-chat-messages"></div>
         
         <div class="tms-typing-indicator" id="tms-chat-typing" style="display: none;">
@@ -165,31 +200,28 @@ export class TMSChatWidget {
         </div>
         
         <div class="tms-input-area">
-          <div class="tms-input-wrapper">
+          <div class="tms-input-controls">
             ${this.widget.allow_file_uploads ? `
               <label class="tms-file-upload-btn" for="tms-file-input" title="Attach file">
                 📎
                 <input id="tms-file-input" type="file" style="display: none;" accept="image/*,.pdf,.doc,.docx,.txt" />
               </label>
             ` : ''}
-            <textarea 
-              id="tms-chat-input" 
-              class="tms-message-input"
-              placeholder="Type your message..."
-              rows="1"
-            ></textarea>
-            <button id="tms-chat-send" class="tms-send-button" title="Send message" aria-label="Send message">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22,2 15,22 11,13 2,9 22,2"></polygon>
-              </svg>
-            </button>
-          </div>
-          ${this.widget.show_powered_by ? `
-            <div class="tms-powered-by">
-              Powered by TMS Chat
+            <div class="tms-reaction-group">
+              <button id="tms-thumb-up" class="tms-thumb-button" title="Thumbs up" aria-label="Thumbs up">👍</button>
+              <button id="tms-thumb-down" class="tms-thumb-button" title="Thumbs down" aria-label="Thumbs down">👎</button>
             </div>
-          ` : ''}
+          </div>
+          <div class="tms-input-wrapper">
+            <div
+              id="tms-chat-input"
+              class="tms-message-input tms-editable"
+              contenteditable="true"
+              role="textbox"
+              aria-multiline="true"
+              data-placeholder="Type your message and press Enter..."
+            ></div>
+          </div>
         </div>
       </div>
     `
@@ -212,6 +244,19 @@ export class TMSChatWidget {
     document.body.appendChild(this.container)
     document.body.appendChild(this.toggleButton)
 
+    // Add external "Powered by TMS" badge outside the chat container
+    if (this.widget.show_powered_by) {
+      const badge = document.createElement('a')
+      badge.className = 'tms-powered-badge'
+      badge.href = 'https://bareuptime.com/tms'
+      badge.target = '_blank'
+      badge.rel = 'noopener noreferrer'
+      badge.textContent = 'Powered by TMS'
+      badge.style.display = 'none' // Initially hidden
+      document.body.appendChild(badge)
+      this.poweredBadge = badge
+    }
+
     // Add event listeners
     this.attachEventListeners()
 
@@ -226,6 +271,11 @@ export class TMSChatWidget {
 
   private showWelcomeMessage() {
     if (!this.widget) return
+    
+    // If no session exists, show visitor form instead of welcome message
+    if (!this.session) {
+      return
+    }
     
     const welcomeMsg = this.widget.custom_greeting || this.widget.welcome_message
     const message: ChatMessage = {
@@ -288,9 +338,17 @@ export class TMSChatWidget {
     if (!this.container || !this.toggleButton) return
 
     const closeButton = this.container.querySelector('.tms-header-close')
-    const sendButton = this.container.querySelector('#tms-chat-send')
-    const input = this.container.querySelector('#tms-chat-input') as HTMLTextAreaElement
+    const input = this.container.querySelector('#tms-chat-input') as HTMLElement
     const fileInput = this.container.querySelector('#tms-file-input') as HTMLInputElement
+    const thumbUpBtn = this.container.querySelector('#tms-thumb-up') as HTMLButtonElement
+    const thumbDownBtn = this.container.querySelector('#tms-thumb-down') as HTMLButtonElement
+    
+    // Visitor form elements
+    const visitorForm = this.container.querySelector('#tms-visitor-form') as HTMLFormElement
+    const visitorStartButton = this.container.querySelector('#tms-visitor-start')
+    const visitorCancelButton = this.container.querySelector('#tms-visitor-cancel')
+    const visitorNameInput = this.container.querySelector('#tms-visitor-name') as HTMLInputElement
+  // const visitorEmailInput = this.container.querySelector('#tms-visitor-email') as HTMLInputElement
 
     // Toggle button
     this.toggleButton.addEventListener('click', () => this.toggle())
@@ -298,11 +356,30 @@ export class TMSChatWidget {
     // Close button
     closeButton?.addEventListener('click', () => this.close())
 
-    // Send button
-    sendButton?.addEventListener('click', () => this.sendMessage())
+    // Visitor form submission
+    visitorForm?.addEventListener('submit', (e) => {
+      e.preventDefault()
+      this.handleVisitorFormSubmit()
+    })
+
+    visitorStartButton?.addEventListener('click', () => {
+      this.handleVisitorFormSubmit()
+    })
+
+    visitorCancelButton?.addEventListener('click', () => {
+      this.hideVisitorForm()
+      this.close()
+    })
+
+    // Auto-focus first empty field when form is shown
+    visitorNameInput?.addEventListener('focus', () => {
+      if (!visitorNameInput.value) {
+        visitorNameInput.focus()
+      }
+    })
 
     // Input field - auto-resize and send on Enter
-    input?.addEventListener('keydown', (e) => {
+    input?.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         this.sendMessage()
@@ -311,13 +388,13 @@ export class TMSChatWidget {
 
     input?.addEventListener('input', () => {
       this.handleTyping()
-      this.autoResizeTextarea(input)
+      this.autoResizeEditable(input)
     })
 
     // Stop typing when user stops typing (keyup event)
     input?.addEventListener('keyup', () => {
       // If input is empty, stop typing immediately
-      if (!input.value.trim()) {
+      if (!input.textContent || !input.textContent.trim()) {
         this.stopTyping()
       }
     })
@@ -327,13 +404,23 @@ export class TMSChatWidget {
       this.stopTyping()
     })
 
-    // File upload
+  // File upload
     fileInput?.addEventListener('change', (e) => {
       const files = (e.target as HTMLInputElement).files
       if (files && files.length > 0) {
         this.handleFileUpload(files[0])
       }
     })
+
+  // Reaction buttons with animation
+  thumbUpBtn?.addEventListener('click', () => {
+    this.animateThumb(thumbUpBtn, '👍')
+    this.sendQuickReaction('👍')
+  })
+  thumbDownBtn?.addEventListener('click', () => {
+    this.animateThumb(thumbDownBtn, '👎')
+    this.sendQuickReaction('👎')
+  })
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
@@ -343,11 +430,25 @@ export class TMSChatWidget {
     })
   }
 
-  private autoResizeTextarea(textarea: HTMLTextAreaElement) {
-    textarea.style.height = 'auto'
+  private autoResizeEditable(el: HTMLElement) {
+    el.style.height = 'auto'
     const maxHeight = 100
-    const newHeight = Math.min(textarea.scrollHeight, maxHeight)
-    textarea.style.height = newHeight + 'px'
+    const newHeight = Math.min(el.scrollHeight, maxHeight)
+    el.style.height = newHeight + 'px'
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }
+
+  private animateThumb(button: HTMLButtonElement, emoji: string) {
+    // Add animation class and temporarily change emoji
+    button.classList.add('tms-thumb-animate')
+    const originalEmoji = button.textContent
+    button.textContent = emoji
+    
+    // Remove animation after it completes
+    setTimeout(() => {
+      button.classList.remove('tms-thumb-animate')
+      button.textContent = originalEmoji
+    }, 600)
   }
 
   private async handleFileUpload(file: File) {
@@ -397,6 +498,139 @@ export class TMSChatWidget {
     }
   }
 
+  private showVisitorForm() {
+    const visitorForm = document.getElementById('tms-visitor-info-form')
+    const messagesContainer = document.getElementById('tms-chat-messages')
+    
+    if (visitorForm && messagesContainer) {
+      visitorForm.style.display = 'block'
+      messagesContainer.style.display = 'none'
+      
+      // Focus the name input
+      setTimeout(() => {
+        const nameInput = document.getElementById('tms-visitor-name') as HTMLInputElement
+        nameInput?.focus()
+      }, 100)
+    }
+  }
+
+  private hideVisitorForm() {
+    const visitorForm = document.getElementById('tms-visitor-info-form')
+    const messagesContainer = document.getElementById('tms-chat-messages')
+    
+    if (visitorForm && messagesContainer) {
+      visitorForm.style.display = 'none'
+      messagesContainer.style.display = 'block'
+    }
+  }
+
+  private async handleVisitorFormSubmit() {
+    const nameInput = document.getElementById('tms-visitor-name') as HTMLInputElement
+    const emailInput = document.getElementById('tms-visitor-email') as HTMLInputElement
+    
+    if (!nameInput) return
+    
+    const name = nameInput.value.trim()
+    const email = emailInput?.value.trim()
+    
+    // Validate required fields
+    if (!name) {
+      nameInput.focus()
+      return
+    }
+    
+    if (this.widget?.require_email && !email) {
+      emailInput?.focus()
+      return
+    }
+    
+    // Store visitor info for future sessions
+    const fingerprint = await generateVisitorFingerprint()
+    this.storage.saveVisitorInfo({
+      name,
+      email,
+      fingerprint,
+      last_visit: new Date().toISOString()
+    })
+    
+    // Hide the form and show messages
+    this.hideVisitorForm()
+    
+    // Show welcome message now that we have visitor info
+    if (this.widget) {
+      const welcomeMsg = this.widget.custom_greeting || this.widget.welcome_message
+      const message: ChatMessage = {
+        id: 'welcome-' + Date.now(),
+        content: welcomeMsg,
+        author_type: 'system',
+        author_name: this.widget.agent_name,
+        created_at: new Date().toISOString(),
+        message_type: 'text',
+        is_private: false
+      }
+      
+      this.displayMessage(message)
+    }
+    
+    // Start the chat session with visitor info
+    await this.startChatSessionWithVisitorInfo({ name, email })
+  }
+
+  private async startChatSessionWithVisitorInfo(visitorInfo: { name: string; email?: string }) {
+    if (!this.widget) return
+
+    try {
+      const fingerprint = await generateVisitorFingerprint()
+      
+      const sessionData: any = {
+        visitor_name: visitorInfo.name,
+        visitor_email: visitorInfo.email,
+        initial_message: this.widget.welcome_message,
+        visitor_info: {
+          fingerprint,
+          user_agent: navigator.userAgent,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          language: navigator.language
+        }
+      }
+
+      const sessionResponse = await this.api.initiateChat(this.widget.id, sessionData)
+      
+      // Create session object
+      this.session = {
+        id: sessionResponse.session_id,
+        widget_id: this.widget.id,
+        status: 'active',
+        visitor_name: visitorInfo.name
+      }
+      
+      // Save session to storage
+      this.storage.saveSession({
+        session_id: this.session.id,
+        widget_id: this.widget.id,
+        visitor_name: visitorInfo.name,
+        visitor_email: visitorInfo.email,
+        created_at: new Date().toISOString(),
+        last_activity: new Date().toISOString()
+      })
+
+      // Connect WebSocket for real-time communication
+      this.connectWebSocket()
+
+      this.emitter.emit('session:started', this.session)
+
+    } catch (error) {
+      console.error('Failed to start chat session:', error)
+      this.emitter.emit('error', 'Failed to start chat session')
+      
+      // Show error in chat
+      this.showError('Unable to connect. Please try again.')
+      
+      // Show the visitor form again
+      this.showVisitorForm()
+    }
+  }
+
   private async open() {
     if (!this.widget || !this.container) return
 
@@ -409,14 +643,33 @@ export class TMSChatWidget {
     if (this.toggleButton) {
       this.toggleButton.setAttribute('aria-label', 'Close chat')
     }
+    if (this.poweredBadge) {
+      this.poweredBadge.style.display = 'block'
+      this.poweredBadge.classList.add('open')
+    }
 
     // Start chat session if not already started
     if (!this.session) {
-      await this.startChatSession()
+      // Check if we have stored visitor info to auto-start session
+      const storedVisitor = this.storage.getVisitorInfo()
+      if (storedVisitor && storedVisitor.name) {
+        // Auto-start session with stored visitor info
+        await this.startChatSessionWithVisitorInfo({
+          name: storedVisitor.name,
+          email: storedVisitor.email
+        })
+      } else {
+        // Show visitor form for new users
+        this.showVisitorForm()
+      }
     } else {
-      await this.startChatSession()
       // Update activity for existing session
       this.storage.updateSessionActivity()
+      
+      // Ensure we have WebSocket connection
+      if (!this.isConnected) {
+        this.connectWebSocket()
+      }
     }
 
     // Clear unread count and send read receipts for unread agent messages
@@ -458,6 +711,10 @@ export class TMSChatWidget {
     // Update toggle button
     if (this.toggleButton) {
       this.toggleButton.setAttribute('aria-label', 'Open chat')
+    }
+    if (this.poweredBadge) {
+      this.poweredBadge.classList.remove('open')
+      this.poweredBadge.style.display = 'none'
     }
 
     // Clear notification badge
@@ -512,189 +769,6 @@ export class TMSChatWidget {
       ${this.getBubbleStyleIcon(this.widget.chat_bubble_style)}
       ${badgeHTML}
     `
-  }
-
-  private async startChatSession() {
-    if (!this.widget) return
-
-    try {
-      // Get or prompt for visitor info
-      let visitorName = 'Anonymous'
-      let visitorEmail: string | undefined
-
-      const storedVisitor = this.storage.getVisitorInfo()
-      if (storedVisitor) {
-        visitorName = storedVisitor.name
-        visitorEmail = storedVisitor.email
-      } else {
-        const visitorInfo = await this.promptForVisitorInfo()
-        if (!visitorInfo) return
-
-        visitorName = visitorInfo.name
-        visitorEmail = visitorInfo.email
-
-        // Store visitor info for future sessions
-        const fingerprint = await generateVisitorFingerprint()
-        this.storage.saveVisitorInfo({
-          name: visitorName,
-          email: visitorEmail,
-          fingerprint,
-          last_visit: new Date().toISOString()
-        })
-      }
-
-      // Prepare visitor context
-      const visitorContext = {
-        url: window.location.href,
-        referrer: document.referrer,
-        user_agent: navigator.userAgent,
-        timestamp: Date.now(),
-        visitor_id: await generateVisitorFingerprint(),
-        screen_resolution: `${screen.width}x${screen.height}`,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      }
-
-      // Initiate chat session
-      const response = await this.api.initiateChat(this.widget.id, {
-        visitor_name: visitorName,
-        visitor_email: visitorEmail,
-        visitor_info: visitorContext
-      })
-
-      this.session = {
-        id: response.session_id,
-        widget_id: this.widget.id,
-        status: 'active'
-      }
-
-      // Save session to storage
-      this.storage.saveSession({
-        session_id: response.session_id,
-        widget_id: this.widget.id,
-        visitor_name: visitorName,
-        visitor_email: visitorEmail,
-        created_at: new Date().toISOString(),
-        last_activity: new Date().toISOString()
-      })
-
-      // Connect WebSocket for real-time communication
-      this.connectWebSocket()
-
-      this.emitter.emit('session:started', this.session)
-
-    } catch (error) {
-      console.error('Failed to start chat session:', error)
-      this.emitter.emit('error', 'Failed to start chat session')
-      
-      // Show error in chat
-      this.showError('Unable to connect. Please try again.')
-    }
-  }
-
-  private async promptForVisitorInfo(): Promise<{name: string; email?: string} | null> {
-    console.log('Creating visitor info modal...')
-    return new Promise((resolve) => {
-      const modal = document.createElement('div')
-      modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10002;
-      `
-
-      modal.innerHTML = `
-        <div style="
-          background: white;
-          padding: 24px;
-          border-radius: 8px;
-          width: 300px;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-        ">
-          <h3 style="margin: 0 0 16px 0; color: #333;">Start Chat</h3>
-          <input 
-            id="visitor-name" 
-            type="text" 
-            placeholder="Your name"
-            style="
-              width: 100%;
-              padding: 10px;
-              margin-bottom: 16px;
-              border: 1px solid #ddd;
-              border-radius: 4px;
-              font-size: 14px;
-            "
-          />
-          ${this.widget?.require_email ? `
-            <input 
-              id="visitor-email" 
-              type="email" 
-              placeholder="Your email"
-              style="
-                width: 100%;
-                padding: 10px;
-                margin-bottom: 16px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 14px;
-              "
-            />
-          ` : ''}
-          <div style="display: flex; gap: 8px; justify-content: flex-end;">
-            <button id="cancel-chat" style="
-              padding: 8px 16px;
-              border: 1px solid #ddd;
-              background: white;
-              border-radius: 4px;
-              cursor: pointer;
-            ">Cancel</button>
-            <button id="start-chat" style="
-              padding: 8px 16px;
-              background: ${this.widget?.primary_color};
-              color: white;
-              border: none;
-              border-radius: 4px;
-              cursor: pointer;
-            ">Start Chat</button>
-          </div>
-        </div>
-      `
-
-      document.body.appendChild(modal)
-      console.log('Modal appended to body')
-
-      const nameInput = modal.querySelector('#visitor-name') as HTMLInputElement
-      const emailInput = modal.querySelector('#visitor-email') as HTMLInputElement
-      const startButton = modal.querySelector('#start-chat')
-      const cancelButton = modal.querySelector('#cancel-chat')
-
-      console.log('Modal elements:', { nameInput, startButton, cancelButton })
-
-      const cleanup = () => {
-        document.body.removeChild(modal)
-      }
-
-      startButton?.addEventListener('click', () => {
-        const name = nameInput?.value.trim()
-        const email = emailInput?.value.trim()
-        if (name) {
-          cleanup()
-          resolve({ name, email: email || undefined })
-        }
-      })
-
-      cancelButton?.addEventListener('click', () => {
-        cleanup()
-        resolve(null)
-      })
-
-      nameInput?.focus()
-    })
   }
 
   private connectWebSocket() {
@@ -864,14 +938,14 @@ export class TMSChatWidget {
   }
 
   private async sendMessage() {
-    const input = document.getElementById('tms-chat-input') as HTMLTextAreaElement
+  const input = document.getElementById('tms-chat-input') as HTMLElement
     if (!input || !this.session) return
 
-    const content = input.value.trim()
+  const content = (input.textContent || '').trim()
     if (!content) return
 
     // Clear the input immediately for better UX
-    input.value = ''
+  input.innerHTML = ''
     input.style.height = 'auto'
     
     // Stop typing indicator
@@ -938,6 +1012,13 @@ export class TMSChatWidget {
         this.refreshMessages()
       }
     }
+  }
+
+  private sendQuickReaction(emoji: '👍' | '👎') {
+    const input = document.getElementById('tms-chat-input') as HTMLElement
+    if (!input) return
+    input.textContent = emoji
+    this.sendMessage()
   }
 
   private handleTyping() {
