@@ -48,32 +48,34 @@ export function AgentPersonalizationSection({
           </div>
         </div>
 
-        <div className="space-y-1">
-          <label htmlFor="welcome-message" className="text-sm font-medium text-foreground">
-            Welcome Message
-          </label>
-          <textarea
-            id="welcome-message"
-            value={formData.welcome_message}
-            onChange={(e) => onUpdate({ welcome_message: e.target.value })}
-            rows={3}
-            placeholder="Hi there! 👋 How can we help you today?"
-            className="w-full rounded border border-input bg-background px-3 py-2 text-sm resize-none"
-          />
-        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label htmlFor="welcome-message" className="text-sm font-medium text-foreground">
+              Welcome Message
+            </label>
+            <textarea
+              id="welcome-message"
+              value={formData.welcome_message}
+              onChange={(e) => onUpdate({ welcome_message: e.target.value })}
+              rows={3}
+              placeholder="Hi there! 👋 How can we help you today?"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm resize-none"
+            />
+          </div>
 
-        <div className="space-y-1">
-          <label htmlFor="away-message" className="text-sm font-medium text-foreground">
-            Away Message
-          </label>
-          <textarea
-            id="away-message"
-            value={formData.away_message}
-            onChange={(e) => onUpdate({ away_message: e.target.value })}
-            rows={3}
-            placeholder="We're currently away. Leave us a message!"
-            className="w-full rounded border border-input bg-background px-3 py-2 text-sm resize-none"
-          />
+          <div className="space-y-1">
+            <label htmlFor="away-message" className="text-sm font-medium text-foreground">
+              Away Message
+            </label>
+            <textarea
+              id="away-message"
+              value={formData.away_message}
+              onChange={(e) => onUpdate({ away_message: e.target.value })}
+              rows={3}
+              placeholder="We're currently away. Leave us a message!"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm resize-none"
+            />
+          </div>
         </div>
       </div>
     </div>
