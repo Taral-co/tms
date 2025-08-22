@@ -182,10 +182,109 @@ services:
       - tms-network
     restart: unless-stopped
 
+  # Elasticsearch for advanced search capabilities
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: tms-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - tms-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Ollama for local AI/LLM capabilities
+  ollama:
+    image: ollama/ollama:latest
+    container_name: tms-ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - tms-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Remove GPU requirement for systems without GPU
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 4G
+
+  # Vector Database for embeddings (Qdrant)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: tms-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Knowledge Base AI Service
+  kb-ai-service:
+    build:
+      context: ../app/kb-ai-service
+      dockerfile: Dockerfile
+    container_name: tms-kb-ai-service
+    environment:
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tms
+      - DB_USER=tms
+      - DB_PASSWORD=tms123
+      - REDIS_URL=redis://redis:6379
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - OLLAMA_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBEDDING_MODEL=all-minilm-l6-v2
+      - LLM_MODEL=llama2:7b
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ../app/kb-ai-service:/app
+    networks:
+      - tms-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  elasticsearch_data:
+  ollama_data:
+  qdrant_data:
 
 networks:
   tms-network:
