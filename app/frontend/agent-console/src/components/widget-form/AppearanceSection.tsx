@@ -33,8 +33,8 @@ export function AppearanceSection({
         {/* Form content */}
         <div className="px-6 pb-6">
           <div className="space-y-6">
-            {/* Widget Shape and Bubble Style */}
-            <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+            {/* Widget Shape, Bubble Style, and Auto-open Delay */}
+            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
                 <label 
                   htmlFor="widget-shape" 
@@ -56,7 +56,7 @@ export function AppearanceSection({
                   ))}
                 </select>
                 <p id="widget-shape-description" className="text-xs text-muted-foreground">
-                  Choose the overall shape of your chat widget button
+                  Overall shape of your chat widget button
                 </p>
               </div>
 
@@ -84,10 +84,34 @@ export function AppearanceSection({
                   Select the style for chat message bubbles
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <label 
+                  htmlFor="auto-open-delay" 
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Auto-open Delay (seconds)
+                </label>
+                <input
+                  id="auto-open-delay"
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="1"
+                  value={formData.auto_open_delay}
+                  onChange={(e) => onUpdate({ auto_open_delay: Number(e.target.value) })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="0"
+                  aria-describedby="auto-open-delay-description"
+                />
+                <p id="auto-open-delay-description" className="text-xs text-muted-foreground">
+                  Seconds to wait for chat (0 = disabled)
+                </p>
+              </div>
             </div>
 
             {/* Colors, Size, and Position */}
-            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-2">
                 <label 
                   htmlFor="primary-color" 
@@ -104,16 +128,31 @@ export function AppearanceSection({
                     className="h-10 w-16 rounded-md border border-input bg-background cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     aria-describedby="primary-color-description"
                   />
-                  <input
-                    type="text"
-                    value={formData.primary_color}
-                    onChange={(e) => onUpdate({ primary_color: e.target.value })}
-                    className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="#000000"
-                  />
                 </div>
                 <p id="primary-color-description" className="text-xs text-muted-foreground">
-                  Main theme color for the widget
+                  Main theme color
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label 
+                  htmlFor="secondary-color" 
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Secondary Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="secondary-color"
+                    type="color"
+                    value={formData.secondary_color || '#6b7280'}
+                    onChange={(e) => onUpdate({ secondary_color: e.target.value })}
+                    className="h-10 w-16 rounded-md border border-input bg-background cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-describedby="secondary-color-description"
+                  />
+                </div>
+                <p id="secondary-color-description" className="text-xs text-muted-foreground">
+                  Theme color for accents
                 </p>
               </div>
 
@@ -133,16 +172,9 @@ export function AppearanceSection({
                     className="h-10 w-16 rounded-md border border-input bg-background cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     aria-describedby="background-color-description"
                   />
-                  <input
-                    type="text"
-                    value={formData.background_color || ''}
-                    onChange={(e) => onUpdate({ background_color: e.target.value })}
-                    className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="#ffffff"
-                  />
                 </div>
                 <p id="background-color-description" className="text-xs text-muted-foreground">
-                  Background color used inside the chat window
+                  Background color
                 </p>
               </div>
 
@@ -165,7 +197,7 @@ export function AppearanceSection({
                   <option value="large">Large</option>
                 </select>
                 <p id="widget-size-description" className="text-xs text-muted-foreground">
-                  Overall size of the chat widget
+                  Size of the chat widget
                 </p>
               </div>
 
@@ -187,34 +219,9 @@ export function AppearanceSection({
                   <option value="bottom-left">Bottom Left</option>
                 </select>
                 <p id="position-description" className="text-xs text-muted-foreground">
-                  Where the widget appears on the page
+                  Location on the page
                 </p>
               </div>
-            </div>
-
-            {/* Auto-open delay */}
-            <div className="space-y-2">
-              <label 
-                htmlFor="auto-open-delay" 
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Auto-open Delay (seconds)
-              </label>
-              <input
-                id="auto-open-delay"
-                type="number"
-                min="0"
-                max="30"
-                step="1"
-                value={formData.auto_open_delay}
-                onChange={(e) => onUpdate({ auto_open_delay: Number(e.target.value) })}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="0"
-                aria-describedby="auto-open-delay-description"
-              />
-              <p id="auto-open-delay-description" className="text-xs text-muted-foreground">
-                How many seconds to wait before automatically opening the chat widget (0 = disabled)
-              </p>
             </div>
           </div>
         </div>
