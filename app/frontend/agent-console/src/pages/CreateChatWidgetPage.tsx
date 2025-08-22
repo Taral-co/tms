@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, Plus, Edit3 } from 'lucide-react'
 import { useChatWidgetForm } from '../hooks/useChatWidgetForm'
 import { PageHeader } from '../components/widget-form/PageHeader'
 import { BasicInformationSection } from '../components/widget-form/BasicInformationSection'
@@ -36,67 +37,86 @@ export function CreateChatWidgetPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
+          <p className="text-sm text-muted-foreground">Loading widget configuration...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="container max-w-7xl mx-auto p-3 space-y-3">
-        <PageHeader 
-          widgetId={widgetId}
-          error={error}
-          domains={domains}
-        />
+    <div className="w-full bg-background">
+      {/* Page Header with Breadcrumb */}
 
-        {/* Enhanced Form + Live Simulation Layout */}
-        {domains.length > 0 && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-              
-              {/* Left Column - Form (60% width) */}
-              <div className="xl:col-span-3 space-y-4">
-                <BasicInformationSection
-                  formData={formData}
-                  domains={domains}
-                  widgetId={widgetId}
-                  onUpdate={updateFormData}
-                />
-
-                <AgentPersonalizationSection
-                  formData={formData}
-                  onUpdate={updateFormData}
-                />
-
-                <FeaturesSection
-                  formData={formData}
-                  onUpdate={updateFormData}
-                />
-
-                <AppearanceSection
-                  formData={formData}
-                  onUpdate={updateFormData}
-                />
-              </div>
-
-              {/* Right Column - Live Simulation (40% width) */}
-              <div className="xl:col-span-2">
-                <WidgetSimulation
-                  formData={formData}
-                  domains={domains}
-                />
-              </div>
-            </div>
-
-            <FormActions
-              submitting={submitting}
+      {/* Main Content */}
+      <div className="w-full">
+        <div className="container mx-auto max-w-screen-2xl px-4 py-6">
+          <div className="flex flex-col gap-6">
+            {/* Alerts and Messages */}
+            <PageHeader 
               widgetId={widgetId}
-              onCancel={handleCancel}
+              error={error}
+              domains={domains}
             />
-          </form>
-        )}
+
+            {/* Form Content */}
+            {domains.length > 0 && (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                {/* Form Grid Layout */}
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                  
+                  {/* Left Column - Form Sections */}
+                  <div className="lg:col-span-7 xl:col-span-8">
+                    <div className="flex flex-col gap-6">
+                      <BasicInformationSection
+                        formData={formData}
+                        domains={domains}
+                        widgetId={widgetId}
+                        onUpdate={updateFormData}
+                      />
+
+                      <AgentPersonalizationSection
+                        formData={formData}
+                        onUpdate={updateFormData}
+                      />
+
+                      <FeaturesSection
+                        formData={formData}
+                        onUpdate={updateFormData}
+                      />
+
+                      <AppearanceSection
+                        formData={formData}
+                        onUpdate={updateFormData}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column - Live Preview */}
+                  <div className="lg:col-span-5 xl:col-span-4">
+                    <div className="lg:sticky">
+                      <WidgetSimulation
+                        formData={formData}
+                        domains={domains}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form Actions */}
+                <div className="border-t border-border pt-6">
+                  <FormActions
+                    submitting={submitting}
+                    widgetId={widgetId}
+                    onCancel={handleCancel}
+                  />
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

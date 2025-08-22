@@ -187,7 +187,7 @@ export function ChatPage() {
       </div>
 
   {/* Content */}
-  <div className="flex-1 min-h-0 overflow-hidden">
+  <div className="flex-1 min-h-0 overflow-auto">
         {guidedSetup.loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center gap-3">
