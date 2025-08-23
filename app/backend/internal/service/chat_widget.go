@@ -153,6 +153,14 @@ func (s *ChatWidgetService) UpdateChatWidget(ctx context.Context, tenantID, proj
 		widget.ShowAgentAvatars = *req.ShowAgentAvatars
 	}
 
+	if req.RequireEmail != nil {
+		widget.RequireEmail = *req.RequireEmail
+	}
+
+	if req.RequireName != nil {
+		widget.RequireName = *req.RequireName
+	}
+
 	if req.AgentAvatarURL != nil {
 		widget.AgentAvatarURL = req.AgentAvatarURL
 	}
