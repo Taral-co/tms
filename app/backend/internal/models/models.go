@@ -656,7 +656,7 @@ type UpdateChatWidgetRequest struct {
 
 // InitiateChatRequest represents a request to start a chat session
 type InitiateChatRequest struct {
-	VisitorName    string  `json:"visitor_name" binding:"required,max=255"`
+	VisitorName    string  `json:"visitor_name" binding:"omitempty,max=255"`
 	VisitorEmail   string  `json:"visitor_email" binding:"omitempty,email"`
 	InitialMessage string  `json:"initial_message" binding:"omitempty,max=1000"`
 	VisitorInfo    JSONMap `json:"visitor_info"`

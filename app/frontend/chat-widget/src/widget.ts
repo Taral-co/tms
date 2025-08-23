@@ -630,8 +630,23 @@ export class TMSChatWidget {
     }
   }
 
+  private shouldOpenVisitorForm(): boolean {
+    // Check if visitor form is required
+    if (this.widget?.require_email && !this.storage.getVisitorInfo()?.email) {
+      console.log("1")
+      return true
+    }
+    if (this.widget?.require_name && !this.storage.getVisitorInfo()?.name) {
+      console.log("2")
+      return true
+    }
+    console.log("4")
+    return false
+  }
+
   private async open() {
     if (!this.widget || !this.container) return
+    console.log("visitor form opened")
 
     // Add opening animation class
     this.container.classList.add('opening')
@@ -649,6 +664,14 @@ export class TMSChatWidget {
 
     // Start chat session if not already started
     if (!this.session) {
+      console.log("no chat session detected")
+      if (!this.shouldOpenVisitorForm()){
+        console.log("no visitor form opened")
+        this.startChatSessionWithVisitorInfo({
+          name: '',
+          email: ''
+        })
+      }
       // Check if we have stored visitor info to auto-start session
       const storedVisitor = this.storage.getVisitorInfo()
       if (storedVisitor && storedVisitor.name) {
@@ -663,6 +686,7 @@ export class TMSChatWidget {
       }
     } else {
       // Update activity for existing session
+      console.log("chat session already started")
       this.storage.updateSessionActivity()
       
       // Ensure we have WebSocket connection
