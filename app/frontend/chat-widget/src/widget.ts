@@ -244,7 +244,6 @@ export class TMSChatWidget {
     document.body.appendChild(this.container)
     document.body.appendChild(this.toggleButton)
 
-    // Add external "Powered by TMS" badge outside the chat container
     if (this.widget.show_powered_by) {
       const badge = document.createElement('a')
       badge.className = 'tms-powered-badge'

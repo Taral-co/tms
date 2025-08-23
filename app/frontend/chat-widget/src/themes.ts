@@ -891,7 +891,8 @@ export function generateWidgetCSS(widget: ChatWidget): string {
     }
     
     .tms-powered-badge.open { 
-      bottom: ${parseInt(size.height) + 120}px; /* Above open widget */
+      bottom: 40px; /* Dynamic height: widget height + bottom offset + padding */
+      ${widget.position === 'bottom-right' ? `right: calc((${size.width} - 50px) / 2);` : `left: calc(${size.width} - 50px);`}
     }
 
     /* Mobile Responsiveness */
