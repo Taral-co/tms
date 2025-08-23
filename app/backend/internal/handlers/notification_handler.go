@@ -52,7 +52,7 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 
 	notifications, err := h.notificationService.GetNotifications(c.Request.Context(), tenantID, agentID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve notifications"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve notifications: " + err.Error()})
 		return
 	}
 	//convert null to array

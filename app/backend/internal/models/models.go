@@ -1,11 +1,14 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // Tenant represents a tenant in the system
@@ -734,6 +737,61 @@ const (
 	NotificationChannelPush  NotificationChannel = "push"
 )
 
+// Scan implements sql.Scanner interface for NotificationChannel
+func (nc *NotificationChannel) Scan(value interface{}) error {
+	if value == nil {
+		*nc = ""
+		return nil
+	}
+
+	switch v := value.(type) {
+	case string:
+		*nc = NotificationChannel(v)
+		return nil
+	case []byte:
+		*nc = NotificationChannel(v)
+		return nil
+	default:
+		return fmt.Errorf("cannot scan %T into NotificationChannel", value)
+	}
+}
+
+// Value implements driver.Valuer interface for NotificationChannel
+func (nc NotificationChannel) Value() (driver.Value, error) {
+	return string(nc), nil
+}
+
+// NotificationChannels is a custom type that implements sql.Scanner and driver.Valuer
+// to handle PostgreSQL arrays of notification channels
+type NotificationChannels []NotificationChannel
+
+// Scan implements sql.Scanner interface for reading from database
+func (nc *NotificationChannels) Scan(value interface{}) error {
+	if value == nil {
+		*nc = nil
+		return nil
+	}
+
+	switch v := value.(type) {
+	case []byte:
+		// Handle PostgreSQL array format like {web,email}
+		return pq.Array(nc).Scan(value)
+	case string:
+		// Handle JSON format
+		return json.Unmarshal([]byte(v), nc)
+	default:
+		return fmt.Errorf("cannot scan %T into NotificationChannels", value)
+	}
+}
+
+// Value implements driver.Valuer interface for writing to database
+func (nc NotificationChannels) Value() (driver.Value, error) {
+	if nc == nil {
+		return nil, nil
+	}
+	return pq.Array(nc).Value()
+}
+
 type NotificationPriority string
 
 const (
@@ -745,22 +803,22 @@ const (
 
 // Notification represents a system notification
 type Notification struct {
-	ID        uuid.UUID             `db:"id" json:"id"`
-	TenantID  uuid.UUID             `db:"tenant_id" json:"tenant_id"`
-	ProjectID *uuid.UUID            `db:"project_id" json:"project_id,omitempty"`
-	AgentID   uuid.UUID             `db:"agent_id" json:"agent_id"`
-	Type      NotificationType      `db:"type" json:"type"`
-	Title     string                `db:"title" json:"title"`
-	Message   string                `db:"message" json:"message"`
-	Priority  NotificationPriority  `db:"priority" json:"priority"`
-	Channels  []NotificationChannel `db:"channels" json:"channels"`
-	ActionURL *string               `db:"action_url" json:"action_url,omitempty"`
-	Metadata  interface{}           `db:"metadata" json:"metadata,omitempty"`
-	IsRead    bool                  `db:"is_read" json:"is_read"`
-	ReadAt    *time.Time            `db:"read_at" json:"read_at,omitempty"`
-	ExpiresAt *time.Time            `db:"expires_at" json:"expires_at,omitempty"`
-	CreatedAt time.Time             `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time             `db:"updated_at" json:"updated_at"`
+	ID        uuid.UUID            `db:"id" json:"id"`
+	TenantID  uuid.UUID            `db:"tenant_id" json:"tenant_id"`
+	ProjectID *uuid.UUID           `db:"project_id" json:"project_id,omitempty"`
+	AgentID   uuid.UUID            `db:"agent_id" json:"agent_id"`
+	Type      NotificationType     `db:"type" json:"type"`
+	Title     string               `db:"title" json:"title"`
+	Message   string               `db:"message" json:"message"`
+	Priority  NotificationPriority `db:"priority" json:"priority"`
+	Channels  NotificationChannels `db:"channels" json:"channels"`
+	ActionURL *string              `db:"action_url" json:"action_url,omitempty"`
+	Metadata  interface{}          `db:"metadata" json:"metadata,omitempty"`
+	IsRead    bool                 `db:"is_read" json:"is_read"`
+	ReadAt    *time.Time           `db:"read_at" json:"read_at,omitempty"`
+	ExpiresAt *time.Time           `db:"expires_at" json:"expires_at,omitempty"`
+	CreatedAt time.Time            `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time            `db:"updated_at" json:"updated_at"`
 }
 
 // NotificationCount represents notification count summary

@@ -231,13 +231,8 @@ func (cm *ConnectionManager) SetSessionMessageHandler(handler SessionMessageHand
 // DeliverWebSocketMessage sends a message to all connections in a chat session
 func (cm *ConnectionManager) DeliverWebSocketMessage(sessionID uuid.UUID, message *Message) error {
 	message.Timestamp = time.Now()
-
 	// Serialize message
-	msgBytes, err := json.Marshal(message)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
-	}
-
+	msgBytes, _ := json.Marshal(message)
 	// Publish to Redis channel for cross-server delivery
 	channelKey := "pubsub:livechat"
 	if err := cm.redis.Publish(cm.ctx, channelKey, msgBytes).Err(); err != nil {
@@ -259,7 +254,7 @@ func (cm *ConnectionManager) SendToConnection(connID string, message *Message) {
 			// Remove failed connection in background
 			go cm.RemoveConnection(connID)
 		} else {
-			log.Debug().Str("connection_id", connID).Str("session_id", message.SessionID.String()).Msg("Successfully delivered session message to local connection")
+			// log.Debug().Str("connection_id", connID).Str("session_id", message.SessionID.String()).Msg("Successfully delivered session message to local connection")
 		}
 	}
 
@@ -294,46 +289,6 @@ func (cm *ConnectionManager) GetSessionConnections(sessionID string) ([]*Connect
 	}
 
 	return connections, nil
-}
-
-// GetActiveAgents returns all active agent connections for a tenant using optimized Redis hash lookups
-func (cm *ConnectionManager) GetActiveAgents(tenantID uuid.UUID) ([]*Connection, error) {
-	// Use hash-based lookup instead of scanning all keys
-	// Hash key: "agents:{tenantID}" -> Hash Map of {connectionID: connectionData}
-	hashKey := fmt.Sprintf("agents:%s", tenantID)
-
-	// Get all agent connection IDs for this tenant using HKEYS (O(1) hash lookup)
-	connectionIDs, err := cm.redis.HKeys(cm.ctx, hashKey).Result()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get agent connection IDs: %w", err)
-	}
-
-	if len(connectionIDs) == 0 {
-		return []*Connection{}, nil
-	}
-
-	// Batch fetch all agent connection data using HMGET (single Redis call)
-	connectionData, err := cm.redis.HMGet(cm.ctx, hashKey, connectionIDs...).Result()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get agent connection data: %w", err)
-	}
-
-	var agents []*Connection
-	for i, data := range connectionData {
-		if data == nil {
-			continue // Connection was deleted between HKEYS and HMGET
-		}
-
-		var connection Connection
-		if err := json.Unmarshal([]byte(data.(string)), &connection); err != nil {
-			log.Warn().Str("connection_id", connectionIDs[i]).Err(err).Msg("Failed to unmarshal agent connection")
-			continue
-		}
-
-		agents = append(agents, &connection)
-	}
-
-	return agents, nil
 }
 
 // GetRedisClient returns the Redis client for external use
@@ -419,7 +374,7 @@ func (cm *ConnectionManager) deliverSessionMessage(message *Message) {
 			sessionKey = fmt.Sprintf("livechat:project:%s", projectID)
 			if message.AgentID != nil {
 				// If the message is from an agent, include the agent ID
-				sessionKey = fmt.Sprintf("livechat:project:%s:agent:%s", projectID, *message.AgentID)
+				sessionKey = fmt.Sprintf("livechat:agent:%s", *message.AgentID)
 			}
 		} else if msgComingFrom == ConnectionTypeAgent {
 			// Handle agent-specific logic
@@ -448,7 +403,7 @@ func (cm *ConnectionManager) deliverSessionMessage(message *Message) {
 				// Remove failed connection in background
 				go cm.RemoveConnection(connID)
 			} else {
-				log.Debug().Str("connection_id", connID).Str("session_id", sessionID.String()).Msg("Successfully delivered session message to local connection")
+				// log.Debug().Str("connection_id", connID).Str("session_id", sessionID.String()).Msg("Successfully delivered session message to local connection")
 			}
 		}
 	}

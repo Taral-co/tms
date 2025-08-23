@@ -94,12 +94,9 @@ func (s *AIService) ShouldHandleSession(ctx context.Context, session *models.Cha
 
 // ProcessMessage handles incoming visitor messages and generates AI responses
 func (s *AIService) ProcessMessage(ctx context.Context, session *models.ChatSession, message *models.ChatMessage) (*models.ChatMessage, error) {
-	fmt.Println("hel")
 	if !s.ShouldHandleSession(ctx, session) {
 		return nil, nil
 	}
-	fmt.Println("hel2")
-
 	// Check for handoff keywords
 	if s.shouldHandoffToAgent(message.Content) {
 		s.requestHumanAgent(ctx, session, "Customer requested human assistance")

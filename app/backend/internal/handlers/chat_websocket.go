@@ -180,49 +180,36 @@ func (h *ChatWebSocketHandler) processVisitorChatMessage(ctx context.Context, se
 				AgentID:      session.AssignedAgentID,
 				DeliveryType: ws.Direct,
 			}
+			fmt.Println("Broadcasting message:", broadcastMsg)
 			h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
 
 			// Process AI response if enabled and applicable
-			fmt.Println("should respond iwth AI: h.aiService -> ", h.aiService != nil)
-			fmt.Println("should respond iwth AI: session.UseAI -> ", session.UseAI)
-			fmt.Println("should respond iwth AI: session.AssignedAgentID == nil -> ", session.AssignedAgentID == nil)
-			go func() {
-				chatMessage, err := h.aiService.ProcessMessage(ctx, session, message)
-				if err != nil {
-					log.Printf("AI processing error for session %s: %v", session.ID, err)
-				}
-				messageData, _ := json.Marshal(chatMessage)
-				aiResponse := &ws.Message{
-					Type:         "chat_message",
-					SessionID:    session.ID,
-					Data:         messageData,
-					FromType:     ws.ConnectionTypeVisitor,
-					ProjectID:    &session.ProjectID,
-					TenantID:     &session.TenantID,
-					AgentID:      session.AssignedAgentID,
-					DeliveryType: ws.Direct,
-				}
-				h.connectionManager.SendToConnection(connID, aiResponse)
-			}()
+			shouldRespondWithAI := h.aiService != nil && session.UseAI && session.AssignedAgentID == nil
+			fmt.Println("should respond with AI: h.aiService != nil ->", h.aiService != nil)
+			fmt.Println("should respond with AI: session.UseAI ->", session.UseAI)
+			fmt.Println("should respond with AI: session.AssignedAgentID == nil ->", session.AssignedAgentID == nil)
+			fmt.Println("should respond with AI: overall ->", shouldRespondWithAI)
 
-			// Create notification for assigned agent if session has one
-			if session.AssignedAgentID != nil {
-				// Create a message received notification
-				actionURL := fmt.Sprintf("/chat/session/%s", session.ID.String())
-				err = h.notificationService.CreateSystemNotification(
-					ctx,
-					session.TenantID,
-					&session.ProjectID,
-					*session.AssignedAgentID,
-					models.NotificationTypeMessageReceived,
-					fmt.Sprintf("New message from %s", visitorName),
-					content, // Use the message content directly
-					models.NotificationPriorityNormal,
-					&actionURL,
-				)
-				if err != nil {
-					log.Printf("Failed to create notification for agent %s: %v", *session.AssignedAgentID, err)
-				}
+			if shouldRespondWithAI {
+				go func() {
+					chatMessage, err := h.aiService.ProcessMessage(ctx, session, message)
+					if err != nil {
+						log.Printf("AI processing error for session %s: %v", session.ID, err)
+						return
+					}
+					messageData, _ := json.Marshal(chatMessage)
+					aiResponse := &ws.Message{
+						Type:         "chat_message",
+						SessionID:    session.ID,
+						Data:         messageData,
+						FromType:     ws.ConnectionTypeVisitor,
+						ProjectID:    &session.ProjectID,
+						TenantID:     &session.TenantID,
+						AgentID:      session.AssignedAgentID,
+						DeliveryType: ws.Direct,
+					}
+					h.connectionManager.SendToConnection(connID, aiResponse)
+				}()
 			}
 		}
 	}
@@ -338,29 +325,4 @@ func (h *ChatWebSocketHandler) sendError(connID string, errorMsg string) {
 		Data: errorData,
 	}
 	h.connectionManager.SendToConnection(connID, msg)
-}
-
-// BroadcastToAgents broadcasts a message to all agent connections in a tenant
-func (h *ChatWebSocketHandler) BroadcastToAgents(tenantID uuid.UUID, msg *ws.Message) {
-	agents, err := h.connectionManager.GetActiveAgents(tenantID)
-	if err != nil {
-		log.Printf("Failed to get active agents: %v", err)
-		return
-	}
-
-	for _, agent := range agents {
-		h.connectionManager.SendToConnection(agent.ID, msg)
-	}
-}
-
-// NotifyAgentOfNewSession notifies agents of a new chat session
-func (h *ChatWebSocketHandler) NotifyAgentOfNewSession(session *models.ChatSession) {
-	sessionData, _ := json.Marshal(session)
-	msg := &ws.Message{
-		Type:      "new_session",
-		SessionID: session.ID,
-		Data:      sessionData,
-		FromType:  ws.ConnectionTypeVisitor,
-	}
-	h.BroadcastToAgents(session.TenantID, msg)
 }

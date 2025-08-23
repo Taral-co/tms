@@ -27,16 +27,9 @@ func (r *NotificationRepo) CreateNotification(ctx context.Context, notification 
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	// Convert channels slice to PostgreSQL array format
-	var channelsArray interface{}
-	if len(notification.Channels) > 0 {
-		channelStrings := make([]string, len(notification.Channels))
-		for i, channel := range notification.Channels {
-			channelStrings[i] = string(channel)
-		}
-		channelsArray = channelStrings
-	} else {
-		channelsArray = []string{"web"} // Default to web channel
+	// Ensure we have at least one channel
+	if len(notification.Channels) == 0 {
+		notification.Channels = models.NotificationChannels{models.NotificationChannelWeb}
 	}
 
 	query := `
@@ -55,7 +48,7 @@ func (r *NotificationRepo) CreateNotification(ctx context.Context, notification 
 		notification.Title,
 		notification.Message,
 		notification.Priority,
-		channelsArray,
+		notification.Channels, // Now uses the custom type with proper Value() method
 		notification.ActionURL,
 		metadataJSON,
 	)
