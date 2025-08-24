@@ -17,7 +17,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
   renderCountRef.current++
   
   // Debug log to track re-renders
-  console.log(`[ChatSessionsPage] Render #${renderCountRef.current}`)
+  // console.log(`[ChatSessionsPage] Render #${renderCountRef.current}`)
 
   const {
     // State

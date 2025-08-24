@@ -33,18 +33,11 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Fetch notifications from API
   const fetchNotifications = useCallback(async (limit = 20, offset = 0) => {
     try {
-      console.log('Fetching notifications...', { limit, offset })
       
       // Check if we have required authentication data
       const token = localStorage.getItem('auth_token')
       const tenantId = localStorage.getItem('tenant_id')
       const projectId = localStorage.getItem('project_id')
-      
-      console.log('Auth data:', { 
-        hasToken: !!token, 
-        tenantId: tenantId?.slice(0, 8) + '...', 
-        projectId: projectId?.slice(0, 8) + '...' 
-      })
       
       if (!token || !tenantId || !projectId) {
         throw new Error(`Missing required auth data: ${!token ? 'token ' : ''}${!tenantId ? 'tenantId ' : ''}${!projectId ? 'projectId' : ''}`)
@@ -56,8 +49,6 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         apiClient.getNotifications(limit, offset),
         apiClient.getNotificationCount()
       ])
-
-      console.log('Notifications fetched:', { notificationsData, countData })
 
       if (isComponentMounted.current) {
         setState(prev => ({
@@ -153,7 +144,6 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
   // Initial load
   useEffect(() => {
-    console.log('useNotifications: Initial load effect triggered')
     fetchNotifications()
   }, [fetchNotifications])
 

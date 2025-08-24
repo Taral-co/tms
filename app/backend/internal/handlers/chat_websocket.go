@@ -219,7 +219,6 @@ func (h *ChatWebSocketHandler) processVisitorChatMessage(ctx context.Context, se
 				AgentID:      session.AssignedAgentID,
 				DeliveryType: ws.Direct,
 			}
-			fmt.Println("Broadcasting message:", broadcastMsg)
 			h.connectionManager.DeliverWebSocketMessage(session.ID, broadcastMsg)
 
 			// Process AI response if enabled and applicable

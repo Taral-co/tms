@@ -96,7 +96,6 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
       const token = localStorage.getItem('auth_token')
       const wsUrl = `${getAgentWebSocketUrl()}?token=${token}`
 
-      console.log('Agent WebSocket: Attempting to connect to:', wsUrl)
 
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
@@ -130,7 +129,6 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
           // Handle different message types
           switch (message.type) {
             case 'chat_message': {
-              console.log('Processing chat_message:', message.delivery_type, message.data)
               
               // Always call onMessage for all message types including agent's own messages
               // The UI layer will decide how to handle them

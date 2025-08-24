@@ -467,9 +467,6 @@ class APIClient {
           config.url = `/tenants/${tenantId}/projects/${projectId}${config.url}`
         }
       }
-
-      console.log('Final API URL:', config.url)
-
       return config
     })
 
@@ -608,7 +605,6 @@ class APIClient {
 
   // Project endpoints
   async getProjects(): Promise<Project[]> {
-    console.log("beullani")
     const response: AxiosResponse<Project[]> = await this.client.get('/projects')
     return response.data
   }

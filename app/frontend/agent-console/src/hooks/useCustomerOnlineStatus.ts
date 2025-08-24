@@ -36,7 +36,6 @@ export function useCustomerOnlineStatus({
 
       if (response.status) {
         setIsOnline(response.status === 'online')
-        console.log('Customer online status:', response.status, isOnline)
       }
 
     } catch (err) {

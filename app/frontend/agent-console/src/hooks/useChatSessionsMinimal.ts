@@ -73,7 +73,6 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
     const currentSessions = sessionsRef.current
     const currentMessages = messagesRef.current
     
-    console.log('onMessageStable called:', message, 'currentSelected:', currentSelected?.id)
     
     // Check for duplicates, but allow replacement of optimistic messages
     const existingIndex = currentMessages.findIndex(m => 
@@ -166,7 +165,6 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
 
   const onTypingStable = useCallback((data: { isTyping: boolean; agentName?: string; sessionId: string }) => {
     const currentSelected = selectedSessionRef.current
-    console.log('onTypingStable called:', data, 'currentSelected:', currentSelected?.id)
     
     if (currentSelected?.id === data.sessionId) {
       // Update ref without triggering re-render
