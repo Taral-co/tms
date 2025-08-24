@@ -15,7 +15,8 @@ import {
   Home,
   Ticket,
   LogOut,
-  MessageCircle
+  MessageCircle,
+  Zap
 } from 'lucide-react'
 import { useTheme } from '../components/ThemeProvider'
 import { useAuth } from '../hooks/useAuth'
@@ -69,11 +70,11 @@ export function AppShell({ children }: AppShellProps) {
 
   const navigation = [
     { name: 'Dashboard', icon: Home, href: '/dashboard' },
-    { name: 'Inbox', icon: Inbox, href: '/inbox' },
+    { name: 'Inbox', icon: Mail, href: '/inbox' },
     { name: 'Tickets', icon: Ticket, href: '/tickets' },
     { name: 'Chat', icon: MessageCircle, href: '/chat/sessions' },
     { name: 'Analytics', icon: BarChart3, href: '/analytics' },
-    { name: 'Integrations', icon: Mail, href: '/integrations' },
+    { name: 'Integrations', icon: Zap, href: '/integrations' },
     { name: 'Settings', icon: Settings, href: '/settings' },
   ]
 

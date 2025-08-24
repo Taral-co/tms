@@ -477,7 +477,7 @@ export function InboxPage() {
               <div className="relative">
                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg blur opacity-25"></div>
                 <div className="relative p-3 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 rounded-lg border border-blue-200/50 dark:border-blue-800/50">
-                  <Inbox className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
               <div>
