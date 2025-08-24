@@ -320,7 +320,7 @@ export function TicketDetailPage() {
 
   return (
     <>
-      <div className="flex-1 bg-background">
+  <div className="flex h-full min-h-0 flex-col bg-background">
         {/* Enhanced Header */}
         <div className="border-b bg-card">
           <div className="px-6 py-4">
@@ -403,8 +403,8 @@ export function TicketDetailPage() {
           </div>
         </div>
 
-        {/* Enhanced Content */}
-        <div className="p-6">
+  {/* Enhanced Content */}
+  <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Main Content */}
             <div className="lg:col-span-3">
