@@ -77,18 +77,12 @@ CREATE POLICY webhooks_tenant_policy ON webhooks
 CREATE POLICY webhooks_project_policy ON webhooks 
     USING (project_id = ANY (string_to_array(current_setting('app.project_ids', true), ',')::uuid[]));
 
--- Audit Log RLS
-ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
-CREATE POLICY audit_log_tenant_policy ON audit_log 
-    USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
-
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 
 -- Drop all RLS policies
-DROP POLICY IF EXISTS audit_log_tenant_policy ON audit_log;
 DROP POLICY IF EXISTS webhooks_project_policy ON webhooks;
 DROP POLICY IF EXISTS webhooks_tenant_policy ON webhooks;
 DROP POLICY IF EXISTS sla_policies_project_policy ON sla_policies;
@@ -110,7 +104,6 @@ DROP POLICY IF EXISTS projects_tenant_policy ON projects;
 DROP POLICY IF EXISTS tenants_tenant_policy ON tenants;
 
 -- Disable RLS
-ALTER TABLE audit_log DISABLE ROW LEVEL SECURITY;
 ALTER TABLE webhooks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE sla_policies DISABLE ROW LEVEL SECURITY;
 ALTER TABLE attachments DISABLE ROW LEVEL SECURITY;

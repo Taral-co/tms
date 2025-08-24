@@ -159,19 +159,6 @@ CREATE TABLE attachments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create sla_policies table
-CREATE TABLE sla_policies (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    first_response_minutes INTEGER NOT NULL DEFAULT 240, -- 4 hours
-    resolution_minutes INTEGER NOT NULL DEFAULT 1440, -- 24 hours
-    business_hours_ref TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 -- Create webhooks table
 CREATE TABLE webhooks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -183,20 +170,6 @@ CREATE TABLE webhooks (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create audit_log table
-CREATE TABLE audit_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-    actor_type author_type NOT NULL,
-    actor_id UUID,
-    action VARCHAR(100) NOT NULL,
-    resource_type VARCHAR(50) NOT NULL,
-    resource_id UUID NOT NULL,
-    meta JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Create indexes for performance
@@ -217,8 +190,6 @@ CREATE INDEX idx_tickets_created_at ON tickets(created_at);
 CREATE INDEX idx_ticket_messages_ticket_id ON ticket_messages(ticket_id);
 CREATE INDEX idx_ticket_messages_created_at ON ticket_messages(created_at);
 CREATE INDEX idx_attachments_ticket_id ON attachments(ticket_id);
-CREATE INDEX idx_audit_log_tenant_id ON audit_log(tenant_id);
-CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
 
 -- Create function to automatically set ticket numbers
 CREATE OR REPLACE FUNCTION set_ticket_number()
@@ -301,7 +272,6 @@ DROP TRIGGER IF EXISTS trigger_set_ticket_number ON tickets;
 DROP FUNCTION IF EXISTS update_updated_at_column();
 DROP FUNCTION IF EXISTS set_ticket_number();
 
-DROP TABLE IF EXISTS audit_log CASCADE;
 DROP TABLE IF EXISTS webhooks CASCADE;
 DROP TABLE IF EXISTS sla_policies CASCADE;
 DROP TABLE IF EXISTS attachments CASCADE;

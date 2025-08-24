@@ -728,20 +728,6 @@ func (s *EmailInboxService) createOutboundEmailLog(ctx context.Context, tenantID
 		Str("message_id", msg.MessageID).
 		Msg("Outbound email reply sent")
 
-	// TODO: In a complete implementation, create an entry in email_outbound_log table
-	// outboundLog := &models.EmailOutboundLog{
-	//     ID:          uuid.New(),
-	//     TenantID:    tenantID,
-	//     ConnectorID: connectorID,
-	//     MessageID:   &msg.MessageID,
-	//     ToAddresses: msg.To,
-	//     Subject:     &msg.Subject,
-	//     SentAt:      &time.Now(),
-	//     Status:      models.EmailStatusSent,
-	//     CreatedAt:   time.Now(),
-	// }
-	// return s.emailRepo.CreateOutboundEmailLog(ctx, outboundLog)
-
 	return nil
 }
 

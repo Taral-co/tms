@@ -99,10 +99,6 @@ INSERT INTO agent_project_roles (agent_id, tenant_id, project_id, role) VALUES
     -- David has read-only access to support project
     ('550e8400-e29b-41d4-a716-446655440034', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001', 'read_only');
 
--- Insert sample SLA policies
-INSERT INTO sla_policies (id, tenant_id, project_id, name, first_response_minutes, resolution_minutes) VALUES
-    ('550e8400-e29b-41d4-a716-446655440040', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001', 'Standard Support SLA', 240, 1440),
-    ('550e8400-e29b-41d4-a716-446655440041', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440002', 'Operations SLA', 60, 480);
 
 -- Insert sample tickets
 INSERT INTO tickets (id, tenant_id, project_id, subject, status, priority, type, source, customer_id, assignee_agent_id) VALUES

@@ -212,22 +212,6 @@ CREATE TABLE zapier_configurations (
     UNIQUE(integration_id)
 );
 
--- Integration rate limiting
-CREATE TABLE integration_rate_limits (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    integration_id UUID NOT NULL REFERENCES integrations(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    operation VARCHAR(100) NOT NULL, -- 'api_call', 'webhook_delivery', etc.
-    requests_per_minute INTEGER NOT NULL DEFAULT 60,
-    requests_per_hour INTEGER NOT NULL DEFAULT 1000,
-    current_minute_count INTEGER NOT NULL DEFAULT 0,
-    current_hour_count INTEGER NOT NULL DEFAULT 0,
-    minute_reset_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    hour_reset_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(integration_id, operation)
-);
-
 -- Indexes for performance
 CREATE INDEX idx_integrations_tenant_id ON integrations(tenant_id);
 CREATE INDEX idx_integrations_project_id ON integrations(project_id);

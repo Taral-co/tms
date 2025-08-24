@@ -72,78 +72,6 @@ CREATE TABLE email_mailboxes (
     UNIQUE(tenant_id, address)
 );
 
--- Email transports (outbound)
-CREATE TABLE email_transports (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    outbound_connector_id UUID NOT NULL REFERENCES email_connectors(id) ON DELETE CASCADE,
-    envelope_from_domain TEXT,
-    dkim_selector TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Inbound email processing log
-CREATE TABLE email_inbound_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    mailbox_address TEXT,
-    message_id TEXT,
-    thread_ref TEXT,
-    from_address TEXT,
-    to_addresses TEXT[],
-    cc_addresses TEXT[],
-    subject TEXT,
-    received_at TIMESTAMPTZ,
-    processed_at TIMESTAMPTZ,
-    status TEXT NOT NULL CHECK (status IN ('accepted', 'rejected', 'error')),
-    reason TEXT,
-    ticket_id UUID REFERENCES tickets(id),
-    project_id UUID REFERENCES projects(id),
-    raw_headers BYTEA,
-    raw_snippet TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Outbound email log
-CREATE TABLE email_outbound_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    transport_id UUID NOT NULL REFERENCES email_transports(id),
-    message_id TEXT,
-    to_addresses TEXT[],
-    subject TEXT,
-    sent_at TIMESTAMPTZ,
-    status TEXT NOT NULL CHECK (status IN ('queued', 'sent', 'bounced', 'deferred', 'error')),
-    bounce_reason TEXT,
-    ticket_id UUID REFERENCES tickets(id),
-    project_id UUID REFERENCES projects(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Email bounces
-CREATE TABLE email_bounces (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    message_id TEXT,
-    recipient TEXT,
-    bounce_type TEXT NOT NULL CHECK (bounce_type IN ('hard', 'soft', 'complaint')),
-    bounce_raw JSONB,
-    occurred_at TIMESTAMPTZ NOT NULL,
-    ticket_id UUID REFERENCES tickets(id),
-    project_id UUID REFERENCES projects(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Email suppressions
-CREATE TABLE email_suppressions (
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    address TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (tenant_id, address)
-);
-
 -- Ticket mail routing (VERP tokens)
 CREATE TABLE ticket_mail_routing (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -161,9 +89,6 @@ CREATE TABLE ticket_mail_routing (
 -- Indexes for performance
 CREATE INDEX idx_email_connectors_tenant ON email_connectors(tenant_id) WHERE is_active = true;
 CREATE INDEX idx_email_mailboxes_tenant ON email_mailboxes(tenant_id);
-CREATE INDEX idx_email_inbound_log_tenant_status ON email_inbound_log(tenant_id, status);
-CREATE INDEX idx_email_outbound_log_tenant_status ON email_outbound_log(tenant_id, status);
-CREATE INDEX idx_email_bounces_tenant ON email_bounces(tenant_id);
 CREATE INDEX idx_ticket_mail_routing_token ON ticket_mail_routing(public_token) WHERE revoked_at IS NULL;
 CREATE INDEX idx_ticket_mail_routing_ticket ON ticket_mail_routing(tenant_id, ticket_id) WHERE revoked_at IS NULL;
 
@@ -171,11 +96,6 @@ CREATE INDEX idx_ticket_mail_routing_ticket ON ticket_mail_routing(tenant_id, ti
 ALTER TABLE oauth_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_connectors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_mailboxes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE email_transports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE email_inbound_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE email_outbound_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE email_bounces ENABLE ROW LEVEL SECURITY;
-ALTER TABLE email_suppressions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ticket_mail_routing ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
@@ -188,31 +108,11 @@ CREATE POLICY email_connectors_tenant ON email_connectors
 CREATE POLICY email_mailboxes_tenant ON email_mailboxes
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
 
-CREATE POLICY email_transports_tenant ON email_transports
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY email_inbound_log_tenant ON email_inbound_log
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY email_outbound_log_tenant ON email_outbound_log
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY email_bounces_tenant ON email_bounces
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
-CREATE POLICY email_suppressions_tenant ON email_suppressions
-    USING (tenant_id = current_setting('app.tenant_id')::uuid);
-
 CREATE POLICY ticket_mail_routing_tenant ON ticket_mail_routing
     USING (tenant_id = current_setting('app.tenant_id')::uuid);
 
 -- +goose Down
 DROP TABLE IF EXISTS ticket_mail_routing CASCADE;
-DROP TABLE IF EXISTS email_suppressions CASCADE;
-DROP TABLE IF EXISTS email_bounces CASCADE;
-DROP TABLE IF EXISTS email_outbound_log CASCADE;
-DROP TABLE IF EXISTS email_inbound_log CASCADE;
-DROP TABLE IF EXISTS email_transports CASCADE;
 DROP TABLE IF EXISTS email_mailboxes CASCADE;
 DROP TABLE IF EXISTS email_connectors CASCADE;
 DROP TABLE IF EXISTS oauth_tokens CASCADE;

@@ -134,50 +134,6 @@ func (r *IntegrationRepository) ListIntegrationSyncLogs(ctx context.Context, ten
 	return logs, err
 }
 
-// Rate limiting operations
-func (r *IntegrationRepository) GetIntegrationRateLimit(ctx context.Context, tenantID, integrationID uuid.UUID, operation string) (*models.IntegrationRateLimit, error) {
-	var rateLimit models.IntegrationRateLimit
-	query := `SELECT * FROM integration_rate_limits WHERE tenant_id = $1 AND integration_id = $2 AND operation = $3`
-
-	err := r.db.GetContext(ctx, &rateLimit, query, tenantID, integrationID, operation)
-	if err == sql.ErrNoRows {
-		// Return default rate limit if none exists
-		return &models.IntegrationRateLimit{
-			IntegrationID:      integrationID,
-			TenantID:           tenantID,
-			Operation:          operation,
-			RequestsPerMinute:  60,
-			RequestsPerHour:    1000,
-			CurrentMinuteCount: 0,
-			CurrentHourCount:   0,
-		}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &rateLimit, nil
-}
-
-func (r *IntegrationRepository) UpdateIntegrationRateLimit(ctx context.Context, rateLimit *models.IntegrationRateLimit) error {
-	query := `
-		INSERT INTO integration_rate_limits (
-			id, integration_id, tenant_id, operation, requests_per_minute, requests_per_hour,
-			current_minute_count, current_hour_count, minute_reset_at, hour_reset_at
-		) VALUES (
-			:id, :integration_id, :tenant_id, :operation, :requests_per_minute, :requests_per_hour,
-			:current_minute_count, :current_hour_count, :minute_reset_at, :hour_reset_at
-		)
-		ON CONFLICT (integration_id, operation) 
-		DO UPDATE SET
-			current_minute_count = EXCLUDED.current_minute_count,
-			current_hour_count = EXCLUDED.current_hour_count,
-			minute_reset_at = EXCLUDED.minute_reset_at,
-			hour_reset_at = EXCLUDED.hour_reset_at`
-
-	_, err := r.db.NamedExecContext(ctx, query, rateLimit)
-	return err
-}
-
 // New methods for enhanced integration system
 
 // Integration Categories
