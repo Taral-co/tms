@@ -437,7 +437,7 @@ export function TicketDetailPage() {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">
                               <span className="font-medium text-foreground">
-                                {message.user_info.name}
+                                {(message.user_info?.name) || (message.author_type === 'system' ? 'System' : message.author_type === 'agent' ? 'Agent' : 'Customer')}
                               </span>
                               {message.is_private && (
                                 <Badge variant="secondary" className="text-xs">

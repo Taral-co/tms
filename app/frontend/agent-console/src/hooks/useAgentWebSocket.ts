@@ -94,6 +94,11 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
     try {
       // Global agent WebSocket endpoint
       const token = localStorage.getItem('auth_token')
+      if (!token) {
+        console.warn('Agent WebSocket: No auth token found, skipping connect')
+        setState(prev => ({ ...prev, isConnecting: false }))
+        return
+      }
       const wsUrl = `${getAgentWebSocketUrl()}?token=${token}`
 
 
