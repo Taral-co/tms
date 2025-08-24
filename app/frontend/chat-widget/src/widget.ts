@@ -32,7 +32,6 @@ export class TMSChatWidget {
   private reconnectAttempts: number = 0
   private maxReconnectAttempts: number = 5
   private reconnectDelay: number = 3000
-  private messageQueue: any[] = []
   private isConnected: boolean = false
   private poweredBadge: HTMLElement | null = null
 
@@ -809,9 +808,7 @@ export class TMSChatWidget {
         this.reconnectAttempts = 0
         this.isConnected = true
         this.updateStatus('Connected')
-        
-        // Process any queued messages
-        this.processMessageQueue()
+
       }
 
       this.websocket.onmessage = (event) => {
@@ -996,7 +993,7 @@ export class TMSChatWidget {
         // Send via WebSocket for real-time delivery
         const wsMessage = {
           type: 'chat_message',
-          session_id: this.session.id,
+          client_session_id: this.session.id,
           data: {
             content,
             message_type: 'text',
@@ -1060,7 +1057,7 @@ export class TMSChatWidget {
     try {
       const message = {
         type: isTyping ? 'typing_start' : 'typing_stop',
-        session_id: this.session.id,
+        client_session_id: this.session.id,
         data: {
           author_type: 'visitor',
           author_name: 'You'
@@ -1112,31 +1109,13 @@ export class TMSChatWidget {
     }
   }
 
-  private processMessageQueue() {
-    if (!this.isConnected || !this.websocket || this.messageQueue.length === 0) return
-
-    console.log(`Processing ${this.messageQueue.length} queued messages`)
-    
-    while (this.messageQueue.length > 0) {
-      const message = this.messageQueue.shift()
-      try {
-        this.websocket.send(JSON.stringify(message))
-      } catch (error) {
-        console.error('Failed to send queued message:', error)
-        // Re-queue the message
-        this.messageQueue.unshift(message)
-        break
-      }
-    }
-  }
-
   private sendReadReceipt(messageId: string) {
     if (!this.isConnected || !this.websocket || !this.session) return
 
     try {
       const message = {
         type: 'message_read',
-        session_id: this.session.id,
+        client_session_id: this.session.id,
         data: {
           message_id: messageId,
           read_by: 'visitor'

@@ -296,7 +296,7 @@ export function useChatSessionsMinimal({ initialSessionId, urlSessionId }: UseCh
       setMessages(prev => [...prev, optimisticMessage])
       setNewMessage('')
 
-      const success = await sendChatMessage(currentSelected.id, messageContent, user.name)
+      const success = await sendChatMessage(currentSelected.id, currentSelected.project_id, messageContent, user.name)
 
       if (!success) {
         // Remove optimistic message and restore input on failure

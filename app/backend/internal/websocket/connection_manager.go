@@ -39,9 +39,8 @@ type Connection struct {
 type DeliveryType string
 
 const (
-	Broadcast DeliveryType = "broadcast"
-	Direct    DeliveryType = "direct"
-	Self      DeliveryType = "self"
+	Direct DeliveryType = "direct"
+	Self   DeliveryType = "self"
 )
 
 // Message represents a chat message to be sent via WebSocket
@@ -165,11 +164,11 @@ func (cm *ConnectionManager) AddConnection(connType ConnectionType, sessionID uu
 		}
 	}
 
-	log.Info().
-		Str("connection_id", connID).
-		Str("session_id", sessionID.String()).
-		Str("type", string(connType)).
-		Msg("WebSocket connection added")
+	// log.Info().
+	// 	Str("connection_id", connID).
+	// 	Str("session_id", sessionID.String()).
+	// 	Str("type", string(connType)).
+	// 	Msg("WebSocket connection added")
 
 	return connID, nil
 }
@@ -212,10 +211,10 @@ func (cm *ConnectionManager) RemoveConnection(connID string) {
 		}
 	}
 
-	log.Info().
-		Str("connection_id", connID).
-		Str("session_id", connection.SessionID.String()).
-		Msg("WebSocket connection removed")
+	// log.Info().
+	// 	Str("connection_id", connID).
+	// 	Str("session_id", connection.SessionID.String()).
+	// 	Msg("WebSocket connection removed")
 }
 
 // SetMessageHandler sets the callback for handling direct connection messages
@@ -359,27 +358,21 @@ func (cm *ConnectionManager) deliverSessionMessage(message *Message) {
 	// Get all connections for this session from Redis
 	projectID := message.ProjectID
 	msgComingFrom := message.FromType
-	deliveryType := message.DeliveryType
 	sessionID := message.SessionID
 
 	var connIDs []string
 	var sessionKey string
-	if deliveryType == Broadcast {
-		// Handle broadcast delivery
-		sessionKey = fmt.Sprintf("livechat:broadcast:session:%s", sessionID)
-	} else {
 
-		if msgComingFrom == ConnectionTypeVisitor {
-			// Handle visitor-specific logic
-			sessionKey = fmt.Sprintf("livechat:project:%s", projectID)
-			if message.AgentID != nil {
-				// If the message is from an agent, include the agent ID
-				sessionKey = fmt.Sprintf("livechat:agent:%s", *message.AgentID)
-			}
-		} else if msgComingFrom == ConnectionTypeAgent {
-			// Handle agent-specific logic
-			sessionKey = fmt.Sprintf("livechat:session:%s", sessionID)
+	if msgComingFrom == ConnectionTypeVisitor {
+		// Handle visitor-specific logic
+		sessionKey = fmt.Sprintf("livechat:project:%s", projectID)
+		if message.AgentID != nil {
+			// If the message is from an agent, include the agent ID
+			sessionKey = fmt.Sprintf("livechat:agent:%s", *message.AgentID)
 		}
+	} else if msgComingFrom == ConnectionTypeAgent {
+		// Handle agent-specific logic
+		sessionKey = fmt.Sprintf("livechat:session:%s", sessionID)
 	}
 
 	fmt.Printf("Pubsub is working -> sessionKey: %s\n", sessionKey)

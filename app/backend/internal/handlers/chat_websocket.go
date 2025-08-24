@@ -54,17 +54,11 @@ func (h *ChatWebSocketHandler) HandleWebSocketPublic(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session token"})
 		return
 	}
-
 	// Extract session ID from claims
 	clientSessionID := claims.SessionID
-
-	fmt.Println("Valid claims clientSessionId:", claims.SessionID)
-
 	// Validate session
 	session, err := h.chatSessionService.GetChatSessionByClientSessionID(c.Request.Context(), clientSessionID)
 	if err != nil || session == nil {
-		fmt.Println("No existing session found, creating a new one")
-
 		// Create a minimal session or use InitiateChat with required data
 		initReq := &models.InitiateChatRequest{
 			VisitorName:  "",
@@ -143,11 +137,14 @@ func (h *ChatWebSocketHandler) HandleWebSocketPublic(c *gin.Context) {
 		var msg models.WSMessage
 		err := conn.ReadJSON(&msg)
 		if err != nil {
+			fmt.Println("Error reading WebSocket message:", err.Error())
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WebSocket error: %v", err)
 			}
 			break
 		}
+
+		fmt.Println("Received WebSocket message:", msg)
 
 		h.handleVisitorMessage(c.Request.Context(), session, msg, connectionID)
 	}

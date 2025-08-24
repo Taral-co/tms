@@ -57,8 +57,6 @@ func (h *AgentWebSocketHandler) HandleAgentWebSocket(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("Agent projects:", projects)
-
 	// Upgrade connection
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -121,25 +119,13 @@ func (h *AgentWebSocketHandler) HandleAgentWebSocket(c *gin.Context) {
 func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, tenantID, agentUUID uuid.UUID, agentName string, msg models.WSMessage, connectionID string) {
 	switch msg.Type {
 	case models.WSMsgTypeChatMessage:
-		if msg.Data != nil && msg.SessionID != uuid.Nil {
-			// Get session to extract project ID
-			session, err := h.chatSessionService.GetChatSessionByID(ctx, tenantID, msg.SessionID)
-			if err != nil {
-				log.Printf("Cannot get session %s: %v", msg.SessionID, err)
-				return
-			}
-			if session == nil {
-				log.Printf("Session %s not found", msg.SessionID)
-				return
-			}
-			// Handle message for specific session via agent's global connection
-			h.handleChatMessage(ctx, tenantID, session.ProjectID, agentUUID, msg.SessionID, agentName, msg, connectionID)
+		if msg.Data != nil {
+			projectID := *msg.ProjectID
+			h.handleChatMessage(ctx, tenantID, projectID, agentUUID, *msg.AgentSessionID, agentName, msg, connectionID)
 		}
 	case models.WSMsgTypeTypingStart, models.WSMsgTypeTypingStop:
-		if msg.SessionID != uuid.Nil {
-			// Broadcast typing indicator to session (agents will filter out their own on frontend)
-			h.broadcastTypingIndicator(ctx, msg.SessionID, string(msg.Type), agentName)
-		}
+		h.broadcastTypingIndicator(ctx, *msg.AgentSessionID, string(msg.Type), agentName)
+
 	case "ping":
 		// Respond to ping
 		pongMsg := &ws.Message{
@@ -151,13 +137,13 @@ func (h *AgentWebSocketHandler) handleAgentGlobalMessage(ctx context.Context, te
 		h.connectionManager.SendToConnection(connectionID, pongMsg)
 	case "session_subscribe":
 		// Agent wants to receive updates for a specific session
-		if msg.SessionID != uuid.Nil {
-			h.subscribeAgentToSession(ctx, agentUUID, msg.SessionID.String(), connectionID)
+		if msg.AgentSessionID != nil {
+			h.subscribeAgentToSession(ctx, agentUUID, *msg.AgentSessionID, connectionID)
 		}
 	case "session_unsubscribe":
 		// Agent no longer wants updates for a specific session
-		if msg.SessionID != uuid.Nil {
-			h.unsubscribeAgentFromSession(ctx, agentUUID, msg.SessionID.String(), connectionID)
+		if msg.AgentSessionID != nil {
+			h.unsubscribeAgentFromSession(ctx, agentUUID, *msg.AgentSessionID, connectionID)
 		}
 	}
 }
@@ -245,9 +231,9 @@ func (h *AgentWebSocketHandler) SetChatWSHandler(chatWSHandler *ChatWebSocketHan
 	h.chatWSHandler = chatWSHandler
 }
 
-func (h *AgentWebSocketHandler) subscribeAgentToSession(ctx context.Context, agentUUID uuid.UUID, sessionID, connectionID string) {
+func (h *AgentWebSocketHandler) subscribeAgentToSession(ctx context.Context, agentUUID, sessionID uuid.UUID, connectionID string) {
 	// Store the subscription in Redis so the agent receives messages for this session
-	subscriptionKey := fmt.Sprintf("agent_subscription:%s:%s", agentUUID.String(), sessionID)
+	subscriptionKey := fmt.Sprintf("agent_subscription:%s:%s", agentUUID.String(), sessionID.String())
 
 	// Store the connection ID for this subscription
 	err := h.connectionManager.GetRedisClient().Set(ctx, subscriptionKey, connectionID, time.Hour).Err()
@@ -267,14 +253,14 @@ func (h *AgentWebSocketHandler) subscribeAgentToSession(ctx context.Context, age
 	log.Printf("Agent %s subscribed to session %s (connection: %s)", agentUUID.String(), sessionID, connectionID)
 }
 
-func (h *AgentWebSocketHandler) unsubscribeAgentFromSession(ctx context.Context, agentUUID uuid.UUID, sessionID, connectionID string) {
+func (h *AgentWebSocketHandler) unsubscribeAgentFromSession(ctx context.Context, agentUUID, sessionID uuid.UUID, connectionID string) {
 	// Remove the subscription from Redis
-	subscriptionKey := fmt.Sprintf("agent_subscription:%s:%s", agentUUID.String(), sessionID)
+	subscriptionKey := fmt.Sprintf("agent_subscription:%s:%s", agentUUID.String(), sessionID.String())
 	h.connectionManager.GetRedisClient().Del(ctx, subscriptionKey)
 
 	// Remove from reverse lookup
-	sessionAgentsKey := fmt.Sprintf("session_agents:%s", sessionID)
+	sessionAgentsKey := fmt.Sprintf("session_agents:%s", sessionID.String())
 	h.connectionManager.GetRedisClient().SRem(ctx, sessionAgentsKey, agentUUID.String())
 
-	log.Printf("Agent %s unsubscribed from session %s", agentUUID.String(), sessionID)
+	log.Printf("Agent %s unsubscribed from session %s", agentUUID.String(), sessionID.String())
 }

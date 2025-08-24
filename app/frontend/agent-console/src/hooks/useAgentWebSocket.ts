@@ -288,10 +288,11 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
     return false
   }, [])
 
-  const sendChatMessage = useCallback(async (sessionId: string, content: string, senderName: string): Promise<boolean> => {
+  const sendChatMessage = useCallback(async (sessionId: string, projectId: string, content: string, senderName: string): Promise<boolean> => {
     const messageData = {
       type: 'chat_message',
-      session_id: sessionId,
+      agent_session_id: sessionId,
+      project_id: projectId,
       data: {
         content: content.trim(),
         message_type: 'text'
@@ -329,7 +330,7 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
     
     return sendMessage({
       type: isTyping ? 'typing_start' : 'typing_stop',
-      session_id: sessionId,
+      agent_session_id: sessionId,
       data: {
         author_type: 'agent',
         author_name: user?.name || 'Agent'
@@ -340,15 +341,15 @@ export function useAgentWebSocket(options: UseAgentWebSocketOptions = {}) {
   const subscribeToSession = useCallback((sessionId: string) => {
     return sendMessage({
       type: 'session_subscribe',
-      session_id: sessionId,
+      agent_session_id: sessionId,
       data: {}
     })
   }, [sendMessage])
 
   const unsubscribeFromSession = useCallback((sessionId: string) => {
     return sendMessage({
-      type: 'session_unsubscribe', 
-      session_id: sessionId,
+      type: 'session_unsubscribe',
+      agent_session_id: sessionId,
       data: {}
     })
   }, [sendMessage])

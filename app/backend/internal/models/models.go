@@ -767,11 +767,13 @@ const (
 
 // WSMessage represents a WebSocket message
 type WSMessage struct {
-	Type      WSMessageType `json:"type"`
-	SessionID uuid.UUID     `json:"session_id"`
-	Data      interface{}   `json:"data"`
-	Timestamp time.Time     `json:"timestamp"`
-	MessageID *uuid.UUID    `json:"message_id"`
+	Type            WSMessageType `json:"type"`
+	ClientSessionID *string       `json:"client_session_id"`
+	AgentSessionID  *uuid.UUID    `json:"agent_session_id"`
+	Data            interface{}   `json:"data"`
+	Timestamp       time.Time     `json:"timestamp"`
+	MessageID       *uuid.UUID    `json:"message_id"`
+	ProjectID       *uuid.UUID    `json:"project_id"`
 }
 
 // Notification types from advanced features subsystem
