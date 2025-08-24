@@ -74,6 +74,7 @@ export class TMSChatWidget {
   }
 
   private async init() {
+    console
     try {
       // Check for existing session first
       await this.restoreSession()
@@ -111,6 +112,7 @@ export class TMSChatWidget {
     if (existingSession) {
       this.session = {
         id: existingSession.session_id,
+        token: existingSession.token,
         widget_id: existingSession.widget_id,
         status: 'active'
       }
@@ -157,7 +159,7 @@ export class TMSChatWidget {
         <div id="tms-visitor-info-form" class="tms-visitor-info-form" style="display: none;">
           <div class="tms-visitor-info-title">Start a conversation</div>
           <form id="tms-visitor-form">
-          ${this.widget.require_email ? `
+          ${this.widget.require_name ? `
             <div class="tms-visitor-form-field">
               <label class="tms-visitor-form-label" for="tms-visitor-name">Name *</label>
               <input 
@@ -361,10 +363,6 @@ export class TMSChatWidget {
       this.handleVisitorFormSubmit()
     })
 
-    visitorStartButton?.addEventListener('click', () => {
-      this.handleVisitorFormSubmit()
-    })
-
     visitorCancelButton?.addEventListener('click', () => {
       this.hideVisitorForm()
       this.close()
@@ -524,25 +522,26 @@ export class TMSChatWidget {
   }
 
   private async handleVisitorFormSubmit() {
+    console.log("1")
     const nameInput = document.getElementById('tms-visitor-name') as HTMLInputElement
     const emailInput = document.getElementById('tms-visitor-email') as HTMLInputElement
-    
+    console.log("2")
     if (!nameInput) return
-    
+    console.log("3")
     const name = nameInput.value.trim()
     const email = emailInput?.value.trim()
-    
+    console.log("4")
     // Validate required fields
     if (!name) {
       nameInput.focus()
       return
     }
-    
+    console.log("5")
     if (this.widget?.require_email && !email) {
       emailInput?.focus()
       return
     }
-    
+    console.log("6")
     // Store visitor info for future sessions
     const fingerprint = await generateVisitorFingerprint()
     this.storage.saveVisitorInfo({
@@ -551,7 +550,7 @@ export class TMSChatWidget {
       fingerprint,
       last_visit: new Date().toISOString()
     })
-    
+    console.log("7")
     // Hide the form and show messages
     this.hideVisitorForm()
     
@@ -569,8 +568,9 @@ export class TMSChatWidget {
       }
       
       this.displayMessage(message)
+      console.log("8")
     }
-    
+    console.log("9")
     // Start the chat session with visitor info
     await this.startChatSessionWithVisitorInfo({ name, email })
   }
@@ -598,6 +598,7 @@ export class TMSChatWidget {
       // Create session object
       this.session = {
         id: sessionResponse.session_id,
+        token: sessionResponse.session_token,
         widget_id: this.widget.id,
         status: 'active',
         visitor_name: visitorInfo.name
@@ -606,6 +607,7 @@ export class TMSChatWidget {
       // Save session to storage
       this.storage.saveSession({
         session_id: this.session.id,
+        token: this.session.token,
         widget_id: this.widget.id,
         visitor_name: visitorInfo.name,
         visitor_email: visitorInfo.email,
@@ -682,6 +684,7 @@ export class TMSChatWidget {
         })
       } else {
         // Show visitor form for new users
+        console.log("no stored visitor info found")
         this.showVisitorForm()
       }
     } else {
@@ -798,7 +801,7 @@ export class TMSChatWidget {
     if (!this.session) return
 
     try {
-      const wsUrl = this.api.getWebSocketUrl(this.session.id)
+      const wsUrl = this.api.getWebSocketUrl(this.session.token, this.session.widget_id)
       this.websocket = new WebSocket(wsUrl)
 
       this.websocket.onopen = () => {
@@ -1005,21 +1008,7 @@ export class TMSChatWidget {
         this.websocket.send(JSON.stringify(wsMessage))
         this.emitter.emit('message:sent', tempMessage)
       } else {
-        // Fallback to HTTP API if WebSocket is not connected
-        console.log('WebSocket not connected, using HTTP API fallback')
-        const message = await this.api.sendMessage(this.session.id, {
-          content,
-          message_type: 'text',
-          sender_name: 'You'
-        })
-
-        // Replace temp message with real message
-        const tempIndex = this.messages.findIndex(m => m.id === tempMessage.id)
-        if (tempIndex !== -1) {
-          this.messages[tempIndex] = message
-        }
-        
-        this.emitter.emit('message:sent', message)
+        console.error('WebSocket not connected, not able to send the chat message')
       }
       
     } catch (error) {

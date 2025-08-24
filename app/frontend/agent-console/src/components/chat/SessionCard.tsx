@@ -91,7 +91,7 @@ export const SessionCard = React.memo(function SessionCard({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <h4 className="text-sm font-semibold text-foreground truncate">
-                {session.customer_name || session.customer_email || 'Guest User'}
+                {session.customer_name || session.visitor_info?.visitor_name ||  session.customer_email || session.visitor_info?.visitor_email || 'Guest User'}
               </h4>
               <Badge 
                 variant={getStatusVariant(session.status)} 

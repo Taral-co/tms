@@ -40,7 +40,7 @@ func NewChatSessionService(
 }
 
 // InitiateChat starts a new chat session
-func (s *ChatSessionService) InitiateChat(ctx context.Context, widgetID uuid.UUID, req *models.InitiateChatRequest) (*models.ChatSession, error) {
+func (s *ChatSessionService) InitiateChat(ctx context.Context, widgetID uuid.UUID, clientSessionID string, req *models.InitiateChatRequest) (*models.ChatSession, error) {
 	// Get widget to validate and get tenant/project context
 	widget, err := s.chatWidgetRepo.GetChatWidgetById(ctx, widgetID)
 	if err != nil {
@@ -77,17 +77,18 @@ func (s *ChatSessionService) InitiateChat(ctx context.Context, widgetID uuid.UUI
 
 	// Create chat session
 	session := &models.ChatSession{
-		ID:             uuid.New(),
-		TenantID:       widget.TenantID,
-		ProjectID:      widget.ProjectID,
-		WidgetID:       widget.ID,
-		CustomerID:     customerID,
-		Status:         "active",
-		VisitorInfo:    req.VisitorInfo,
-		StartedAt:      time.Now(),
-		LastActivityAt: time.Now(),
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:              uuid.New(),
+		TenantID:        widget.TenantID,
+		ProjectID:       widget.ProjectID,
+		WidgetID:        widget.ID,
+		CustomerID:      customerID,
+		ClientSessionID: clientSessionID,
+		Status:          "active",
+		VisitorInfo:     req.VisitorInfo,
+		StartedAt:       time.Now(),
+		LastActivityAt:  time.Now(),
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 
 	err = s.chatSessionRepo.CreateChatSession(ctx, session)
@@ -119,19 +120,13 @@ func (s *ChatSessionService) GetChatSessionByID(ctx context.Context, tenantID, s
 	return s.chatSessionRepo.GetChatSessionByID(ctx, tenantID, sessionID)
 }
 
-// GetChatSessionByID gets a chat session by ID for any tenant (used for global agent operations)
-func (s *ChatSessionService) GetChatSessionOnlyByID(ctx context.Context, sessionID uuid.UUID) (*models.ChatSession, error) {
-	return s.chatSessionRepo.GetChatSessionOnlyByID(ctx, sessionID)
+func (s *ChatSessionService) GetChatSessionByClientSessionID(ctx context.Context, clientSessionID string) (*models.ChatSession, error) {
+	return s.chatSessionRepo.GetChatSessionByClientSessionID(ctx, clientSessionID)
 }
 
 // ListChatSessions lists chat sessions for a project
 func (s *ChatSessionService) ListChatSessions(ctx context.Context, tenantID, projectID uuid.UUID, filters repo.ChatSessionFilters) ([]*models.ChatSession, error) {
 	return s.chatSessionRepo.ListChatSessions(ctx, tenantID, projectID, filters)
-}
-
-// GetActiveSessions gets active sessions for an agent
-func (s *ChatSessionService) GetActiveSessions(ctx context.Context, tenantID, agentID uuid.UUID) ([]*models.ChatSession, error) {
-	return s.chatSessionRepo.GetActiveSessions(ctx, tenantID, agentID)
 }
 
 // AssignAgent assigns an agent to a chat session

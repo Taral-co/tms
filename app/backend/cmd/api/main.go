@@ -129,7 +129,7 @@ func main() {
 	notificationService := service.NewNotificationService(notificationRepo, connectionManager)
 	notificationHandler := handlers.NewNotificationHandler(notificationService)
 
-	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager, notificationService, aiService)
+	chatWebSocketHandler := handlers.NewChatWebSocketHandler(chatSessionService, connectionManager, notificationService, aiService, jwtAuth)
 	agentWebSocketHandler := handlers.NewAgentWebSocketHandler(chatSessionService, connectionManager, agentService)
 
 	// Set up combined message handling - ChatWebSocketHandler handles all Redis pub/sub messages
@@ -427,16 +427,11 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 			// Widget endpoints
 			publicChat.GET("/widgets/domain/:domain", chatWidgetHandler.GetChatWidgetByDomain)
 
-			// Widget initialization and chat initiation
-			publicChat.POST("/widgets/:widget_id/initiate", chatSessionHandler.InitiateChat)
-
 			// Public chat session endpoints (token-based auth)
 			publicChat.POST("/sessions/:session_id/messages/:message_id/read", chatSessionHandler.MarkVisitorMessagesAsRead)
 
-			publicChat.POST("/sessions/:session_id/messages", chatSessionHandler.SendVisitorMessage)
-
 			// WebSocket endpoint for visitors
-			publicChat.GET("/ws/:session_id", chatWebSocketHandler.HandleWebSocketPublic)
+			publicChat.GET("/ws/widgets/:widget_id/chat/:session_token", chatWebSocketHandler.HandleWebSocketPublic)
 		}
 	}
 

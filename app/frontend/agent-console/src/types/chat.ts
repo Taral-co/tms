@@ -36,6 +36,11 @@ export interface ChatWidget {
   updated_at: string
 }
 
+export interface VisitorInfo {
+  visitor_name?: string
+  visitor_email?: string
+}
+
 export interface ChatSession {
   id: string
   tenant_id: string
@@ -44,7 +49,7 @@ export interface ChatSession {
   customer_id?: string
   ticket_id?: string
   status: 'active' | 'ended' | 'transferred'
-  visitor_info: Record<string, any>
+  visitor_info?: VisitorInfo
   assigned_agent_id?: string
   assigned_at?: string
   started_at: string

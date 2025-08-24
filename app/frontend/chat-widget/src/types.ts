@@ -11,6 +11,7 @@ export interface ChatMessage {
 
 export interface ChatSession {
   id: string
+  token: string
   widget_id: string
   status: 'active' | 'ended'
   assigned_agent_name?: string
@@ -60,6 +61,7 @@ export interface WidgetTheme {
 
 export interface SessionData {
   session_id: string
+  token: string
   widget_id: string
   visitor_name: string
   visitor_email?: string
@@ -71,14 +73,7 @@ export interface SessionData {
 export interface InitiateChatRequest {
   visitor_name: string
   visitor_email?: string
-  initial_message?: string
   visitor_info: Record<string, any>
-}
-
-export interface SendMessageRequest {
-  content: string
-  message_type?: 'text' | 'file' | 'image'
-  sender_name: string
 }
 
 export interface WSMessage {

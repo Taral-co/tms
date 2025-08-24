@@ -334,6 +334,16 @@ func GetProjectID(c *gin.Context) uuid.UUID {
 	panic(err)
 }
 
+func GetWidgetID(c *gin.Context) uuid.UUID {
+	if widgetID, exists := c.Params.Get("widget_id"); exists {
+		widgetUUID, _ := uuid.Parse(widgetID)
+		return widgetUUID
+	}
+	// raise error
+	err := errors.New("widget ID not found")
+	panic(err)
+}
+
 func GetSessionID(c *gin.Context) uuid.UUID {
 	if sessionID, exists := c.Params.Get("session_id"); exists {
 		sessionUUID, _ := uuid.Parse(sessionID)
@@ -341,6 +351,15 @@ func GetSessionID(c *gin.Context) uuid.UUID {
 	}
 	// raise error
 	err := errors.New("session ID not found")
+	panic(err)
+}
+
+func GetSessionToken(c *gin.Context) string {
+	if sessionToken, exists := c.Params.Get("session_token"); exists {
+		return sessionToken
+	}
+	// raise error
+	err := errors.New("session token not found")
 	panic(err)
 }
 

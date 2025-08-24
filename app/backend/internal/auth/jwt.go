@@ -245,7 +245,7 @@ func (s *Service) ValidatePublicToken(tokenString string) (*models.PublicTokenCl
 		return nil, fmt.Errorf("invalid token claims")
 	}
 
-	// Check expiration
+	// Check expiration explicitly as an additional safety measure
 	if time.Now().Unix() > claims.Exp {
 		return nil, fmt.Errorf("token expired")
 	}
@@ -281,4 +281,34 @@ func (s *Service) ValidateMagicLinkToken(tokenString string) (string, error) {
 	}
 
 	return claims.Subject, nil
+}
+
+func (s *Service) ValidateChatToken(tokenString string, widgetID uuid.UUID) (*models.PublicChatClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &models.PublicChatClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// Use widgetID as the secret key for chat tokens
+		return []byte(widgetID.String()), nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	if !token.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	claims, ok := token.Claims.(*models.PublicChatClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	// Check expiration
+	if time.Now().Unix() > claims.Exp {
+		return nil, fmt.Errorf("token expired")
+	}
+
+	return claims, nil
 }

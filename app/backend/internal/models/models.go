@@ -338,6 +338,69 @@ func (c *PublicTokenClaims) GetAudience() (jwt.ClaimStrings, error) {
 	return nil, nil
 }
 
+type PublicChatClaims struct {
+	SessionID    string    `json:"session_id"`
+	WidgetID     uuid.UUID `json:"widget_id"`
+	VisitorName  *string   `json:"visitor_name"`
+	VisitorEmail *string   `json:"visitor_email"`
+	VisitorInfo  JSONMap   `json:"visitor_info"`
+	Exp          int64     `json:"exp"`
+	Iat          int64     `json:"iat"`
+	Timestamp    int64     `json:"timestamp"`
+}
+
+// GetExpirationTime implements jwt.Claims
+func (c *PublicChatClaims) GetExpirationTime() (*jwt.NumericDate, error) {
+	return jwt.NewNumericDate(time.Unix(c.Exp, 0)), nil
+}
+
+// GetIssuedAt implements jwt.Claims
+func (c *PublicChatClaims) GetIssuedAt() (*jwt.NumericDate, error) {
+	return nil, nil
+}
+
+// GetNotBefore implements jwt.Claims
+func (c *PublicChatClaims) GetNotBefore() (*jwt.NumericDate, error) {
+	return nil, nil
+}
+
+// GetIssuer implements jwt.Claims
+func (c *PublicChatClaims) GetIssuer() (string, error) {
+	return "tms", nil
+}
+
+// GetSubject implements jwt.Claims
+func (c *PublicChatClaims) GetSessionID() (string, error) {
+	return c.SessionID, nil
+}
+
+// GetAudience implements jwt.Claims
+func (c *PublicChatClaims) GetWidgetID() (uuid.UUID, error) {
+	return c.WidgetID, nil
+}
+
+func (c *PublicChatClaims) GetVisitorName() (*string, error) {
+	return c.VisitorName, nil
+}
+
+func (c *PublicChatClaims) GetVisitorEmail() (*string, error) {
+	return c.VisitorEmail, nil
+}
+
+func (c *PublicChatClaims) GetVisitorInfo() (JSONMap, error) {
+	return c.VisitorInfo, nil
+}
+
+// GetSubject implements jwt.Claims
+func (c *PublicChatClaims) GetSubject() (string, error) {
+	return c.SessionID, nil
+}
+
+// GetAudience implements jwt.Claims
+func (c *PublicChatClaims) GetAudience() (jwt.ClaimStrings, error) {
+	return nil, nil
+}
+
 // Request/Response DTOs
 
 // CreateTicketRequest represents a request to create a ticket
@@ -537,10 +600,11 @@ type ChatWidgetPublic struct {
 
 // ChatSession represents a chat conversation session
 type ChatSession struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	TenantID  uuid.UUID `db:"tenant_id" json:"tenant_id"`
-	ProjectID uuid.UUID `db:"project_id" json:"project_id"`
-	WidgetID  uuid.UUID `db:"widget_id" json:"widget_id"`
+	ID              uuid.UUID `db:"id" json:"id"`
+	TenantID        uuid.UUID `db:"tenant_id" json:"tenant_id"`
+	ProjectID       uuid.UUID `db:"project_id" json:"project_id"`
+	WidgetID        uuid.UUID `db:"widget_id" json:"widget_id"`
+	ClientSessionID string    `db:"client_session_id" json:"client_session_id"` // this is generated
 
 	// Session identity
 	CustomerID *uuid.UUID `db:"customer_id" json:"customer_id,omitempty"`

@@ -1,4 +1,5 @@
-import { ChatMessage, ChatSession, ChatWidget, InitiateChatRequest, SendMessageRequest } from './types'
+import { ChatWidget, InitiateChatRequest } from './types'
+import { SignJWT, jwtVerify } from 'jose'
 
 export class ChatAPI {
   private baseUrl: string
@@ -15,46 +16,63 @@ export class ChatAPI {
     return response.json()
   }
 
-  async initiateChat(widgetId: string, request: InitiateChatRequest): Promise<{ session_id: string }> {
-    const response = await fetch(`${this.baseUrl}/public/chat/widgets/${widgetId}/initiate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    })
-    
-    if (!response.ok) {
-      throw new Error(`Failed to initiate chat: ${response.statusText}`)
+  private async createSessionToken(widgetId: string, request: InitiateChatRequest): Promise<{ chatSessionToken: string, sessionId: string }> {
+    const chatToken = localStorage.getItem('chat_session_token')
+    if (chatToken) {
+      try {
+        const { chatSessionToken, sessionId } = JSON.parse(chatToken)
+        if (await this.verifySessionToken(widgetId, chatSessionToken)) {
+          return { chatSessionToken, sessionId }
+        }
+      } catch {
+        // Invalid stored token, create new one
+        localStorage.removeItem('chat_session_token')
+      }
     }
     
-    return response.json()
-  }
-
-  async getSession(sessionToken: string): Promise<ChatSession> {
-    const response = await fetch(`${this.baseUrl}/public/chat/sessions/${sessionToken}`)
-    if (!response.ok) {
-      throw new Error(`Failed to get session: ${response.statusText}`)
-    }
-    return response.json()
-  }
-
-
-  async sendMessage(sessionToken: string, request: SendMessageRequest): Promise<ChatMessage> {
-    const response = await fetch(`${this.baseUrl}/public/chat/sessions/${sessionToken}/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    })
-    
-    if (!response.ok) {
-      throw new Error(`Failed to send message: ${response.statusText}`)
+    const timestamp = Date.now()
+    const sessionId = (request.visitor_info?.fingerprint || 'anon') + '_' + timestamp
+    const payload = {
+      session_id: sessionId,
+      widget_id: widgetId,
+      visitor_name: request.visitor_name,
+      visitor_email: request.visitor_email,
+      visitor_info: request.visitor_info,
+      timestamp: Date.now(),
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours expiration
     }
     
-    return response.json()
+    const secret = new TextEncoder().encode(widgetId)
+    const chatSessionToken = await new SignJWT(payload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('24h')
+      .sign(secret)
+    
+    const sessionInfo = { chatSessionToken, sessionId }
+    localStorage.setItem('chat_session_token', JSON.stringify(sessionInfo))
+    return sessionInfo
   }
+
+  public async verifySessionToken(widgetId: string, token: string): Promise<boolean> {
+    try {
+      const secret = new TextEncoder().encode(widgetId)
+      await jwtVerify(token, secret)
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  async initiateChat(widgetId: string, request: InitiateChatRequest): Promise<{ session_token: string, session_id: string }> {
+    // Create a JWT session token that combines widgetId with request information
+    const session = await this.createSessionToken(widgetId, request)
+    console.log("session:", session)
+    // Return the session token
+    return { session_token: session.chatSessionToken, session_id: session.sessionId }
+  }
+
 
   async markMessagesAsRead(sessionToken: string): Promise<void> {
     const response = await fetch(`${this.baseUrl}/public/chat/sessions/${sessionToken}/read`, {
@@ -66,8 +84,8 @@ export class ChatAPI {
     }
   }
 
-  getWebSocketUrl(sessionToken: string): string {
+  getWebSocketUrl(sessionToken: string, widgetId: string): string {
     const wsUrl = this.baseUrl.replace('http', 'ws')
-    return `${wsUrl}/public/chat/ws/${sessionToken}`
+    return `${wsUrl}/public/chat/ws/widgets/${widgetId}/chat/${sessionToken}`
   }
 }

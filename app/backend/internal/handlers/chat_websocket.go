@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
+	"github.com/bareuptime/tms/internal/auth"
 	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/service"
@@ -29,26 +30,67 @@ type ChatWebSocketHandler struct {
 	connectionManager   *ws.ConnectionManager
 	notificationService *service.NotificationService
 	aiService           *service.AIService
+	authService         *auth.Service
 }
 
-func NewChatWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager, notificationService *service.NotificationService, aiService *service.AIService) *ChatWebSocketHandler {
+func NewChatWebSocketHandler(chatSessionService *service.ChatSessionService, connectionManager *ws.ConnectionManager, notificationService *service.NotificationService, aiService *service.AIService, authService *auth.Service) *ChatWebSocketHandler {
 	return &ChatWebSocketHandler{
 		chatSessionService:  chatSessionService,
 		connectionManager:   connectionManager,
 		notificationService: notificationService,
 		aiService:           aiService,
+		authService:         authService,
 	}
 }
 
 // HandleWebSocket handles WebSocket connections for real-time chat from visitors
 func (h *ChatWebSocketHandler) HandleWebSocketPublic(c *gin.Context) {
-	sessionID := middleware.GetSessionID(c)
+	sessionToken := middleware.GetSessionToken(c)
+	widgetID := middleware.GetWidgetID(c)
 
-	// Validate session
-	session, err := h.chatSessionService.GetChatSessionOnlyByID(c.Request.Context(), sessionID)
-	if err != nil || session == nil {
+	// Validate chat token and extract claims
+	claims, err := h.authService.ValidateChatToken(sessionToken, widgetID)
+	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session token"})
 		return
+	}
+
+	// Extract session ID from claims
+	clientSessionID := claims.SessionID
+
+	fmt.Println("Valid claims clientSessionId:", claims.SessionID)
+
+	// Validate session
+	session, err := h.chatSessionService.GetChatSessionByClientSessionID(c.Request.Context(), clientSessionID)
+	if err != nil || session == nil {
+		fmt.Println("No existing session found, creating a new one")
+
+		// Create a minimal session or use InitiateChat with required data
+		initReq := &models.InitiateChatRequest{
+			VisitorName:  "",
+			VisitorEmail: "",
+			VisitorInfo:  claims.VisitorInfo,
+		}
+		if claims.VisitorName != nil {
+			initReq.VisitorName = *claims.VisitorName
+			initReq.VisitorInfo["visitor_name"] = *claims.VisitorName
+		}
+		if claims.VisitorEmail != nil {
+			initReq.VisitorEmail = *claims.VisitorEmail
+			initReq.VisitorInfo["visitor_email"] = *claims.VisitorEmail
+		}
+
+		fmt.Println("Initiating chat session:", initReq)
+
+		session, err = h.chatSessionService.InitiateChat(c.Request.Context(), claims.WidgetID, clientSessionID, initReq)
+		if err != nil {
+			fmt.Println("Error creating chat session:", err.Error())
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create chat session: " + err.Error()})
+			return
+		}
+
+		// Update the ClientSessionID to match the token
+		session.ClientSessionID = clientSessionID
 	}
 
 	// Upgrade connection
