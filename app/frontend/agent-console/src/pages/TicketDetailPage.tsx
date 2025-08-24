@@ -403,8 +403,8 @@ export function TicketDetailPage() {
           </div>
         </div>
 
-  {/* Enhanced Content */}
-  <div className="flex-1 overflow-y-auto p-6">
+        {/* Enhanced Content */}
+        <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Main Content */}
             <div className="lg:col-span-3">
@@ -418,7 +418,7 @@ export function TicketDetailPage() {
                     </div>
                   </div>
                   
-                  <div className="space-y-6">
+                  <div className="space-y-6 max-h-[40vh] overflow-y-auto pr-2">
                     {messages.map((message) => (
                       <div key={message.id} className="flex gap-4">
                         <div className="flex-shrink-0">
