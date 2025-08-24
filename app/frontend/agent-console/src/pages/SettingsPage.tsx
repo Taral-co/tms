@@ -111,7 +111,7 @@ export function SettingsPage() {
     { id: 'roles' as SettingsTab, name: 'Roles & Users', icon: Users },
     { id: 'domains' as SettingsTab, name: 'Domain Validation', icon: Mail },
     { id: 'branding' as SettingsTab, name: 'Branding', icon: Palette },
-    { id: 'automations' as SettingsTab, name: 'Automations', icon: Zap },
+    // { id: 'automations' as SettingsTab, name: 'Automations', icon: Zap },
     { id: 'api-keys' as SettingsTab, name: 'API Keys', icon: Key },
   ]
 
