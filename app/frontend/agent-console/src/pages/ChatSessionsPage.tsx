@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { useChatSessionsMinimal } from '../hooks/useChatSessionsMinimal'
 import { SessionCard, MessageBubble, ConnectionStatus } from '../components/chat'
 import { AIStatusWidget } from '../components/chat/AIStatusWidget'
+import { useCustomerOnlineStatus } from '@/hooks/useCustomerOnlineStatus'
 
 interface ChatSessionsPageProps {
   initialSessionId?: string
@@ -65,7 +66,6 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     }
   }, [selectedSession?.id, markMessageAsRead])
 
-  const [showCreateModal, setShowCreateModal] = React.useState(false)
 
   useEffect(() => {
     scrollToBottom()
@@ -75,20 +75,11 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  const getStatusStyles = useCallback((status: string) => {
-    switch (status) {
-      case 'active': return 'bg-success/10 text-success'
-      case 'waiting': return 'bg-warning/10 text-warning'
-      case 'ended': return 'bg-muted text-muted-foreground'
-      case 'transferred': return 'bg-info/10 text-info'
-      default: return 'bg-muted text-muted-foreground'
-    }
-  }, [])
+  const { isOnline: customerStatus } = useCustomerOnlineStatus({
+    sessionId: selectedSession?.id,
+  })
+  
 
-  const handleCreateSession = useCallback(async (sessionId: string) => {
-    // This will be handled by the hook's session loading
-    console.log('Session created:', sessionId)
-  }, [])
 
   // Manual retry handler for connection failures
   const handleRetryConnection = useCallback(() => {
@@ -169,6 +160,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                 <SessionCard
                   key={session.id}
                   session={session}
+                  isClientOnline={customerStatus}
                   isSelected={selectedSession?.id === session.id}
                   isFlashing={flashingSessions.has(session.id)}
                   onClick={() => handleSessionSelect(session)}
@@ -206,18 +198,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                   </div>
                 </>
               ) : (
-                <>
-                  <h3 className="font-medium text-card-foreground mb-1">No chat sessions found</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {searchTerm ? 'Try adjusting your search terms' : 'Start a new chat to begin helping customers'}
-                  </p>
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="h-9 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    Start New Chat
-                  </button>
-                </>
+                <></>
               )}
             </div>
           )}
@@ -225,7 +206,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
       </div>
 
       {/* Chat Area */}
-  <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0">
         {selectedSession ? (
           <>
             {/* Chat Header */}
@@ -241,16 +222,12 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                         {selectedSession.customer_name || selectedSession.customer_email}
                       </h2>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${getStatusStyles(selectedSession.status)}`}>
-                          {selectedSession.status}
-                        </span>
-                        <span>•</span>
-                        <Clock className="w-3 h-3" />
+                        
                         <span>{format(new Date(selectedSession.created_at), 'MMM d, h:mm a')}</span>
                         <span>•</span>
                         <ConnectionStatus 
-                          isConnected={wsConnected}
-                          isConnecting={wsConnecting}
+                          isConnected={customerStatus}
+                          isConnecting={customerStatus}
                           error={wsError}
                           selectedSession={selectedSession}
                         />
@@ -429,12 +406,7 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
                 </div>
                 <h3 className="text-lg font-medium text-foreground mb-2">Select a chat session</h3>
                 <p className="text-muted-foreground mb-6">Choose a session from the sidebar to start chatting with customers</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="h-10 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
-                >
-                  Start New Chat
-                </button>
+
               </div>
             )}
           </div>

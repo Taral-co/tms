@@ -8,6 +8,7 @@ interface SessionCardProps {
   session: ChatSession
   isSelected: boolean
   isFlashing?: boolean
+  isClientOnline?: boolean
   onClick: () => void
   onAssign: () => void
 }
@@ -16,6 +17,7 @@ export const SessionCard = React.memo(function SessionCard({
   session, 
   isSelected, 
   isFlashing = false, 
+  isClientOnline = false,
   onClick, 
   onAssign 
 }: SessionCardProps) {
@@ -80,7 +82,7 @@ export const SessionCard = React.memo(function SessionCard({
             </AvatarFallback>
           </Avatar>
           {/* Online status indicator for active sessions */}
-          {session.status === 'active' && (
+          {isClientOnline && (
             <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-success border-2 border-background rounded-full animate-pulse" />
           )}
         </div>

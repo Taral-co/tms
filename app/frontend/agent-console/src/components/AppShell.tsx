@@ -19,10 +19,12 @@ import {
 } from 'lucide-react'
 import { useTheme } from '../components/ThemeProvider'
 import { useAuth } from '../hooks/useAuth'
+import { useAgentWebSocket } from '../hooks/useAgentWebSocket'
 import { NotificationBell } from './NotificationBell'
 import { CommandPalette } from './CommandPalette'
 import { ProjectSelector } from './ProjectSelector'
 import { apiClient } from '../lib/api'
+import { ConnectionStatus } from './chat/ConnectionStatus'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -37,6 +39,13 @@ export function AppShell({ children }: AppShellProps) {
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuth()
   const location = useLocation()
+  
+  // WebSocket connection for real-time chat updates
+  const { isConnected: wsConnected, isConnecting: wsConnecting, error: wsError } = useAgentWebSocket()
+  
+  // Determine if we're on a chat session page and extract session ID
+  const isChatSessionPage = location.pathname.startsWith('/chat/sessions/')
+  const selectedSession = isChatSessionPage ? { id: location.pathname.split('/').pop() } : null
 
   const handleProjectChange = (projectId: string) => {
     setCurrentProjectId(projectId)
@@ -182,6 +191,15 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* Actions */}
           <div className="flex items-center space-x-2">
+            {/* Connection Status */}
+            <ConnectionStatus 
+              isConnected={wsConnected}
+              isConnecting={wsConnecting}
+              error={wsError}
+              selectedSession={selectedSession}
+              variant="md"
+            />
+            
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}

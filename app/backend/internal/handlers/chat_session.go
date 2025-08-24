@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/bareuptime/tms/internal/middleware"
 	"github.com/bareuptime/tms/internal/models"
+	"github.com/bareuptime/tms/internal/redis"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/bareuptime/tms/internal/service"
 )
@@ -16,12 +19,14 @@ import (
 type ChatSessionHandler struct {
 	chatSessionService *service.ChatSessionService
 	chatWidgetService  *service.ChatWidgetService
+	redisClient        *redis.Service
 }
 
-func NewChatSessionHandler(chatSessionService *service.ChatSessionService, chatWidgetService *service.ChatWidgetService) *ChatSessionHandler {
+func NewChatSessionHandler(chatSessionService *service.ChatSessionService, chatWidgetService *service.ChatWidgetService, redisClient *redis.Service) *ChatSessionHandler {
 	return &ChatSessionHandler{
 		chatSessionService: chatSessionService,
 		chatWidgetService:  chatWidgetService,
+		redisClient:        redisClient,
 	}
 }
 
@@ -120,27 +125,6 @@ func (h *ChatSessionHandler) AssignAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Agent assigned successfully"})
 }
 
-// EndSession ends a chat session
-func (h *ChatSessionHandler) EndSession(c *gin.Context) {
-	tenantID := middleware.GetTenantID(c)
-	projectID := middleware.GetProjectID(c)
-
-	sessionIDStr := c.Param("session_id")
-	sessionID, err := uuid.Parse(sessionIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid session ID format"})
-		return
-	}
-
-	err = h.chatSessionService.EndSession(c.Request.Context(), tenantID, projectID, sessionID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to end session: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Session ended successfully"})
-}
-
 // SendMessage sends a message in a chat session (agent endpoint)
 func (h *ChatSessionHandler) SendMessage(c *gin.Context) {
 	agentID := middleware.GetAgentID(c)
@@ -215,6 +199,23 @@ func (h *ChatSessionHandler) MarkAgentMessagesAsRead(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Messages marked as read"})
+}
+
+func (h *ChatSessionHandler) IsCustomerOnline(c *gin.Context) {
+	sessionID := middleware.GetSessionID(c)
+	sessionKey := fmt.Sprintf("livechat:session:%s", sessionID)
+
+	connIDs, err := h.redisClient.GetClient().SMembers(c.Request.Context(), sessionKey).Result()
+	if err != nil {
+		log.Error().Err(err).Str("session_id", sessionID.String()).Msg("Failed to get session connections for delivery")
+		return
+	}
+	status := "offline"
+	if len(connIDs) > 0 {
+		status = "online"
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": status})
 }
 
 // MarkVisitorMessagesAsRead marks messages as read (visitor endpoint)

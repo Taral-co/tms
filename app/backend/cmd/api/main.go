@@ -118,7 +118,7 @@ func main() {
 
 	// Chat handlers
 	chatWidgetHandler := handlers.NewChatWidgetHandler(chatWidgetService)
-	chatSessionHandler := handlers.NewChatSessionHandler(chatSessionService, chatWidgetService)
+	chatSessionHandler := handlers.NewChatSessionHandler(chatSessionService, chatWidgetService, redisService)
 	aiHandler := handlers.NewAIHandler(aiService)
 
 	// Initialize enterprise connection manager
@@ -412,6 +412,7 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 				chat.GET("/sessions/:session_id/messages", chatSessionHandler.GetChatMessages)
 				chat.POST("/sessions/:session_id/messages", chatSessionHandler.SendMessage)
 				chat.POST("/sessions/:session_id/messages/:message_id/read", chatSessionHandler.MarkAgentMessagesAsRead)
+				chat.GET("/sessions/:session_id/client/status", chatSessionHandler.IsCustomerOnline)
 
 				// AI assistant endpoints
 				chat.GET("/ai/status", aiHandler.GetAIStatus)

@@ -128,15 +128,6 @@ func (cm *ConnectionManager) AddConnection(connType ConnectionType, sessionID uu
 		cm.connMutex.Unlock()
 	}
 
-	// sessionKey := fmt.Sprintf("livechat:broadcast:session:%s", sessionID)
-	// if err := cm.redis.SAdd(cm.ctx, sessionKey, connID).Err(); err != nil {
-	// 	log.Error().Err(err).Str("session_id", sessionID.String()).Msg("Failed to add connection to session set")
-	// }
-	// cm.redis.Expire(cm.ctx, sessionKey, cm.connectionTTL)
-
-	fmt.Println("Connection added:", connID)
-	fmt.Printf("Connection type: %s, Session ID: %s, Agent ID: %s\n", connType, sessionID.String(), agentID)
-
 	if connType == ConnectionTypeVisitor {
 		// Add to session-based lookup
 		sessionKey := fmt.Sprintf("livechat:session:%s", sessionID)

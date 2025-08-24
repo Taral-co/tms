@@ -989,6 +989,11 @@ class APIClient {
     await this.client.delete(`/email/domains/${domainId}`)
   }
 
+  async getClientChatStatus(sessionId: string): Promise<{status: string}> {
+    const response: AxiosResponse<{status: string}> = await this.client.get(`/chat/sessions/${sessionId}/client/status`)
+    return response.data
+  }
+
   // Chat Widget endpoints
   async createChatWidget(data: CreateChatWidgetRequest): Promise<ChatWidget> {
     const response: AxiosResponse<ChatWidget> = await this.client.post('/chat/widgets', data)
