@@ -182,3 +182,10 @@ Generate test magic links for development:
 ```
 
 Visit the generated URL to test the public customer interface.
+
+npm install -g netlify-cli
+
+# Deploy each project
+netlify deploy --dir=agent-console/dist --site=taral-co
+netlify deploy --dir=public-view/dist --site=your-public-view-site-id  
+netlify deploy --dir=chat-widget/dist --site=your-chat-widget-site-ids
