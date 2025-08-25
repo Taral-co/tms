@@ -1,0 +1,24 @@
+[build]
+  # Build settings for TMS Chat Widget
+  base = "app/frontend"
+  command = "pnpm install && pnpm build:shared && pnpm build:chat-widget"
+  publish = "chat-widget/dist"
+
+# CORS headers for embeddable widget
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+
+# Cache static assets
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/javascript"
+
+# Environment variables (set these in Netlify dashboard)
+# VITE_API_URL = "https://your-api-domain.com"
+# VITE_WS_URL = "wss://your-api-domain.com"

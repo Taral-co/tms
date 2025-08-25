@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "pnpm --parallel run dev",
     "build": "pnpm --recursive run build",
+    "build:agent-console": "pnpm --filter=tms-agent-console build",
+    "build:public-view": "pnpm --filter=@tms/public-view build",
+    "build:chat-widget": "pnpm --filter=chat-widget build",
+    "build:shared": "pnpm --filter=@tms/shared build",
     "type-check": "pnpm --recursive run type-check",
     "lint": "pnpm --recursive run lint",
     "test": "pnpm --recursive run test",
