@@ -24,6 +24,8 @@ type AuthService struct {
 	redisService  *redis.Service
 	resendService *ResendService
 	featureFlags  *FeatureFlags
+	domainRepo    *repo.DomainValidationRepo
+	tenantRepo    repo.TenantRepository
 }
 
 // FeatureFlags represents the feature configuration
@@ -32,7 +34,7 @@ type FeatureFlags struct {
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service, redisService *redis.Service, resendService *ResendService, featureFlags *FeatureFlags) *AuthService {
+func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service, redisService *redis.Service, resendService *ResendService, featureFlags *FeatureFlags, tenantRepo repo.TenantRepository) *AuthService {
 	return &AuthService{
 		agentRepo:     agentRepo,
 		rbacService:   rbacService,
@@ -40,6 +42,7 @@ func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, a
 		redisService:  redisService,
 		resendService: resendService,
 		featureFlags:  featureFlags,
+		tenantRepo:    tenantRepo,
 	}
 }
 
@@ -448,14 +451,12 @@ type SignUpRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
-	TenantID string `json:"tenant_id"`
 }
 
 // VerifySignupOTPRequest represents OTP verification request
 type VerifySignupOTPRequest struct {
-	Email    string `json:"email"`
-	OTP      string `json:"otp"`
-	TenantID string `json:"tenant_id"`
+	Email string `json:"email"`
+	OTP   string `json:"otp"`
 }
 
 // ResendSignupOTPRequest represents request to resend OTP
@@ -466,10 +467,6 @@ type ResendSignupOTPRequest struct {
 
 // SignUp handles user registration with OTP verification
 func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		return fmt.Errorf("invalid tenant ID: %w", err)
-	}
 
 	// Validate corporate email domain if required
 	if s.featureFlags.RequireCorporateEmail {
@@ -478,14 +475,39 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 		}
 	}
 
+	domainNameFromEmail := strings.Split(req.Email, "@")[1]
+	domainName, err := s.domainRepo.GetDomainByNameWithoutTenant(ctx, domainNameFromEmail)
+	if err != nil {
+		return fmt.Errorf("failed to get domain by name: %w", err)
+	}
+
+	if domainName != nil && domainName.Status == models.DomainValidationStatusVerified {
+		return fmt.Errorf("domain is already registered, please verify your email or contact support")
+	}
+
 	// Check if agent already exists
-	_, err = s.agentRepo.GetByEmail(ctx, tenantID, req.Email)
+	_, err = s.agentRepo.GetByEmailWithoutTenantID(ctx, req.Email)
 	if err == nil {
 		return fmt.Errorf("agent with email %s already exists", req.Email)
 	}
 
+	// Create Tenant
+	tenantID, _ := uuid.NewUUID()
+	tenant := &db.Tenant{
+		ID:        tenantID,
+		Name:      domainNameFromEmail,
+		Status:    "active",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = s.tenantRepo.Create(ctx, tenant)
+	if err != nil {
+		return fmt.Errorf("failed to create tenant: %w", err)
+	}
+
 	// Check rate limiting
-	attemptKey := fmt.Sprintf("signup_attempts:%s:%s", req.TenantID, req.Email)
+	attemptKey := fmt.Sprintf("signup_attempts:%s", req.Email)
 	attempts, err := s.redisService.GetAttempts(ctx, attemptKey)
 	if err != nil {
 		return fmt.Errorf("failed to check signup attempts: %w", err)
@@ -496,14 +518,14 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 	}
 
 	// Generate OTP and store it with signup data
-	otpKey := fmt.Sprintf("signup_otp:%s:%s", req.TenantID, req.Email)
+	otpKey := fmt.Sprintf("signup_otp:%s", req.Email)
 	otp, err := s.redisService.GenerateAndStoreOTP(ctx, otpKey, 10*time.Minute)
 	if err != nil {
 		return fmt.Errorf("failed to generate OTP: %w", err)
 	}
 
 	// Store signup data temporarily
-	signupDataKey := fmt.Sprintf("signup_data:%s:%s", req.TenantID, req.Email)
+	signupDataKey := fmt.Sprintf("signup_data:%s", req.Email)
 	hashedPassword, err := s.HashPassword(req.Password)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
@@ -513,7 +535,7 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 		"email":         req.Email,
 		"password_hash": hashedPassword,
 		"name":          req.Name,
-		"tenant_id":     req.TenantID,
+		"tenant_id":     tenant.ID.String(),
 	}
 
 	err = s.redisService.GetClient().HMSet(ctx, signupDataKey, signupData).Err()
@@ -541,7 +563,7 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 // VerifySignupOTP verifies the OTP and creates the agent account
 func (s *AuthService) VerifySignupOTP(ctx context.Context, req VerifySignupOTPRequest) (*models.Agent, error) {
 	// Verify OTP
-	otpKey := fmt.Sprintf("signup_otp:%s:%s", req.TenantID, req.Email)
+	otpKey := fmt.Sprintf("signup_otp:%s", req.Email)
 	isValid, err := s.redisService.VerifyOTP(ctx, otpKey, req.OTP)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify OTP: %w", err)
@@ -549,19 +571,19 @@ func (s *AuthService) VerifySignupOTP(ctx context.Context, req VerifySignupOTPRe
 
 	if !isValid {
 		// Increment failed attempts
-		attemptKey := fmt.Sprintf("signup_verify_attempts:%s:%s", req.TenantID, req.Email)
+		attemptKey := fmt.Sprintf("signup_verify_attempts:%s", req.Email)
 		s.redisService.IncrementAttempts(ctx, attemptKey, 1*time.Hour)
 		return nil, fmt.Errorf("invalid or expired verification code")
 	}
 
 	// Get signup data
-	signupDataKey := fmt.Sprintf("signup_data:%s:%s", req.TenantID, req.Email)
+	signupDataKey := fmt.Sprintf("signup_data:%s", req.Email)
 	signupData, err := s.redisService.GetClient().HGetAll(ctx, signupDataKey).Result()
 	if err != nil || len(signupData) == 0 {
 		return nil, fmt.Errorf("signup session expired or not found")
 	}
 
-	tenantID, err := uuid.Parse(req.TenantID)
+	tenantID, err := uuid.Parse(signupData["tenant_id"])
 	if err != nil {
 		return nil, fmt.Errorf("invalid tenant ID: %w", err)
 	}

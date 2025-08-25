@@ -55,6 +55,7 @@ type AgentRepository interface {
 	Create(ctx context.Context, agent *db.Agent) error
 	GetByID(ctx context.Context, tenantID, agentID uuid.UUID) (*db.Agent, error)
 	GetByEmail(ctx context.Context, tenantID uuid.UUID, email string) (*db.Agent, error)
+	GetByEmailWithoutTenantID(ctx context.Context, email string) (*db.Agent, error)
 	Update(ctx context.Context, agent *db.Agent) error
 	Delete(ctx context.Context, tenantID, agentID uuid.UUID) error
 	List(ctx context.Context, tenantID uuid.UUID, filters AgentFilters, pagination PaginationParams) ([]*db.Agent, string, error)

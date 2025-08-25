@@ -604,7 +604,7 @@ class APIClient {
 
   // Signup endpoints
   async signup(data: { email: string; password: string; name: string }): Promise<{ message: string; email: string }> {
-    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
+    const tenantId = localStorage.getItem('tenant_id')
     
     // Create a separate axios instance for signup to avoid the interceptor adding tenant to URL
     const signupClient = axios.create({

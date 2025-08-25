@@ -73,7 +73,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	loginReq := service.LoginRequest{
 		Email:    req.Email,
 		Password: req.Password,
-		TenantID: tenantID,
 	}
 
 	response, err := h.authService.Login(c.Request.Context(), loginReq)
@@ -254,17 +253,10 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 		return
 	}
 
-	tenantID := c.Param("tenant_id")
-	if tenantID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID is required"})
-		return
-	}
-
 	signupReq := service.SignUpRequest{
 		Email:    req.Email,
 		Password: req.Password,
 		Name:     req.Name,
-		TenantID: tenantID,
 	}
 
 	err := h.authService.SignUp(c.Request.Context(), signupReq)
@@ -292,16 +284,9 @@ func (h *AuthHandler) VerifySignupOTP(c *gin.Context) {
 		return
 	}
 
-	tenantID := c.Param("tenant_id")
-	if tenantID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID is required"})
-		return
-	}
-
 	verifyReq := service.VerifySignupOTPRequest{
-		Email:    req.Email,
-		OTP:      req.OTP,
-		TenantID: tenantID,
+		Email: req.Email,
+		OTP:   req.OTP,
 	}
 
 	agent, err := h.authService.VerifySignupOTP(c.Request.Context(), verifyReq)

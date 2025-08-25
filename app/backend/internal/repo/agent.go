@@ -79,6 +79,28 @@ func (r *agentRepository) GetByEmail(ctx context.Context, tenantID uuid.UUID, em
 	return &agent, nil
 }
 
+// GetByEmail retrieves an agent by email
+func (r *agentRepository) GetByEmailWithoutTenantID(ctx context.Context, email string) (*db.Agent, error) {
+	query := `
+		SELECT id, tenant_id, email, name, status, password_hash, created_at, updated_at
+		FROM agents
+		WHERE email = $1
+	`
+
+	var agent db.Agent
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
+		&agent.ID, &agent.TenantID, &agent.Email, &agent.Name,
+		&agent.Status, &agent.PasswordHash, &agent.CreatedAt, &agent.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("agent not found")
+		}
+		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	return &agent, nil
+}
+
 // Update updates an existing agent
 func (r *agentRepository) Update(ctx context.Context, agent *db.Agent) error {
 	query := `

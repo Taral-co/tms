@@ -81,6 +81,25 @@ func (r *DomainValidationRepo) GetDomainByID(ctx context.Context, tenantID uuid.
 	return &validation, nil
 }
 
+func (r *DomainValidationRepo) GetDomainByNameWithoutTenant(ctx context.Context, domainName string) (*models.EmailDomain, error) {
+	query := `
+		SELECT id, tenant_id, project_id, domain, validation_token,
+			   status, verified_at, expires_at, metadata, created_at, updated_at
+		FROM email_domain_validations
+		WHERE domain = $1
+	`
+
+	var validation models.EmailDomain
+	err := r.db.GetContext(ctx, &validation, query, domainName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &validation, nil
+}
+
 // ListDomainNames lists all domain validations for a project
 func (r *DomainValidationRepo) ListDomainNames(ctx context.Context, tenantID, projectID uuid.UUID) ([]*models.EmailDomain, error) {
 	query := `
