@@ -46,84 +46,84 @@ func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, a
 // Personal/Consumer email domains that should be blocked for corporate signup
 var blockedEmailDomains = map[string]bool{
 	// Google
-	"gmail.com":       true,
-	"googlemail.com":  true,
-	
+	"gmail.com":      true,
+	"googlemail.com": true,
+
 	// Microsoft
-	"hotmail.com":     true,
-	"outlook.com":     true,
-	"live.com":        true,
-	"msn.com":         true,
-	
+	"hotmail.com": true,
+	"outlook.com": true,
+	"live.com":    true,
+	"msn.com":     true,
+
 	// Yahoo
-	"yahoo.com":       true,
-	"yahoo.co.uk":     true,
-	"yahoo.ca":        true,
-	"yahoo.co.in":     true,
-	"yahoo.com.au":    true,
-	"yahoo.fr":        true,
-	"yahoo.de":        true,
-	"yahoo.it":        true,
-	"yahoo.es":        true,
-	"ymail.com":       true,
-	"rocketmail.com":  true,
-	
+	"yahoo.com":      true,
+	"yahoo.co.uk":    true,
+	"yahoo.ca":       true,
+	"yahoo.co.in":    true,
+	"yahoo.com.au":   true,
+	"yahoo.fr":       true,
+	"yahoo.de":       true,
+	"yahoo.it":       true,
+	"yahoo.es":       true,
+	"ymail.com":      true,
+	"rocketmail.com": true,
+
 	// Apple
-	"icloud.com":      true,
-	"me.com":          true,
-	"mac.com":         true,
-	
+	"icloud.com": true,
+	"me.com":     true,
+	"mac.com":    true,
+
 	// AOL
-	"aol.com":         true,
-	"aim.com":         true,
-	
+	"aol.com": true,
+	"aim.com": true,
+
 	// Other common personal email providers
-	"protonmail.com":  true,
-	"proton.me":       true,
-	"tutanota.com":    true,
-	"fastmail.com":    true,
-	"mailbox.org":     true,
-	"posteo.de":       true,
-	"hushmail.com":    true,
-	"mailfence.com":   true,
-	
+	"protonmail.com": true,
+	"proton.me":      true,
+	"tutanota.com":   true,
+	"fastmail.com":   true,
+	"mailbox.org":    true,
+	"posteo.de":      true,
+	"hushmail.com":   true,
+	"mailfence.com":  true,
+
 	// Common disposable email domains
-	"guerrillamail.com": true,
-	"10minutemail.com": true,
-	"tempmail.org":     true,
-	"mailinator.com":   true,
-	"yopmail.com":      true,
-	"dispostable.com":  true,
-	"throwaway.email":  true,
-	"emailondeck.com":  true,
-	"getnada.com":      true,
-	"temp-mail.org":    true,
-	"fakeinbox.com":    true,
-	"sharklasers.com":  true,
+	"guerrillamail.com":      true,
+	"10minutemail.com":       true,
+	"tempmail.org":           true,
+	"mailinator.com":         true,
+	"yopmail.com":            true,
+	"dispostable.com":        true,
+	"throwaway.email":        true,
+	"emailondeck.com":        true,
+	"getnada.com":            true,
+	"temp-mail.org":          true,
+	"fakeinbox.com":          true,
+	"sharklasers.com":        true,
 	"guerrillamailblock.com": true,
-	"pokemail.net":     true,
-	"spam4.me":         true,
-	"maildrop.cc":      true,
-	"mohmal.com":       true,
-	"nada.email":       true,
-	"tempail.com":      true,
-	"disposablemail.com": true,
-	"0-mail.com":       true,
-	"1secmail.com":     true,
-	"2prong.com":       true,
-	"3d-painting.com":  true,
-	"4warding.com":     true,
-	"7tags.com":        true,
-	"9ox.net":          true,
-	"aaathats3as.com":  true,
-	"abyssmail.com":    true,
-	"afrobacon.com":    true,
-	"ajaxapp.net":      true,
-	"amilegit.com":     true,
-	"amiri.net":        true,
-	"amiriindustries.com": true,
-	"anonmails.de":     true,
-	"anonymbox.com":    true,
+	"pokemail.net":           true,
+	"spam4.me":               true,
+	"maildrop.cc":            true,
+	"mohmal.com":             true,
+	"nada.email":             true,
+	"tempail.com":            true,
+	"disposablemail.com":     true,
+	"0-mail.com":             true,
+	"1secmail.com":           true,
+	"2prong.com":             true,
+	"3d-painting.com":        true,
+	"4warding.com":           true,
+	"7tags.com":              true,
+	"9ox.net":                true,
+	"aaathats3as.com":        true,
+	"abyssmail.com":          true,
+	"afrobacon.com":          true,
+	"ajaxapp.net":            true,
+	"amilegit.com":           true,
+	"amiri.net":              true,
+	"amiriindustries.com":    true,
+	"anonmails.de":           true,
+	"anonymbox.com":          true,
 }
 
 // Suspicious patterns that indicate disposable or temporary emails
@@ -141,26 +141,26 @@ func (s *AuthService) isValidCorporateEmail(email string) error {
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid email format")
 	}
-	
+
 	domain := strings.ToLower(parts[1])
-	
+
 	// Check if domain is in blocked list
 	if blockedEmailDomains[domain] {
 		return fmt.Errorf("personal email addresses (e.g., Gmail, Yahoo, Hotmail) are not allowed. Please use your company email address")
 	}
-	
+
 	// Check for suspicious patterns in domain
 	for _, pattern := range suspiciousPatterns {
 		if strings.Contains(domain, pattern) {
 			return fmt.Errorf("temporary or disposable email addresses are not allowed. Please use your company email address")
 		}
 	}
-	
+
 	// Additional validation: domain should have at least one dot and be longer than 4 chars
 	if len(domain) < 4 || !strings.Contains(domain, ".") {
 		return fmt.Errorf("please enter a valid company email address")
 	}
-	
+
 	return nil
 }
 
@@ -510,10 +510,10 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 	}
 
 	signupData := map[string]interface{}{
-		"email":           req.Email,
-		"password_hash":   hashedPassword,
-		"name":            req.Name,
-		"tenant_id":       req.TenantID,
+		"email":         req.Email,
+		"password_hash": hashedPassword,
+		"name":          req.Name,
+		"tenant_id":     req.TenantID,
 	}
 
 	err = s.redisService.GetClient().HMSet(ctx, signupDataKey, signupData).Err()

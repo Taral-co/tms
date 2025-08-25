@@ -82,12 +82,12 @@ func main() {
 
 	// Initialize services
 	resendService := service.NewResendService(&cfg.Resend)
-	
+
 	// Create feature flags for auth service
 	authFeatureFlags := &service.FeatureFlags{
 		RequireCorporateEmail: cfg.Features.RequireCorporateEmail,
 	}
-	
+
 	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth, redisService, resendService, authFeatureFlags)
 	projectService := service.NewProjectService(projectRepo)
 	agentService := service.NewAgentService(agentRepo, projectRepo, rbacService)

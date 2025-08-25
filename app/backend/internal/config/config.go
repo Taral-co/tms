@@ -80,10 +80,10 @@ type JWTConfig struct {
 
 // FeatureFlags represents feature toggles
 type FeatureFlags struct {
-	EnableRegistration      bool `mapstructure:"enable_registration"`
-	EnableEmailLogin        bool `mapstructure:"enable_email_login"`
-	EnableMagicLinks        bool `mapstructure:"enable_magic_links"`
-	RequireCorporateEmail   bool `mapstructure:"require_corporate_email"`
+	EnableRegistration    bool `mapstructure:"enable_registration"`
+	EnableEmailLogin      bool `mapstructure:"enable_email_login"`
+	EnableMagicLinks      bool `mapstructure:"enable_magic_links"`
+	RequireCorporateEmail bool `mapstructure:"require_corporate_email"`
 }
 
 // ResendConfig represents Resend email service configuration
