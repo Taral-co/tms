@@ -6,6 +6,7 @@ import { NotificationProvider } from './contexts/NotificationContext'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
+import { SignUpPage } from './pages/SignUpPage'
 import { InboxPage } from './pages/InboxPage'
 import { EmailDetailPage } from './pages/EmailDetailPage'
 import { AddInboxPage } from './pages/AddInboxPage'
@@ -51,6 +52,9 @@ function AppContent() {
     <Routes>
       <Route path="/login" element={
         isAuthenticated ? <Navigate to="/inbox" replace /> : <LoginPage />
+      } />
+      <Route path="/signup" element={
+        isAuthenticated ? <Navigate to="/inbox" replace /> : <SignUpPage />
       } />
       <Route path="/" element={
         isAuthenticated ? <Navigate to="/inbox" replace /> : <Navigate to="/login" replace />

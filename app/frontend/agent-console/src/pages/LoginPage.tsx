@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff, Loader2, Shield, Lock, Mail } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 // Simplified components matching our enterprise design
@@ -236,6 +237,16 @@ export function LoginPage() {
             </div>
           </div>
         </Card>
+
+        {/* SignUp Link */}
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Don't have an account?{' '}
+            <Link to="/signup" className="text-primary hover:text-primary/80 font-medium">
+              Create one here
+            </Link>
+          </p>
+        </div>
 
         {/* Footer */}
         <div className="text-center space-y-2">

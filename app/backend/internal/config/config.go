@@ -19,6 +19,7 @@ type Config struct {
 	Email         EmailConfig         `mapstructure:"email"`
 	Observability ObservabilityConfig `mapstructure:"observability"`
 	AI            AIConfig            `mapstructure:"ai"`
+	Resend        ResendConfig        `mapstructure:"resend"`
 }
 
 // ServerConfig represents server configuration
@@ -79,9 +80,16 @@ type JWTConfig struct {
 
 // FeatureFlags represents feature toggles
 type FeatureFlags struct {
-	EnableRegistration bool `mapstructure:"enable_registration"`
-	EnableEmailLogin   bool `mapstructure:"enable_email_login"`
-	EnableMagicLinks   bool `mapstructure:"enable_magic_links"`
+	EnableRegistration      bool `mapstructure:"enable_registration"`
+	EnableEmailLogin        bool `mapstructure:"enable_email_login"`
+	EnableMagicLinks        bool `mapstructure:"enable_magic_links"`
+	RequireCorporateEmail   bool `mapstructure:"require_corporate_email"`
+}
+
+// ResendConfig represents Resend email service configuration
+type ResendConfig struct {
+	APIKey    string `mapstructure:"api_key"`
+	FromEmail string `mapstructure:"from_email"`
 }
 
 // EmailConfig represents email subsystem configuration
@@ -149,6 +157,10 @@ func Load() (*Config, error) {
 	viper.BindEnv("ai.temperature", "AI_TEMPERATURE")
 	viper.BindEnv("ai.system_prompt", "AI_SYSTEM_PROMPT")
 	viper.BindEnv("ai.auto_handoff_time", "AI_AUTO_HANDOFF_TIME")
+
+	// Resend configuration bindings
+	viper.BindEnv("resend.api_key", "RESEND_API_KEY")
+	viper.BindEnv("resend.from_email", "RESEND_FROM_EMAIL")
 
 	// Read config file (optional)
 	if err := viper.ReadInConfig(); err != nil {

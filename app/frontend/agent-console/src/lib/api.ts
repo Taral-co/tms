@@ -603,6 +603,52 @@ class APIClient {
     this.projectId = null
   }
 
+  // Signup endpoints
+  async signup(data: { email: string; password: string; name: string }): Promise<{ message: string; email: string }> {
+    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
+    
+    // Create a separate axios instance for signup to avoid the interceptor adding tenant to URL
+    const signupClient = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    const response = await signupClient.post(`/tenants/${tenantId}/auth/signup`, data)
+    return response.data
+  }
+
+  async verifySignupOTP(data: { email: string; otp: string }): Promise<{ message: string; user: User }> {
+    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
+    
+    // Create a separate axios instance for verification to avoid the interceptor adding tenant to URL
+    const verifyClient = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    const response = await verifyClient.post(`/tenants/${tenantId}/auth/verify-signup-otp`, data)
+    return response.data
+  }
+
+  async resendSignupOTP(data: { email: string }): Promise<{ message: string; email: string }> {
+    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
+    
+    // Create a separate axios instance for resend to avoid the interceptor adding tenant to URL
+    const resendClient = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    const response = await resendClient.post(`/tenants/${tenantId}/auth/resend-signup-otp`, data)
+    return response.data
+  }
+
   // Project endpoints
   async getProjects(): Promise<Project[]> {
     const response: AxiosResponse<Project[]> = await this.client.get('/projects')

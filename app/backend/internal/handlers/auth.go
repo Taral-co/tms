@@ -210,3 +210,150 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		TenantID: claims.TenantID,
 	})
 }
+
+// SignUpRequest represents a signup request
+type SignUpRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8"`
+	Name     string `json:"name" validate:"required,min=2"`
+}
+
+// SignUpResponse represents the signup response (OTP sent)
+type SignUpResponse struct {
+	Message string `json:"message"`
+	Email   string `json:"email"`
+}
+
+// VerifySignupOTPRequest represents OTP verification request
+type VerifySignupOTPRequest struct {
+	Email string `json:"email" validate:"required,email"`
+	OTP   string `json:"otp" validate:"required,len=6"`
+}
+
+// VerifySignupOTPResponse represents successful signup completion
+type VerifySignupOTPResponse struct {
+	Message string `json:"message"`
+	User    User   `json:"user"`
+}
+
+// ResendSignupOTPRequest represents request to resend OTP
+type ResendSignupOTPRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// SignUp handles user registration with OTP verification
+func (h *AuthHandler) SignUp(c *gin.Context) {
+	var req SignUpRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed", "details": err.Error()})
+		return
+	}
+
+	tenantID := c.Param("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID is required"})
+		return
+	}
+
+	signupReq := service.SignUpRequest{
+		Email:    req.Email,
+		Password: req.Password,
+		Name:     req.Name,
+		TenantID: tenantID,
+	}
+
+	err := h.authService.SignUp(c.Request.Context(), signupReq)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, SignUpResponse{
+		Message: "Verification code sent to your email",
+		Email:   req.Email,
+	})
+}
+
+// VerifySignupOTP handles OTP verification and completes registration
+func (h *AuthHandler) VerifySignupOTP(c *gin.Context) {
+	var req VerifySignupOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed", "details": err.Error()})
+		return
+	}
+
+	tenantID := c.Param("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID is required"})
+		return
+	}
+
+	verifyReq := service.VerifySignupOTPRequest{
+		Email:    req.Email,
+		OTP:      req.OTP,
+		TenantID: tenantID,
+	}
+
+	agent, err := h.authService.VerifySignupOTP(c.Request.Context(), verifyReq)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, VerifySignupOTPResponse{
+		Message: "Account created successfully",
+		User: User{
+			ID:       agent.ID.String(),
+			Email:    agent.Email,
+			Name:     agent.Name,
+			TenantID: agent.TenantID.String(),
+			Role:     models.RoleAgent.String(), // Default role
+		},
+	})
+}
+
+// ResendSignupOTP handles resending OTP for signup verification
+func (h *AuthHandler) ResendSignupOTP(c *gin.Context) {
+	var req ResendSignupOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed", "details": err.Error()})
+		return
+	}
+
+	tenantID := c.Param("tenant_id")
+	if tenantID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID is required"})
+		return
+	}
+
+	resendReq := service.ResendSignupOTPRequest{
+		Email:    req.Email,
+		TenantID: tenantID,
+	}
+
+	err := h.authService.ResendSignupOTP(c.Request.Context(), resendReq)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Verification code resent to your email",
+		"email":   req.Email,
+	})
+}

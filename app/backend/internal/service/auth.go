@@ -3,10 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/bareuptime/tms/internal/auth"
 	"github.com/bareuptime/tms/internal/db"
+	"github.com/bareuptime/tms/internal/models"
 	"github.com/bareuptime/tms/internal/rbac"
+	"github.com/bareuptime/tms/internal/redis"
 	"github.com/bareuptime/tms/internal/repo"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -14,18 +18,150 @@ import (
 
 // AuthService handles authentication operations
 type AuthService struct {
-	agentRepo   repo.AgentRepository
-	rbacService *rbac.Service
-	authService *auth.Service
+	agentRepo     repo.AgentRepository
+	rbacService   *rbac.Service
+	authService   *auth.Service
+	redisService  *redis.Service
+	resendService *ResendService
+	featureFlags  *FeatureFlags
+}
+
+// FeatureFlags represents the feature configuration
+type FeatureFlags struct {
+	RequireCorporateEmail bool
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service) *AuthService {
+func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service, redisService *redis.Service, resendService *ResendService, featureFlags *FeatureFlags) *AuthService {
 	return &AuthService{
-		agentRepo:   agentRepo,
-		rbacService: rbacService,
-		authService: authService,
+		agentRepo:     agentRepo,
+		rbacService:   rbacService,
+		authService:   authService,
+		redisService:  redisService,
+		resendService: resendService,
+		featureFlags:  featureFlags,
 	}
+}
+
+// Personal/Consumer email domains that should be blocked for corporate signup
+var blockedEmailDomains = map[string]bool{
+	// Google
+	"gmail.com":       true,
+	"googlemail.com":  true,
+	
+	// Microsoft
+	"hotmail.com":     true,
+	"outlook.com":     true,
+	"live.com":        true,
+	"msn.com":         true,
+	
+	// Yahoo
+	"yahoo.com":       true,
+	"yahoo.co.uk":     true,
+	"yahoo.ca":        true,
+	"yahoo.co.in":     true,
+	"yahoo.com.au":    true,
+	"yahoo.fr":        true,
+	"yahoo.de":        true,
+	"yahoo.it":        true,
+	"yahoo.es":        true,
+	"ymail.com":       true,
+	"rocketmail.com":  true,
+	
+	// Apple
+	"icloud.com":      true,
+	"me.com":          true,
+	"mac.com":         true,
+	
+	// AOL
+	"aol.com":         true,
+	"aim.com":         true,
+	
+	// Other common personal email providers
+	"protonmail.com":  true,
+	"proton.me":       true,
+	"tutanota.com":    true,
+	"fastmail.com":    true,
+	"mailbox.org":     true,
+	"posteo.de":       true,
+	"hushmail.com":    true,
+	"mailfence.com":   true,
+	
+	// Common disposable email domains
+	"guerrillamail.com": true,
+	"10minutemail.com": true,
+	"tempmail.org":     true,
+	"mailinator.com":   true,
+	"yopmail.com":      true,
+	"dispostable.com":  true,
+	"throwaway.email":  true,
+	"emailondeck.com":  true,
+	"getnada.com":      true,
+	"temp-mail.org":    true,
+	"fakeinbox.com":    true,
+	"sharklasers.com":  true,
+	"guerrillamailblock.com": true,
+	"pokemail.net":     true,
+	"spam4.me":         true,
+	"maildrop.cc":      true,
+	"mohmal.com":       true,
+	"nada.email":       true,
+	"tempail.com":      true,
+	"disposablemail.com": true,
+	"0-mail.com":       true,
+	"1secmail.com":     true,
+	"2prong.com":       true,
+	"3d-painting.com":  true,
+	"4warding.com":     true,
+	"7tags.com":        true,
+	"9ox.net":          true,
+	"aaathats3as.com":  true,
+	"abyssmail.com":    true,
+	"afrobacon.com":    true,
+	"ajaxapp.net":      true,
+	"amilegit.com":     true,
+	"amiri.net":        true,
+	"amiriindustries.com": true,
+	"anonmails.de":     true,
+	"anonymbox.com":    true,
+}
+
+// Suspicious patterns that indicate disposable or temporary emails
+var suspiciousPatterns = []string{
+	"temp", "throw", "fake", "disposable", "trash", "delete",
+	"remove", "destroy", "kill", "burn", "10min", "20min",
+	"minute", "hour", "day", "week", "short", "quick", "fast",
+	"instant", "now", "asap", "test", "demo", "sample",
+}
+
+// isValidCorporateEmail checks if an email address is from a corporate domain
+func (s *AuthService) isValidCorporateEmail(email string) error {
+	// Extract domain from email
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid email format")
+	}
+	
+	domain := strings.ToLower(parts[1])
+	
+	// Check if domain is in blocked list
+	if blockedEmailDomains[domain] {
+		return fmt.Errorf("personal email addresses (e.g., Gmail, Yahoo, Hotmail) are not allowed. Please use your company email address")
+	}
+	
+	// Check for suspicious patterns in domain
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(domain, pattern) {
+			return fmt.Errorf("temporary or disposable email addresses are not allowed. Please use your company email address")
+		}
+	}
+	
+	// Additional validation: domain should have at least one dot and be longer than 4 chars
+	if len(domain) < 4 || !strings.Contains(domain, ".") {
+		return fmt.Errorf("please enter a valid company email address")
+	}
+	
+	return nil
 }
 
 // convertRoleBindings converts role bindings to map format
@@ -305,4 +441,215 @@ func (s *AuthService) HashPassword(password string) (string, error) {
 		return "", fmt.Errorf("failed to hash password: %w", err)
 	}
 	return string(hash), nil
+}
+
+// SignUpRequest represents a signup request
+type SignUpRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
+	TenantID string `json:"tenant_id"`
+}
+
+// VerifySignupOTPRequest represents OTP verification request
+type VerifySignupOTPRequest struct {
+	Email    string `json:"email"`
+	OTP      string `json:"otp"`
+	TenantID string `json:"tenant_id"`
+}
+
+// ResendSignupOTPRequest represents request to resend OTP
+type ResendSignupOTPRequest struct {
+	Email    string `json:"email"`
+	TenantID string `json:"tenant_id"`
+}
+
+// SignUp handles user registration with OTP verification
+func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
+	tenantID, err := uuid.Parse(req.TenantID)
+	if err != nil {
+		return fmt.Errorf("invalid tenant ID: %w", err)
+	}
+
+	// Validate corporate email domain if required
+	if s.featureFlags.RequireCorporateEmail {
+		if err := s.isValidCorporateEmail(req.Email); err != nil {
+			return err
+		}
+	}
+
+	// Check if agent already exists
+	_, err = s.agentRepo.GetByEmail(ctx, tenantID, req.Email)
+	if err == nil {
+		return fmt.Errorf("agent with email %s already exists", req.Email)
+	}
+
+	// Check rate limiting
+	attemptKey := fmt.Sprintf("signup_attempts:%s:%s", req.TenantID, req.Email)
+	attempts, err := s.redisService.GetAttempts(ctx, attemptKey)
+	if err != nil {
+		return fmt.Errorf("failed to check signup attempts: %w", err)
+	}
+
+	if attempts >= 3 {
+		return fmt.Errorf("too many signup attempts, please try again later")
+	}
+
+	// Generate OTP and store it with signup data
+	otpKey := fmt.Sprintf("signup_otp:%s:%s", req.TenantID, req.Email)
+	otp, err := s.redisService.GenerateAndStoreOTP(ctx, otpKey, 10*time.Minute)
+	if err != nil {
+		return fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	// Store signup data temporarily
+	signupDataKey := fmt.Sprintf("signup_data:%s:%s", req.TenantID, req.Email)
+	hashedPassword, err := s.HashPassword(req.Password)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	signupData := map[string]interface{}{
+		"email":           req.Email,
+		"password_hash":   hashedPassword,
+		"name":            req.Name,
+		"tenant_id":       req.TenantID,
+	}
+
+	err = s.redisService.GetClient().HMSet(ctx, signupDataKey, signupData).Err()
+	if err != nil {
+		return fmt.Errorf("failed to store signup data: %w", err)
+	}
+
+	err = s.redisService.GetClient().Expire(ctx, signupDataKey, 10*time.Minute).Err()
+	if err != nil {
+		return fmt.Errorf("failed to set expiration for signup data: %w", err)
+	}
+
+	// Send verification email
+	err = s.resendService.SendSignupVerificationEmail(ctx, req.Email, otp)
+	if err != nil {
+		// Clean up on email failure
+		s.redisService.DeleteOTP(ctx, otpKey)
+		s.redisService.GetClient().Del(ctx, signupDataKey)
+		return fmt.Errorf("failed to send verification email: %w", err)
+	}
+
+	return nil
+}
+
+// VerifySignupOTP verifies the OTP and creates the agent account
+func (s *AuthService) VerifySignupOTP(ctx context.Context, req VerifySignupOTPRequest) (*models.Agent, error) {
+	// Verify OTP
+	otpKey := fmt.Sprintf("signup_otp:%s:%s", req.TenantID, req.Email)
+	isValid, err := s.redisService.VerifyOTP(ctx, otpKey, req.OTP)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify OTP: %w", err)
+	}
+
+	if !isValid {
+		// Increment failed attempts
+		attemptKey := fmt.Sprintf("signup_verify_attempts:%s:%s", req.TenantID, req.Email)
+		s.redisService.IncrementAttempts(ctx, attemptKey, 1*time.Hour)
+		return nil, fmt.Errorf("invalid or expired verification code")
+	}
+
+	// Get signup data
+	signupDataKey := fmt.Sprintf("signup_data:%s:%s", req.TenantID, req.Email)
+	signupData, err := s.redisService.GetClient().HGetAll(ctx, signupDataKey).Result()
+	if err != nil || len(signupData) == 0 {
+		return nil, fmt.Errorf("signup session expired or not found")
+	}
+
+	tenantID, err := uuid.Parse(req.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tenant ID: %w", err)
+	}
+
+	// Create agent account
+	passwordHashStr := signupData["password_hash"]
+	agent := &db.Agent{
+		ID:           uuid.New(),
+		TenantID:     tenantID,
+		Email:        signupData["email"],
+		Name:         signupData["name"],
+		Status:       "active",
+		PasswordHash: &passwordHashStr,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// Create agent in database
+	err = s.agentRepo.Create(ctx, agent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create agent: %w", err)
+	}
+
+	// Assign default agent role (no project ID for global role)
+	err = s.rbacService.AssignRole(ctx, agent.ID, agent.TenantID, uuid.Nil, models.RoleAgent)
+	if err != nil {
+		// Log error but don't fail - agent is created, role can be assigned later
+		fmt.Printf("Warning: failed to assign default role to agent %s: %v\n", agent.ID, err)
+	}
+
+	// Clean up temporary data
+	s.redisService.GetClient().Del(ctx, signupDataKey)
+	s.redisService.DeleteOTP(ctx, otpKey)
+
+	// Convert db.Agent to models.Agent for return
+	return &models.Agent{
+		ID:           agent.ID,
+		TenantID:     agent.TenantID,
+		Email:        agent.Email,
+		Name:         agent.Name,
+		Status:       agent.Status,
+		PasswordHash: agent.PasswordHash,
+		LastLoginAt:  nil, // New accounts don't have last login
+		CreatedAt:    agent.CreatedAt,
+		UpdatedAt:    agent.UpdatedAt,
+	}, nil
+}
+
+// ResendSignupOTP resends the verification OTP
+func (s *AuthService) ResendSignupOTP(ctx context.Context, req ResendSignupOTPRequest) error {
+	// Check if signup data exists
+	signupDataKey := fmt.Sprintf("signup_data:%s:%s", req.TenantID, req.Email)
+	exists, err := s.redisService.GetClient().Exists(ctx, signupDataKey).Result()
+	if err != nil {
+		return fmt.Errorf("failed to check signup data: %w", err)
+	}
+
+	if exists == 0 {
+		return fmt.Errorf("no pending signup found for this email")
+	}
+
+	// Check rate limiting for resend
+	resendKey := fmt.Sprintf("signup_resend:%s:%s", req.TenantID, req.Email)
+	attempts, err := s.redisService.GetAttempts(ctx, resendKey)
+	if err != nil {
+		return fmt.Errorf("failed to check resend attempts: %w", err)
+	}
+
+	if attempts >= 3 {
+		return fmt.Errorf("too many resend attempts, please try again later")
+	}
+
+	// Generate new OTP
+	otpKey := fmt.Sprintf("signup_otp:%s:%s", req.TenantID, req.Email)
+	otp, err := s.redisService.GenerateAndStoreOTP(ctx, otpKey, 10*time.Minute)
+	if err != nil {
+		return fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	// Send verification email
+	err = s.resendService.SendSignupVerificationEmail(ctx, req.Email, otp)
+	if err != nil {
+		s.redisService.DeleteOTP(ctx, otpKey)
+		return fmt.Errorf("failed to send verification email: %w", err)
+	}
+
+	// Increment resend attempts
+	s.redisService.IncrementAttempts(ctx, resendKey, 15*time.Minute)
+
+	return nil
 }

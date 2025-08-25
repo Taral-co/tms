@@ -81,7 +81,14 @@ func main() {
 	redisService := redis.NewService(redisAddr, cfg.Redis.Password, cfg.Redis.DB)
 
 	// Initialize services
-	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth)
+	resendService := service.NewResendService(&cfg.Resend)
+	
+	// Create feature flags for auth service
+	authFeatureFlags := &service.FeatureFlags{
+		RequireCorporateEmail: cfg.Features.RequireCorporateEmail,
+	}
+	
+	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth, redisService, resendService, authFeatureFlags)
 	projectService := service.NewProjectService(projectRepo)
 	agentService := service.NewAgentService(agentRepo, projectRepo, rbacService)
 	tenantService := service.NewTenantService(tenantRepo, agentRepo, rbacService)
@@ -200,6 +207,9 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 	{
 		authRoutes.POST("/login", authHandler.Login)
 		authRoutes.POST("/refresh", authHandler.Refresh)
+		authRoutes.POST("/signup", authHandler.SignUp)
+		authRoutes.POST("/verify-signup-otp", authHandler.VerifySignupOTP)
+		authRoutes.POST("/resend-signup-otp", authHandler.ResendSignupOTP)
 	}
 
 	// Enterprise admin routes (protected by auth middleware but cross-tenant)
