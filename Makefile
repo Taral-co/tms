@@ -141,6 +141,16 @@ db-restore: ## Restore database from dump file (usage: make db-restore FILE=path
 	@docker run --rm --network host -v $(PWD):/workspace -e PGPASSWORD=$(DB_PASSWORD) postgres:15 psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f /workspace/$(FILE)
 	@echo "$(GREEN)Database restored successfully!$(NC)"
 
+.PHONY: db-restore-direct
+db-restore-direct: ## Restore database from dump file without Docker (usage: make db-restore-direct FILE=path/to/dump.sql)
+	@if [ -z "$(FILE)" ]; then \
+		echo "$(RED)Error: Please specify a dump file. Usage: make db-restore-direct FILE=path/to/dump.sql$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Restoring database directly from $(FILE)...$(NC)"
+	@PGPASSWORD=$(DB_PASSWORD) psql -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) -d $(DB_NAME) -f $(FILE)
+	@echo "$(GREEN)Database restored successfully!$(NC)"
+
 .PHONY: db-migrate
 db-migrate: ## Run database migrations
 	@echo "$(BLUE)Running database migrations...$(NC)"
