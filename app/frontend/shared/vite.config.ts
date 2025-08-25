@@ -38,6 +38,8 @@ export default defineConfig({
       }
     },
     sourcemap: true,
-    emptyOutDir: true
+    emptyOutDir: true,
+    minify: 'esbuild',
+    target: 'es2020'
   }
 })

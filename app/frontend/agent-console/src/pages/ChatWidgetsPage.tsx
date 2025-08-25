@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MessageCircle, Globe, Settings, Copy, Trash2, Edit3, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
+import { Plus, MessageCircle, Globe, Settings, Copy, Trash2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import type { ChatWidget } from '../types/chat'
 import type { DomainValidation } from '../lib/api'

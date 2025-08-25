@@ -8,7 +8,7 @@ interface PageHeaderProps {
   domains: DomainValidation[]
 }
 
-export function PageHeader({ widgetId, error, domains }: PageHeaderProps) {
+export function PageHeader({ widgetId: _widgetId, error, domains }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* Error Alert */}

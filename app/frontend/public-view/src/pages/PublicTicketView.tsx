@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import type React from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { 
@@ -361,7 +362,7 @@ export function PublicTicketView() {
               <Textarea
                 placeholder="Type your message here..."
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewMessage(e.target.value)}
                 className="min-h-[100px] resize-none"
                 disabled={isSubmitting}
               />

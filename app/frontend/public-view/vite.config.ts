@@ -18,5 +18,23 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React and core libraries
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          // Data fetching
+          data: ['@tanstack/react-query'],
+          // Shared components
+          shared: ['@tms/shared']
+        }
+      }
+    },
+    minify: 'esbuild',
+    target: 'es2020'
   }
 })

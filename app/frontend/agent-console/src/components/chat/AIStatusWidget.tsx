@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Bot, Brain, AlertCircle, CheckCircle, Zap } from 'lucide-react'
 import { apiClient } from '../../lib/api'
-import type { AIStatus, AICapabilities } from '../../types/chat'
+import type { AICapabilities } from '../../types/chat'
 
 interface AIStatusWidgetProps {
   className?: string

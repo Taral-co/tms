@@ -4,8 +4,6 @@ import {
   Search, 
   Settings, 
   User, 
-  Inbox, 
-  BarChart3, 
   Mail, 
   Moon, 
   Sun, 
@@ -15,8 +13,7 @@ import {
   Home,
   Ticket,
   LogOut,
-  MessageCircle,
-  Zap
+  MessageCircle
 } from 'lucide-react'
 import { useTheme } from '../components/ThemeProvider'
 import { useAuth } from '../hooks/useAuth'

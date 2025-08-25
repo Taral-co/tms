@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import { useChatWidgetForm } from '../hooks/useChatWidgetForm'
 import { PageHeader } from '../components/widget-form/PageHeader'
 import { BasicInformationSection } from '../components/widget-form/BasicInformationSection'

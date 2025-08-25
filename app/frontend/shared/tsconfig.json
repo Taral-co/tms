@@ -9,6 +9,8 @@
     "declarationMap": true,
     "emitDeclarationOnly": false,
     "outDir": "dist",
+    "rootDir": "src",
+    "composite": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",

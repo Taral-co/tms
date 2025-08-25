@@ -5,7 +5,6 @@ import {
   Users, 
   Mail, 
   Palette, 
-  Zap, 
   Key, 
   Plus,
   Trash2,
@@ -175,7 +174,7 @@ export function SettingsPage() {
           try {
             const brandingConfig = await apiClient.getBrandingSettings()
             setBrandingSettings(brandingConfig)
-          } catch (err) {
+          } catch (_err) {
             console.log('Branding settings not available, using defaults')
           }
           break

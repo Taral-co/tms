@@ -1,5 +1,5 @@
 import React from 'react'
-import { Wifi, WifiOff, Circle } from 'lucide-react'
+import { Wifi, WifiOff } from 'lucide-react'
 
 interface ConnectionStatusProps {
   isConnected: boolean
@@ -27,7 +27,7 @@ export const ConnectionStatus = React.memo(function ConnectionStatus({
     lg: { icon: 'w-5 h-5', text: 'text-sm', gap: 'gap-2', dot: 'w-3 h-3' }
   }
 
-  const { icon: iconSize, text: textSize, gap, dot: dotSize } = sizes[variant]
+  const { icon: iconSize, text: textSize, gap } = sizes[variant]
 
 
   // Original WebSocket connection status

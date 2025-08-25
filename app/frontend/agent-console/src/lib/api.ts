@@ -8,7 +8,6 @@ import type {
   SendChatMessageRequest,
   AssignChatSessionRequest,
   ChatSessionFilters,
-  AIStatus,
   AICapabilities,
   AIMetrics
 } from '../types/chat'
@@ -431,7 +430,7 @@ class APIClient {
 
   private setupInterceptors() {
     // Request interceptor to add auth token and build proper URLs
-    this.client.interceptors.request.use((config) => {
+    this.client.interceptors.request.use((config: any) => {
       const token = localStorage.getItem('auth_token')
       const tenantId = localStorage.getItem('tenant_id') || this.tenantId
       const projectId = localStorage.getItem('project_id') || this.projectId
@@ -472,8 +471,8 @@ class APIClient {
 
     // Response interceptor for error handling and token refresh
     this.client.interceptors.response.use(
-      (response) => response,
-      async (error) => {
+      (response: any) => response,
+      async (error: any) => {
         const originalRequest = error.config
 
         if (error.response?.status === 401 && !originalRequest._retry) {

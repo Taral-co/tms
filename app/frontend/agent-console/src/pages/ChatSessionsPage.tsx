@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useCallback } from 'react'
-import { MessageCircle, Clock, User, Send, MoreHorizontal, UserPlus, Search, Settings, ArrowRight, Volume2, VolumeX, WifiOff } from 'lucide-react'
+import { useRef, useEffect, useCallback } from 'react'
+import { MessageCircle, User, Send, MoreHorizontal, UserPlus, Search, Settings, ArrowRight, Volume2, VolumeX, WifiOff } from 'lucide-react'
 import { format } from 'date-fns'
 import { useChatSessionsMinimal } from '../hooks/useChatSessionsMinimal'
 import { SessionCard, MessageBubble, ConnectionStatus } from '../components/chat'
@@ -37,8 +37,8 @@ export function ChatSessionsPage({ initialSessionId }: ChatSessionsPageProps) {
     filteredSessions,
     
     // WebSocket state
-    wsConnected,
-    wsConnecting,
+    wsConnected: _wsConnected,
+    wsConnecting: _wsConnecting,
     wsError,
     
     // Actions

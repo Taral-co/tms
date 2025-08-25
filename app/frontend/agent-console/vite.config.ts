@@ -22,6 +22,32 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React and core libraries
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          // UI components and styling
+          ui: ['@radix-ui/react-avatar', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', 
+               '@radix-ui/react-popover', '@radix-ui/react-select', '@radix-ui/react-switch', 
+               '@radix-ui/react-tabs', '@radix-ui/react-toast', '@radix-ui/react-tooltip',
+               'lucide-react', 'class-variance-authority', 'clsx'],
+          // Data fetching and state management
+          data: ['@tanstack/react-query', '@tanstack/react-virtual', 'axios'],
+          // Form handling and utilities
+          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
+          // Date and formatting utilities
+          utils: ['date-fns', 'react-markdown', 'react-syntax-highlighter'],
+          // Shared components
+          shared: ['@tms/shared']
+        }
+      }
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+    // Enable minification optimizations
+    minify: 'esbuild',
+    target: 'es2020'
   }
 })

@@ -10,8 +10,7 @@ import {
   EyeOff,
   ArrowUpRight,
   Reply,
-  Paperclip,
-  Inbox
+  Paperclip
 } from 'lucide-react'
 import { 
   Button, 
