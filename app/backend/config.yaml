@@ -14,6 +14,7 @@ database:
   max_open_conns: 25
   max_idle_conns: 25
   conn_max_lifetime: "5m"
+  url: "postgres://tms:tms123@localhost:5432/tms?sslmode=disable"
 
 redis:
   host: "localhost"

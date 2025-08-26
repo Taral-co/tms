@@ -32,11 +32,10 @@ type ServerConfig struct {
 
 // DatabaseConfig represents database configuration
 type DatabaseConfig struct {
-	Host            string        `mapstructure:"host"`
-	Port            int           `mapstructure:"port"`
-	User            string        `mapstructure:"user"`
-	Password        string        `mapstructure:"password"`
-	DBName          string        `mapstructure:"dbname"`
+	// URL is an optional full database connection URL (e.g. postgres://user:pass@host:port/dbname?sslmode=disable)
+	// If set, this will be used instead of composing host/port/user/password/dbname/sslmode.
+	URL string `mapstructure:"url"`
+
 	SSLMode         string        `mapstructure:"sslmode"`
 	MaxOpenConns    int           `mapstructure:"max_open_conns"`
 	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
@@ -144,6 +143,7 @@ func Load() (*Config, error) {
 	viper.BindEnv("database.user", "DB_USER")
 	viper.BindEnv("database.password", "DB_PASSWORD")
 	viper.BindEnv("database.dbname", "DB_NAME")
+	viper.BindEnv("database.url", "DATABASE_URL")
 	viper.BindEnv("database.sslmode", "DB_SSLMODE")
 	viper.BindEnv("redis.host", "REDIS_HOST")
 	viper.BindEnv("redis.port", "REDIS_PORT")
@@ -192,6 +192,7 @@ func setDefaults() {
 	viper.SetDefault("database.password", "password")
 	viper.SetDefault("database.dbname", "tms")
 	viper.SetDefault("database.sslmode", "disable")
+	viper.SetDefault("database.url", "")
 	viper.SetDefault("database.max_open_conns", 25)
 	viper.SetDefault("database.max_idle_conns", 25)
 	viper.SetDefault("database.conn_max_lifetime", "5m")
