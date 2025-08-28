@@ -77,9 +77,12 @@ func main() {
 
 	// Initialize Redis service
 	redisService := redis.NewService(redis.RedisConfig{
-		Sentinels: cfg.Redis.Sentinels,
-		URL:       cfg.Redis.URL,
-		Password:  cfg.Redis.Password,
+		Sentinels:        cfg.Redis.Sentinels,
+		URL:              cfg.Redis.URL,
+		Password:         cfg.Redis.Password,
+		SentinelPassword: cfg.Redis.SentinelPassword,
+		MasterName:       cfg.Redis.MasterName,
+		Environment:      cfg.Redis.Environment,
 	})
 
 	// Initialize services

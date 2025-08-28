@@ -26,18 +26,52 @@ func NewService(config RedisConfig) *Service {
 		if err != nil {
 			panic(fmt.Sprintf("failed to parse Redis URL: %v", err))
 		}
+
+		// Configure connection pool settings based on environment
+		configureForEnvironment(opt, config.Environment)
+
 		rdb = redis.NewClient(opt)
+		fmt.Printf("Redis client connected to: %s (environment: %s)\n", opt.Addr, config.Environment)
 	} else if len(config.Sentinels) > 0 {
 		// Use Redis Sentinel for production
-		rdb = redis.NewUniversalClient(&redis.UniversalOptions{
-			Addrs:      config.Sentinels,
-			MasterName: "mymaster",      // Default master name
-			Password:   config.Password, // Password for Redis master
-		})
+		masterName := config.MasterName
+		if masterName == "" {
+			masterName = "mymaster" // Default master name
+		}
+
+		fmt.Printf("Connecting to Redis via sentinels: %v (environment: %s)\n", config.Sentinels, config.Environment)
+		fmt.Printf("Master name: %s\n", masterName)
+
+		// Create Redis Failover Cluster client for Sentinel
+		failoverOpts := &redis.FailoverOptions{
+			MasterName:    masterName,
+			SentinelAddrs: config.Sentinels,
+			Password:      config.Password,
+			DB:            0,
+
+			// Sentinel-specific settings
+			SentinelPassword: config.SentinelPassword, // Sentinel authentication
+			RouteByLatency:   true,                    // Route read operations to closest replica
+			RouteRandomly:    false,                   // Don't route randomly
+		}
+
+		// Configure failover options based on environment
+		configureFailoverForEnvironment(failoverOpts, config.Environment)
+
+		rdb = redis.NewFailoverClusterClient(failoverOpts)
 	} else {
 		panic("either REDIS_URL or REDIS_SENTINELS must be configured")
 	}
 
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		panic(fmt.Sprintf("failed to connect to Redis: %v", err))
+	}
+
+	fmt.Printf("Redis connection established successfully (environment: %s)\n", config.Environment)
 	return &Service{
 		client: rdb,
 	}
@@ -49,6 +83,8 @@ type RedisConfig struct {
 	URL              string   // Redis URL for local development
 	Password         string   // Password for Redis master
 	SentinelPassword string   // Password for Sentinel authentication
+	MasterName       string   // Redis master name
+	Environment      string   // Environment (development, staging, production)
 }
 
 // Close closes the Redis connection
@@ -168,4 +204,106 @@ func ValidationAttemptsKey(tenantID, projectID, email string) string {
 // DomainValidationKey generates a Redis key for domain validation tokens
 func DomainValidationKey(tenantID, projectID, domain string) string {
 	return fmt.Sprintf("domain_validation:%s:%s:%s", tenantID, projectID, domain)
+}
+
+// configureForEnvironment applies optimal Redis client settings based on environment
+func configureForEnvironment(opts *redis.Options, environment string) {
+	switch environment {
+	case "production":
+		// Production: High performance, many connections
+		opts.PoolSize = 50
+		opts.MinIdleConns = 15
+		opts.ConnMaxLifetime = 30 * time.Minute
+		opts.ConnMaxIdleTime = 10 * time.Minute
+		opts.PoolTimeout = 5 * time.Second
+		opts.ReadTimeout = 3 * time.Second
+		opts.WriteTimeout = 3 * time.Second
+		opts.MaxRetries = 3
+		opts.MinRetryBackoff = 8 * time.Millisecond
+		opts.MaxRetryBackoff = 512 * time.Millisecond
+		opts.DialTimeout = 5 * time.Second
+
+	case "staging":
+		// Staging: Balanced settings
+		opts.PoolSize = 25
+		opts.MinIdleConns = 8
+		opts.ConnMaxLifetime = 20 * time.Minute
+		opts.ConnMaxIdleTime = 8 * time.Minute
+		opts.PoolTimeout = 8 * time.Second
+		opts.ReadTimeout = 5 * time.Second
+		opts.WriteTimeout = 5 * time.Second
+		opts.MaxRetries = 2
+		opts.MinRetryBackoff = 8 * time.Millisecond
+		opts.MaxRetryBackoff = 512 * time.Millisecond
+		opts.DialTimeout = 5 * time.Second
+
+	case "development":
+		// Development: Lower resource usage, longer timeouts for debugging
+		opts.PoolSize = 10
+		opts.MinIdleConns = 3
+		opts.ConnMaxLifetime = 10 * time.Minute
+		opts.ConnMaxIdleTime = 5 * time.Minute
+		opts.PoolTimeout = 10 * time.Second
+		opts.ReadTimeout = 10 * time.Second
+		opts.WriteTimeout = 10 * time.Second
+		opts.MaxRetries = 1
+		opts.MinRetryBackoff = 8 * time.Millisecond
+		opts.MaxRetryBackoff = 512 * time.Millisecond
+		opts.DialTimeout = 10 * time.Second
+
+	default:
+		// Default to production settings if environment is not specified
+		configureForEnvironment(opts, "production")
+	}
+}
+
+// configureFailoverForEnvironment applies optimal Redis failover settings based on environment
+func configureFailoverForEnvironment(opts *redis.FailoverOptions, environment string) {
+	switch environment {
+	case "production":
+		// Production: High performance, many connections
+		opts.PoolSize = 50
+		opts.MinIdleConns = 15
+		opts.ConnMaxLifetime = 30 * time.Minute
+		opts.ConnMaxIdleTime = 10 * time.Minute
+		opts.PoolTimeout = 5 * time.Second
+		opts.ReadTimeout = 3 * time.Second
+		opts.WriteTimeout = 3 * time.Second
+		opts.MaxRetries = 3
+		opts.MinRetryBackoff = 8 * time.Millisecond
+		opts.MaxRetryBackoff = 512 * time.Millisecond
+		opts.DialTimeout = 5 * time.Second
+
+	case "staging":
+		// Staging: Balanced settings
+		opts.PoolSize = 25
+		opts.MinIdleConns = 8
+		opts.ConnMaxLifetime = 20 * time.Minute
+		opts.ConnMaxIdleTime = 8 * time.Minute
+		opts.PoolTimeout = 8 * time.Second
+		opts.ReadTimeout = 5 * time.Second
+		opts.WriteTimeout = 5 * time.Second
+		opts.MaxRetries = 2
+		opts.MinRetryBackoff = 8 * time.Millisecond
+		opts.MaxRetryBackoff = 512 * time.Millisecond
+		opts.DialTimeout = 5 * time.Second
+
+	case "development":
+		// Development: Lower resource usage, longer timeouts for debugging
+		opts.PoolSize = 10
+		opts.MinIdleConns = 3
+		opts.ConnMaxLifetime = 10 * time.Minute
+		opts.ConnMaxIdleTime = 5 * time.Minute
+		opts.PoolTimeout = 10 * time.Second
+		opts.ReadTimeout = 10 * time.Second
+		opts.WriteTimeout = 10 * time.Second
+		opts.MaxRetries = 1
+		opts.MinRetryBackoff = 8 * time.Millisecond
+		opts.MaxRetryBackoff = 512 * time.Millisecond
+		opts.DialTimeout = 10 * time.Second
+
+	default:
+		// Default to production settings if environment is not specified
+		configureFailoverForEnvironment(opts, "production")
+	}
 }

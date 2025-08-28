@@ -45,10 +45,12 @@ type DatabaseConfig struct {
 
 // RedisConfig represents Redis configuration
 type RedisConfig struct {
-	Sentinels        []string `mapstructure:"sentinels"`          // Redis Sentinel URLs (comma-separated)
-	URL              string   `mapstructure:"url"`                // Redis URL for local development
-	Password         string   `mapstructure:"password"`           // Password for Redis master
-	SentinelPassword string   `mapstructure:"sentinel_password"`  // Password for Sentinel authentication
+	Sentinels        []string `mapstructure:"sentinels"`         // Redis Sentinel URLs (comma-separated)
+	URL              string   `mapstructure:"url"`               // Redis URL for local development
+	Password         string   `mapstructure:"password"`          // Password for Redis master
+	SentinelPassword string   `mapstructure:"sentinel_password"` // Password for Sentinel authentication
+	MasterName       string   `mapstructure:"master_name"`       // Redis master name
+	Environment      string   `mapstructure:"environment"`       // Environment (development, staging, production)
 }
 
 // MinIOConfig represents MinIO configuration
@@ -150,6 +152,8 @@ func Load() (*Config, error) {
 	viper.BindEnv("redis.url", "REDIS_URL")
 	viper.BindEnv("redis.password", "REDIS_PASSWORD")
 	viper.BindEnv("redis.sentinel_password", "REDIS_SENTINEL_PASSWORD")
+	viper.BindEnv("redis.master_name", "REDIS_MASTER_NAME")
+	viper.BindEnv("redis.environment", "APP_ENV")
 
 	// AI configuration bindings
 	viper.BindEnv("ai.enabled", "AI_ENABLED")
