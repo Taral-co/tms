@@ -160,7 +160,8 @@ func Load() (*Config, error) {
 
 	// Resend configuration bindings
 	viper.BindEnv("resend.api_key", "RESEND_API_KEY")
-	viper.BindEnv("resend.from_email", "RESEND_FROM_EMAIL")
+	viper.BindEnv("resend.from_email", "EMAIL_FROM_ADDRESS")
+	viper.BindEnv("resend.from_name", "EMAIL_FROM_NAME")
 
 	// Read config file (optional)
 	if err := viper.ReadInConfig(); err != nil {

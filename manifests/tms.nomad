@@ -1,8 +1,8 @@
-job "bareuptime-backend" {
+job "tms-backend" {
   datacenters = ["dc1"]
   type        = "service"
 
-  group "backend-falkenstein" {
+  group "tms-falkenstein" {
     count = 3  # High availability with 5 replicas
 
     # Spread across different nodes for better distribution
@@ -143,8 +143,8 @@ job "bareuptime-backend" {
       driver = "docker"
 
       volume_mount {
-        volume      = "backend_storage"
-        destination = "/opt/bareuptime"
+        volume      = "backend_storage_tms"
+        destination = "/opt/tms"
         read_only   = false
       }
       
@@ -171,8 +171,8 @@ EOH
       # Database configuration from Vault
       template {
         data = <<EOH
-{{- with secret "secret/data/bareuptime/database" -}}
-DATABASE_URL=postgresql://{{ .Data.data.POSTGRES_USER }}:{{ .Data.data.POSTGRES_PASSWORD }}@10.10.85.1:5432/bareuptime?sslmode=disable
+{{- with secret "secret/data/shared/database" -}}
+DATABASE_URL=postgresql://{{ .Data.data.POSTGRES_USER }}:{{ .Data.data.POSTGRES_PASSWORD }}@10.10.85.1:5432/tms?sslmode=disable
 {{- end }}
 EOH
         destination = "secrets/database.env"
@@ -198,7 +198,7 @@ EOH
       # API keys and secrets from Vault
       template {
         data = <<EOH
-{{- with secret "secret/data/bareuptime/auth" -}}
+{{- with secret "secret/data/tms/auth" -}}
 GHC_TOKEN={{ .Data.data.GHC_TOKEN }}
 GITHUB_USERNAME={{ .Data.data.GITHUB_USERNAME }}
 {{- end }}
@@ -211,7 +211,7 @@ EOH
       # Application configuration from Vault
       template {
         data = <<EOH
-{{- with secret "secret/data/bareuptime/config" -}}
+{{- with secret "secret/data/tms/config" -}}
 APP_ENV={{ .Data.data.APP_ENV }}
 APP_NAME={{ .Data.data.APP_NAME }}
 LOG_LEVEL={{ .Data.data.LOG_LEVEL }}
@@ -222,20 +222,8 @@ OTP_SECRET_KEY={{ .Data.data.OTP_SECRET_KEY }}
 EMAIL_FROM_ADDRESS={{ .Data.data.EMAIL_FROM_ADDRESS }}
 EMAIL_FROM_NAME={{ .Data.data.EMAIL_FROM_NAME }}
 EMAIL_REPLY_TO_ADDRESS={{ .Data.data.EMAIL_REPLY_TO_ADDRESS }}
-BREVO_API_KEY={{ .Data.data.BREVO_API_KEY }}
 RESEND_API_KEY={{ .Data.data.RESEND_API_KEY }}
 USE_BREVO={{ .Data.data.USE_BREVO }}
-FRESHDESK_API_TOKEN={{ .Data.data.FRESHDESK_API_TOKEN }}
-FRESHDESK_DOMAIN={{ .Data.data.FRESHDESK_DOMAIN }}
-STRIPE_WEBHOOK_SECRET={{ .Data.data.STRIPE_WEBHOOK_SECRET }}
-TELEGRAM_BOT_TOKEN={{ .Data.data.TELEGRAM_BOT_TOKEN }}
-VAPID_PRIVATE_KEY={{ .Data.data.VAPID_PRIVATE_KEY }}
-VAPID_PUBLIC_KEY={{ .Data.data.VAPID_PUBLIC_KEY }}
-VAPID_SUBJECT={{ .Data.data.VAPID_SUBJECT }}
-FCM_CREDENTIALS_PATH="/secrets/google-service-account.json"
-FCM_PROJECT_ID={{ .Data.data.FCM_PROJECT_ID }}
-CASHFREE_WEBHOOK_SECRET={{ .Data.data.CASHFREE_WEBHOOK_SECRET }}
-STRIPE_WEBHOOK_SECRET={{ .Data.data.STRIPE_WEBHOOK_SECRET }}
 {{- end }}
 EOH
         destination = "secrets/config.env"
@@ -283,7 +271,7 @@ done &&
 echo 'Database is ready' &&
 echo 'Starting Backend service...' &&
 # sleep 1000 &&  # Ensure PostgreSQL replica is fully initialized
-exec /root/bareuptime-service
+exec /root/tms-backend
 EOF
         ]
       }
