@@ -202,6 +202,10 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 	router.Use(middleware.CORSMiddleware())
 	router.Use(middleware.TenantMiddleware(database))
 
+	// Health check endpoints - support both GET and HEAD for load balancers
+	router.GET("/health", publicHandler.Health)
+	router.HEAD("/health", publicHandler.Health)
+
 	// Public routes
 	publicRoutes := router.Group("/api/public")
 	{

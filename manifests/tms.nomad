@@ -43,18 +43,18 @@ job "tms-backend" {
       port = "http"
       
       # Health checks
-      # check {
-      #   type     = "http"
-      #   path     = "/health"
-      #   interval = "60s"
-      #   timeout  = "10s"
+      check {
+        type     = "http"
+        path     = "/api/public/health"
+        interval = "60s"
+        timeout  = "10s"
         
-      #   check_restart {
-      #     limit = 3
-      #     grace = "30s"
-      #     ignore_warnings = false
-      #   }
-      # }
+        check_restart {
+          limit = 3
+          grace = "30s"
+          ignore_warnings = false
+        }
+      }
       
       # Traefik service discovery tags
       tags = [
@@ -72,7 +72,7 @@ job "tms-backend" {
         
         # Service configuration with load balancing
         "traefik.http.services.tms-backend.loadbalancer.server.port=${NOMAD_PORT_http}",
-        "traefik.http.services.tms-backend.loadbalancer.healthcheck.path=/health",
+        "traefik.http.services.tms-backend.loadbalancer.healthcheck.path=/api/public/health",
         "traefik.http.services.tms-backend.loadbalancer.healthcheck.interval=30s",
         "traefik.http.services.tms-backend.loadbalancer.healthcheck.timeout=10s",
         "traefik.http.services.tms-backend.loadbalancer.sticky.cookie=true",
@@ -233,7 +233,7 @@ EOH
 CONSUL_HTTP_ADDR=http://{{ env "NOMAD_IP_http" }}:8500
 SERVICE_NAME=backend
 SERVICE_ID=backend-{{ env "NOMAD_ALLOC_ID" }}
-SERVICE_PORT={{ env "NOMAD_PORT_http" }}
+SERVER_PORT={{ env "NOMAD_PORT_http" }}
 EOH
         destination = "secrets/consul.env"
         env         = true
