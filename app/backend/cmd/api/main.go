@@ -94,7 +94,7 @@ func main() {
 		RequireCorporateEmail: cfg.Features.RequireCorporateEmail,
 	}
 
-	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth, redisService, resendService, authFeatureFlags, tenantRepo)
+	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth, redisService, resendService, authFeatureFlags, tenantRepo, domainValidationRepo)
 	projectService := service.NewProjectService(projectRepo)
 	agentService := service.NewAgentService(agentRepo, projectRepo, rbacService)
 	tenantService := service.NewTenantService(tenantRepo, agentRepo, rbacService)
@@ -215,16 +215,16 @@ func setupRouter(database *sql.DB, jwtAuth *auth.Service, authHandler *handlers.
 		publicRoutes.POST("/tickets/:token/messages", publicHandler.AddMessageByMagicLink)
 		// Testing endpoint - remove in production
 		publicRoutes.POST("/generate-magic-link", publicHandler.GenerateMagicLink)
-		publicRoutes.POST("/login", authHandler.Login)
-		publicRoutes.POST("/signup", authHandler.SignUp)
+
 	}
 
 	// Auth routes (not protected by auth middleware)
-	authRoutes := router.Group("/v1/tenants/:tenant_id/auth")
+	authRoutes := router.Group("/v1/auth")
 	{
 
 		authRoutes.POST("/refresh", authHandler.Refresh)
-
+		authRoutes.POST("/login", authHandler.Login)
+		authRoutes.POST("/signup", authHandler.SignUp)
 		authRoutes.POST("/verify-signup-otp", authHandler.VerifySignupOTP)
 		authRoutes.POST("/resend-signup-otp", authHandler.ResendSignupOTP)
 	}

@@ -542,7 +542,7 @@ class APIClient {
       },
     })
     
-    const response = await loginClient.post<LoginResponse>(`/tenants/${tenantId}/auth/login`, {
+    const response = await loginClient.post<LoginResponse>(`/auth/login`, {
       email: data.email,
       password: data.password
     })
@@ -604,7 +604,6 @@ class APIClient {
 
   // Signup endpoints
   async signup(data: { email: string; password: string; name: string }): Promise<{ message: string; email: string }> {
-    const tenantId = localStorage.getItem('tenant_id')
     
     // Create a separate axios instance for signup to avoid the interceptor adding tenant to URL
     const signupClient = axios.create({
@@ -614,12 +613,11 @@ class APIClient {
       },
     })
     
-    const response = await signupClient.post(`/tenants/${tenantId}/auth/signup`, data)
+    const response = await signupClient.post(`/auth/signup`, data)
     return response.data
   }
 
   async verifySignupOTP(data: { email: string; otp: string }): Promise<{ message: string; user: User }> {
-    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
     
     // Create a separate axios instance for verification to avoid the interceptor adding tenant to URL
     const verifyClient = axios.create({
@@ -628,14 +626,12 @@ class APIClient {
         'Content-Type': 'application/json',
       },
     })
-    
-    const response = await verifyClient.post(`/tenants/${tenantId}/auth/verify-signup-otp`, data)
+
+    const response = await verifyClient.post(`/v1/auth/verify-signup-otp`, data)
     return response.data
   }
 
   async resendSignupOTP(data: { email: string }): Promise<{ message: string; email: string }> {
-    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
-    
     // Create a separate axios instance for resend to avoid the interceptor adding tenant to URL
     const resendClient = axios.create({
       baseURL: API_BASE_URL,
@@ -643,8 +639,8 @@ class APIClient {
         'Content-Type': 'application/json',
       },
     })
-    
-    const response = await resendClient.post(`/tenants/${tenantId}/auth/resend-signup-otp`, data)
+
+    const response = await resendClient.post(`/v1/auth/resend-signup-otp`, data)
     return response.data
   }
 

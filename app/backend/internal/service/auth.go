@@ -34,7 +34,7 @@ type FeatureFlags struct {
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service, redisService *redis.Service, resendService *ResendService, featureFlags *FeatureFlags, tenantRepo repo.TenantRepository) *AuthService {
+func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service, redisService *redis.Service, resendService *ResendService, featureFlags *FeatureFlags, tenantRepo repo.TenantRepository, domainRepo *repo.DomainValidationRepo) *AuthService {
 	return &AuthService{
 		agentRepo:     agentRepo,
 		rbacService:   rbacService,
@@ -43,6 +43,7 @@ func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, a
 		resendService: resendService,
 		featureFlags:  featureFlags,
 		tenantRepo:    tenantRepo,
+		domainRepo:    domainRepo,
 	}
 }
 
@@ -200,13 +201,9 @@ type LoginResponse struct {
 
 // Login authenticates an agent and returns tokens
 func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid tenant ID: %w", err)
-	}
 
 	// Get agent by email
-	agent, err := s.agentRepo.GetByEmail(ctx, tenantID, req.Email)
+	agent, err := s.agentRepo.GetByEmailWithoutTenantID(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("agent not found: %w", err)
 	}

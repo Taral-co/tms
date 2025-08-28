@@ -64,12 +64,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	tenantID := c.Param("tenant_id")
-	if tenantID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID is required"})
-		return
-	}
-
 	loginReq := service.LoginRequest{
 		Email:    req.Email,
 		Password: req.Password,
@@ -135,12 +129,6 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 	if err := h.validator.Struct(req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed", "details": err.Error()})
-		return
-	}
-
-	tenantID := c.Param("tenant_id")
-	if tenantID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Tenant ID is required"})
 		return
 	}
 
