@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -152,8 +153,13 @@ func main() {
 	router := setupRouter(database.DB.DB, jwtAuth, authHandler, projectHandler, ticketHandler, publicHandler, integrationHandler, emailHandler, emailInboxHandler, agentHandler, apiKeyHandler, settingsHandler, tenantHandler, domainValidationHandler, notificationHandler, chatWidgetHandler, chatSessionHandler, chatWebSocketHandler, agentWebSocketHandler, aiHandler)
 
 	// Create HTTP server
+	serverAddr := cfg.Server.Port
+	// Ensure address has proper format (add colon if just port number)
+	if serverAddr[0] != ':' && !strings.Contains(serverAddr, ":") {
+		serverAddr = ":" + serverAddr
+	}
 	server := &http.Server{
-		Addr:    cfg.Server.Port,
+		Addr:    serverAddr,
 		Handler: router,
 	}
 
