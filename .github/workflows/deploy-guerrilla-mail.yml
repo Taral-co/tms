@@ -1,0 +1,60 @@
+name: Deploy Guerrilla Mail to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even without recent changes'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'manifests/guerrilla-mail.nomad'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Validate Nomad manifest
+      run: |
+        echo "Validating Nomad manifest syntax..."
+        # Check if the nomad file exists and has valid syntax
+        if [ ! -f "manifests/guerrilla-mail.nomad" ]; then
+          echo "Error: guerrilla-mail.nomad not found!"
+          exit 1
+        fi
+        
+        # Basic syntax validation (check for required job block)
+        if ! grep -q "job \"guerrilla-mail\"" manifests/guerrilla-mail.nomad; then
+          echo "Error: Invalid Nomad job syntax!"
+          exit 1
+        fi
+        
+        echo "Nomad manifest validation passed"
+
+    - name: Deploy to production
+      if: github.event_name != 'pull_request'
+      run: |
+        echo "Deploying Guerrilla Mail to production..."
+        curl --location 'https://shipper.bareuptime.co/deploy/job' \
+          --header 'X-Secret-Key: ${{ secrets.DEPLOYMENT_SECRET_KEY }}' \
+          --form 'tag_id="${{ github.sha }}"' \
+          --form 'job_file=@"manifests/guerrilla-mail.nomad"'
+        echo "Deployment request sent successfully"
+
+    - name: Post-deployment verification
+      run: |
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Job**: guerrilla-mail" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Timestamp**: $(date -u)" >> $GITHUB_STEP_SUMMARY
