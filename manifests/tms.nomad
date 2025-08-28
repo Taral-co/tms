@@ -67,7 +67,7 @@ job "tms-backend" {
         "traefik.http.routers.tms-api.tls.certresolver=letsencrypt",
         "traefik.http.routers.tms-api.tls.domains[0].main=tms.bareuptime.co",
         "traefik.http.routers.tms-api.service=tms-backend",
-        "traefik.http.routers.tms-api.middlewares=cors-headers,security-headers,rate-limit,client-ip",
+        "traefik.http.routers.tms-api.middlewares=security-headers,rate-limit,client-ip",
         "traefik.http.routers.tms-api.priority=100",
         "region=falkenstein",  # or "iowa"
         
@@ -98,11 +98,12 @@ job "tms-backend" {
         "traefik.http.middlewares.api-rate-limit.ratelimit.period=1m",
         
         # CORS headers for API
-        "traefik.http.middlewares.cors-headers.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE",
-        "traefik.http.middlewares.cors-headers.headers.accesscontrolalloworiginlist=https://*.bareuptime.co,https://bareuptime.co",
-        "traefik.http.middlewares.cors-headers.headers.accesscontrolallowheaders=Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With",
-        "traefik.http.middlewares.cors-headers.headers.accesscontrolmaxage=86400",
-        "traefik.http.middlewares.cors-headers.headers.addvaryheader=true",
+        "traefik.http.middlewares.tms-cors-headers.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE,PATCH",
+        "traefik.http.middlewares.tms-cors-headers.headers.accesscontrolalloworiginlist=https://*.bareuptime.co,https://bareuptime.co",
+        "traefik.http.middlewares.tms-cors-headers.headers.accesscontrolallowheaders=Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With,X-Session-Token",
+        "traefik.http.middlewares.tms-cors-headers.headers.accesscontrolmaxage=86400",
+        "traefik.http.middlewares.tms-cors-headers.headers.accesscontrolallowcredentials=true",
+        "traefik.http.middlewares.tms-cors-headers.headers.addvaryheader=true",
         
         # Client IP middleware
         "traefik.http.middlewares.client-ip.ipwhitelist.sourcerange=0.0.0.0/0",
@@ -280,7 +281,7 @@ EOF
         GOMEMLIMIT = "450MiB"
         REGION = "${meta.region}"  # or "iowa"
         CORS_ALLOW_CREDENTIALS="true"
-        CORS_ORIGINS="https://*.bareuptime.co,https://bareuptime.co"
+        CORS_ORIGINS="https://taral.bareuptime.co,https://bareuptime.co"
       }
       
       # Resource allocation matching Docker Swarm config

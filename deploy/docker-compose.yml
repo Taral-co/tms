@@ -132,7 +132,9 @@ services:
       - SMTP_HOST=mailhog
       - SMTP_PORT=1025
       - JWT_SECRET=your-jwt-secret-change-in-production
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:5174
+      - ENABLE_APP_CORS=true
+      - CORS_ORIGINS=https://taral.bareuptime.co,http://localhost:5173,http://localhost:5174
+      - CORS_ALLOW_CREDENTIALS=true
     ports:
       - "8080:8080"
     depends_on:

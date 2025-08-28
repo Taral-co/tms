@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bareuptime/tms/internal/auth"
-	"github.com/bareuptime/tms/internal/config"
+	"github.com/bareuptime/tms/internal/config" // Global middleware
 	"github.com/bareuptime/tms/internal/db"
 	"github.com/bareuptime/tms/internal/handlers"
 	"github.com/bareuptime/tms/internal/mail"
@@ -32,6 +32,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	// Debug CORS configuration at startup
+	log.Printf("=== CORS CONFIG DEBUG ===")
+	log.Printf("CORS AllowedOrigins: %+v", cfg.CORS.AllowedOrigins)
+	log.Printf("CORS AllowCredentials: %t", cfg.CORS.AllowCredentials)
+	log.Printf("CORS_ORIGINS env var: %s", os.Getenv("CORS_ORIGINS"))
+	log.Printf("CORS_ALLOW_CREDENTIALS env var: %s", os.Getenv("CORS_ALLOW_CREDENTIALS"))
+	log.Printf("=== CORS CONFIG DEBUG END ===")
 
 	// Initialize database
 	database, err := db.Connect(&cfg.Database)
