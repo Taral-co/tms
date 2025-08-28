@@ -169,7 +169,7 @@ EOH
       # Database configuration from Vault
       template {
         data = <<EOH
-{{- with secret "secret/data/bareuptime/database" -}}
+{{- with secret "secret/data/tms/database" -}}
 DATABASE_URL=postgresql://{{ .Data.data.POSTGRES_USER }}:{{ .Data.data.POSTGRES_PASSWORD }}@10.10.85.1:5432/tms?sslmode=disable
 {{- end }}
 EOH
