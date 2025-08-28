@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -257,11 +258,13 @@ func TenantMiddleware(db *sql.DB) gin.HandlerFunc {
 func CORSMiddleware(corsConfig *config.CORSConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
-		
+		fmt.Println("CORS Origin:", origin, "AllowedOrigins:", corsConfig.AllowedOrigins)
+
 		// Determine allowed origin
 		allowedOrigin := ""
 		if len(corsConfig.AllowedOrigins) == 1 && corsConfig.AllowedOrigins[0] == "*" {
 			// If allowing all origins and not using credentials, use wildcard
+			fmt.Println("CORS: Allowing all origins")
 			if !corsConfig.AllowCredentials {
 				allowedOrigin = "*"
 			} else {
@@ -282,11 +285,11 @@ func CORSMiddleware(corsConfig *config.CORSConfig) gin.HandlerFunc {
 		if allowedOrigin != "" {
 			c.Header("Access-Control-Allow-Origin", allowedOrigin)
 		}
-		
+
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-Session-Token")
 		c.Header("Access-Control-Expose-Headers", "Content-Length, X-Session-Token")
-		
+
 		if corsConfig.AllowCredentials {
 			c.Header("Access-Control-Allow-Credentials", "true")
 		}
