@@ -531,9 +531,7 @@ class APIClient {
   }
 
   // Auth endpoints
-  async login(data: LoginRequest): Promise<LoginResponse> {
-    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
-    
+  async login(data: LoginRequest): Promise<LoginResponse> {    
     // Create a separate axios instance for login to avoid the interceptor adding tenant to URL
     const loginClient = axios.create({
       baseURL: API_BASE_URL,
