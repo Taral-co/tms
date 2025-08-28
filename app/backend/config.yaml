@@ -21,6 +21,7 @@ redis:
   port: 6380
   password: ""
   db: 0
+  url: "redis://localhost:6380/0"
 
 minio:
   endpoint: "localhost:9000"

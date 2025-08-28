@@ -39,7 +39,7 @@ job "tms-backend" {
     }
     
     service {
-      name = "backend"
+      name = "tms-backend"
       port = "http"
       
       # Health checks
@@ -60,25 +60,22 @@ job "tms-backend" {
       tags = [
         "traefik.enable=true",
         
-        # Main API routes for api.bareuptime.co (highest priority)
-        "traefik.http.routers.backend-api.rule=Host(`tms.bareuptime.co`)",
-        "traefik.http.routers.backend-api.entrypoints=websecure",
-        "traefik.http.routers.backend-api.tls=true",
-        "traefik.http.routers.backend-api.tls.certresolver=letsencrypt",
-        "traefik.http.routers.backend-api.tls.domains[0].main=tms.bareuptime.co",
-        "traefik.http.routers.backend-api.service=backend",
-        "traefik.http.routers.backend-api.middlewares=client-ip",
-        "traefik.http.routers.backend-api.priority=100",
-        "region=falkenstein",  # or "iowa"
-
-        
+        # Main API routes for tms.bareuptime.co (highest priority)
+        "traefik.http.routers.tms-api.rule=Host(`tms.bareuptime.co`)",
+        "traefik.http.routers.tms-api.entrypoints=websecure",
+        "traefik.http.routers.tms-api.tls=true",
+        "traefik.http.routers.tms-api.tls.certresolver=letsencrypt",
+        "traefik.http.routers.tms-api.tls.domains[0].main=tms.bareuptime.co",
+        "traefik.http.routers.tms-api.service=tms-backend",
+        "traefik.http.routers.tms-api.middlewares=cors-headers,security-headers,rate-limit,client-ip",
+        "traefik.http.routers.tms-api.priority=100",
         
         # Service configuration with load balancing
-        "traefik.http.services.backend.loadbalancer.server.port=${NOMAD_PORT_http}",
-        "traefik.http.services.backend.loadbalancer.healthcheck.path=/health",
-        "traefik.http.services.backend.loadbalancer.healthcheck.interval=30s",
-        "traefik.http.services.backend.loadbalancer.healthcheck.timeout=10s",
-        "traefik.http.services.backend.loadbalancer.sticky.cookie=true",
+        "traefik.http.services.tms-backend.loadbalancer.server.port=${NOMAD_PORT_http}",
+        "traefik.http.services.tms-backend.loadbalancer.healthcheck.path=/health",
+        "traefik.http.services.tms-backend.loadbalancer.healthcheck.interval=30s",
+        "traefik.http.services.tms-backend.loadbalancer.healthcheck.timeout=10s",
+        "traefik.http.services.tms-backend.loadbalancer.sticky.cookie=true",
         
         # Security headers middleware
         "traefik.http.middlewares.security-headers.headers.frameDeny=true",
@@ -185,6 +182,7 @@ EOH
         data = <<EOH
 {{- with secret "secret/data/shared/redis" -}}
 REDIS_PASSWORD={{ .Data.data.REDIS_PASSWORD }}
+REDIS_SENTINEL_PASSWORD={{ .Data.data.REDIS_PASSWORD }}
 REDIS_MASTER_NAME=mymaster
 # Sentinel endpoints (comma-separated)
 REDIS_SENTINELS={{- range $i, $service := service "redis-sentinel" -}}{{- if $i }},{{ end }}{{ .Address }}:{{ .Port }}{{- end }}
@@ -216,7 +214,6 @@ APP_ENV={{ .Data.data.APP_ENV }}
 APP_NAME={{ .Data.data.APP_NAME }}
 LOG_LEVEL={{ .Data.data.LOG_LEVEL }}
 DEFAULT_LANG={{ .Data.data.DEFAULT_LANG }}
-PORT=8080
 OTP_EXPIRY_MINUTES={{ .Data.data.OTP_EXPIRY_MINUTES }}
 OTP_SECRET_KEY={{ .Data.data.OTP_SECRET_KEY }}
 EMAIL_FROM_ADDRESS={{ .Data.data.EMAIL_FROM_ADDRESS }}
@@ -269,7 +266,7 @@ until nc -z 10.10.85.1 5432; do
 done &&
 echo 'Database is ready' &&
 echo 'Starting Backend service...' &&
-sleep 1000 &&  # Ensure PostgreSQL replica is fully initialized
+# sleep 1000 &&  # Ensure PostgreSQL replica is fully initialized
 exec /root/tms-backend
 EOF
         ]
