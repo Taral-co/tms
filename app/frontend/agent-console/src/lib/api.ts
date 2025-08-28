@@ -540,7 +540,7 @@ class APIClient {
       },
     })
 
-    const response = await loginClient.post<LoginResponse>(`/v1/auth/login`, {
+    const response = await loginClient.post<LoginResponse>(`/auth/login`, {
       email: data.email,
       password: data.password
     })
@@ -572,7 +572,7 @@ class APIClient {
       },
     })
 
-    const response = await refreshClient.post<RefreshTokenResponse>(`/v1/auth/refresh`, {
+    const response = await refreshClient.post<RefreshTokenResponse>(`/auth/refresh`, {
       refresh_token: refreshToken
     })
 
@@ -608,7 +608,7 @@ class APIClient {
       },
     })
     
-    const response = await signupClient.post(`/v1/auth/signup`, data)
+    const response = await signupClient.post(`/auth/signup`, data)
     return response.data
   }
 
@@ -622,7 +622,7 @@ class APIClient {
       },
     })
 
-    const response = await verifyClient.post(`/v1/auth/verify-signup-otp`, data)
+    const response = await verifyClient.post(`/auth/verify-signup-otp`, data)
     return response.data
   }
 
@@ -635,7 +635,7 @@ class APIClient {
       },
     })
 
-    const response = await resendClient.post(`/v1/auth/resend-signup-otp`, data)
+    const response = await resendClient.post(`/auth/resend-signup-otp`, data)
     return response.data
   }
 
