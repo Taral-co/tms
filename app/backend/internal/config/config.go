@@ -16,6 +16,7 @@ type Config struct {
 	MinIO         MinIOConfig         `mapstructure:"minio"`
 	SMTP          SMTPConfig          `mapstructure:"smtp"`
 	JWT           JWTConfig           `mapstructure:"jwt"`
+	CORS          CORSConfig          `mapstructure:"cors"`
 	Features      FeatureFlags        `mapstructure:"features"`
 	Email         EmailConfig         `mapstructure:"email"`
 	Observability ObservabilityConfig `mapstructure:"observability"`
@@ -29,6 +30,12 @@ type ServerConfig struct {
 	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 	IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
+}
+
+// CORSConfig represents CORS configuration
+type CORSConfig struct {
+	AllowedOrigins   []string `mapstructure:"allowed_origins"`
+	AllowCredentials bool     `mapstructure:"allow_credentials"`
 }
 
 // DatabaseConfig represents database configuration
@@ -171,6 +178,10 @@ func Load() (*Config, error) {
 	viper.BindEnv("resend.from_email", "EMAIL_FROM_ADDRESS")
 	viper.BindEnv("resend.from_name", "EMAIL_FROM_NAME")
 
+	// CORS configuration bindings
+	viper.BindEnv("cors.allowed_origins", "CORS_ORIGINS")
+	viper.BindEnv("cors.allow_credentials", "CORS_ALLOW_CREDENTIALS")
+
 	// Read config file (optional)
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -190,6 +201,15 @@ func Load() (*Config, error) {
 			sentinels[i] = strings.TrimSpace(sentinel)
 		}
 		config.Redis.Sentinels = sentinels
+	}
+
+	// Handle comma-separated CORS_ORIGINS environment variable
+	if corsOriginsStr := viper.GetString("cors.allowed_origins"); corsOriginsStr != "" {
+		origins := strings.Split(corsOriginsStr, ",")
+		for i, origin := range origins {
+			origins[i] = strings.TrimSpace(origin)
+		}
+		config.CORS.AllowedOrigins = origins
 	}
 
 	return &config, nil
@@ -250,4 +270,8 @@ func setDefaults() {
 	viper.SetDefault("ai.temperature", 0.7)
 	viper.SetDefault("ai.system_prompt", "You are a helpful customer support assistant. Be concise, professional, and friendly. If you cannot help with a request, suggest that a human agent will take over.")
 	viper.SetDefault("ai.auto_handoff_time", "10m")
+
+	// CORS defaults
+	viper.SetDefault("cors.allowed_origins", []string{"*"})
+	viper.SetDefault("cors.allow_credentials", false)
 }

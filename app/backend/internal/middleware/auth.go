@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bareuptime/tms/internal/auth"
+	"github.com/bareuptime/tms/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -252,14 +253,43 @@ func TenantMiddleware(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// CORSMiddleware handles CORS headers
-func CORSMiddleware() gin.HandlerFunc {
+// CORSMiddleware handles CORS headers with configurable origins
+func CORSMiddleware(corsConfig *config.CORSConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+		
+		// Determine allowed origin
+		allowedOrigin := ""
+		if len(corsConfig.AllowedOrigins) == 1 && corsConfig.AllowedOrigins[0] == "*" {
+			// If allowing all origins and not using credentials, use wildcard
+			if !corsConfig.AllowCredentials {
+				allowedOrigin = "*"
+			} else {
+				// If using credentials, echo back the request origin if it's valid
+				allowedOrigin = origin
+			}
+		} else {
+			// Check if the origin is in the allowed list
+			for _, allowedOrig := range corsConfig.AllowedOrigins {
+				if allowedOrig == origin {
+					allowedOrigin = origin
+					break
+				}
+			}
+		}
+
+		// Set CORS headers
+		if allowedOrigin != "" {
+			c.Header("Access-Control-Allow-Origin", allowedOrigin)
+		}
+		
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With")
-		c.Header("Access-Control-Expose-Headers", "Content-Length")
-		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-Session-Token")
+		c.Header("Access-Control-Expose-Headers", "Content-Length, X-Session-Token")
+		
+		if corsConfig.AllowCredentials {
+			c.Header("Access-Control-Allow-Credentials", "true")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)

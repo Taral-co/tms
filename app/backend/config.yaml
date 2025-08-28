@@ -44,6 +44,14 @@ jwt:
   magic_link_expiry: "1h"
   unauth_token_expiry: "24h"
 
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+    - "http://localhost:5174"
+    - "https://yourdomain.com"
+  allow_credentials: true
+
 features:
   enable_registration: true
   enable_email_login: true
