@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -258,47 +257,29 @@ func TenantMiddleware(db *sql.DB) gin.HandlerFunc {
 func CORSMiddleware(corsConfig *config.CORSConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
-		fmt.Printf("=== CORS DEBUG ===\n")
-		fmt.Printf("Request Origin: '%s'\n", origin)
-		fmt.Printf("Request Method: %s\n", c.Request.Method)
-		fmt.Printf("Request URL: %s\n", c.Request.URL.Path)
-		fmt.Printf("Configured AllowedOrigins: %+v\n", corsConfig.AllowedOrigins)
-		fmt.Printf("Configured AllowCredentials: %t\n", corsConfig.AllowCredentials)
-
 		// Determine allowed origin
 		allowedOrigin := ""
 		if len(corsConfig.AllowedOrigins) == 1 && corsConfig.AllowedOrigins[0] == "*" {
 			// If allowing all origins and not using credentials, use wildcard
-			fmt.Printf("CORS: Allowing all origins (wildcard mode)\n")
 			if !corsConfig.AllowCredentials {
 				allowedOrigin = "*"
 			} else {
 				// If using credentials, echo back the request origin if it's valid
 				allowedOrigin = origin
-				fmt.Printf("CORS: Using credentials, echoing origin: '%s'\n", allowedOrigin)
 			}
 		} else {
 			// Check if the origin is in the allowed list
-			fmt.Printf("CORS: Checking specific origins list\n")
 			for _, allowedOrig := range corsConfig.AllowedOrigins {
-				fmt.Printf("  Comparing '%s' with '%s'\n", origin, allowedOrig)
 				if allowedOrig == origin {
 					allowedOrigin = origin
-					fmt.Printf("  ✓ Match found!\n")
 					break
 				}
-			}
-			if allowedOrigin == "" {
-				fmt.Printf("  ✗ No match found for origin '%s'\n", origin)
 			}
 		}
 
 		// Set CORS headers
 		if allowedOrigin != "" {
 			c.Header("Access-Control-Allow-Origin", allowedOrigin)
-			fmt.Printf("CORS: Setting Access-Control-Allow-Origin to '%s'\n", allowedOrigin)
-		} else {
-			fmt.Printf("CORS: No Access-Control-Allow-Origin header set (no matching origin)\n")
 		}
 
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
@@ -307,18 +288,13 @@ func CORSMiddleware(corsConfig *config.CORSConfig) gin.HandlerFunc {
 
 		if corsConfig.AllowCredentials {
 			c.Header("Access-Control-Allow-Credentials", "true")
-			fmt.Printf("CORS: Setting Access-Control-Allow-Credentials to 'true'\n")
-		} else {
-			fmt.Printf("CORS: Not setting Access-Control-Allow-Credentials (false)\n")
 		}
 
 		if c.Request.Method == "OPTIONS" {
-			fmt.Printf("CORS: Handling OPTIONS preflight request\n")
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
-		fmt.Printf("=== CORS DEBUG END ===\n")
 		c.Next()
 	}
 }

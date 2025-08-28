@@ -33,14 +33,6 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Debug CORS configuration at startup
-	log.Printf("=== CORS CONFIG DEBUG ===")
-	log.Printf("CORS AllowedOrigins: %+v", cfg.CORS.AllowedOrigins)
-	log.Printf("CORS AllowCredentials: %t", cfg.CORS.AllowCredentials)
-	log.Printf("CORS_ORIGINS env var: %s", os.Getenv("CORS_ORIGINS"))
-	log.Printf("CORS_ALLOW_CREDENTIALS env var: %s", os.Getenv("CORS_ALLOW_CREDENTIALS"))
-	log.Printf("=== CORS CONFIG DEBUG END ===")
-
 	// Initialize database
 	database, err := db.Connect(&cfg.Database)
 	if err != nil {
@@ -102,7 +94,7 @@ func main() {
 		RequireCorporateEmail: cfg.Features.RequireCorporateEmail,
 	}
 
-	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth, redisService, resendService, authFeatureFlags, tenantRepo, domainValidationRepo)
+	authService := service.NewAuthService(agentRepo, rbacService, jwtAuth, redisService, resendService, authFeatureFlags, tenantRepo, domainValidationRepo, projectRepo)
 	projectService := service.NewProjectService(projectRepo)
 	agentService := service.NewAgentService(agentRepo, projectRepo, rbacService)
 	tenantService := service.NewTenantService(tenantRepo, agentRepo, rbacService)

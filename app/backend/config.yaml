@@ -56,8 +56,8 @@ features:
   require_corporate_email: true  # Set to false to allow personal email domains
 
 resend:
-  api_key: ""  # Set this to your Resend API key
-  from_email: "noreply@taral.co"  # Configure with your verified domain
+  api_key: "re_DLeZyRV7_5MdxWEiR9Kg4p9Bf1QmK5k39"  # Set this to your Resend API key
+  from_email: "noreply@bareuptime.co"  # Configure with your verified domain
 
 ai:
   openai:

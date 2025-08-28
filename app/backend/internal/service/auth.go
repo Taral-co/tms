@@ -26,6 +26,7 @@ type AuthService struct {
 	featureFlags  *FeatureFlags
 	domainRepo    *repo.DomainValidationRepo
 	tenantRepo    repo.TenantRepository
+	projectRepo   repo.ProjectRepository
 }
 
 // FeatureFlags represents the feature configuration
@@ -34,7 +35,7 @@ type FeatureFlags struct {
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service, redisService *redis.Service, resendService *ResendService, featureFlags *FeatureFlags, tenantRepo repo.TenantRepository, domainRepo *repo.DomainValidationRepo) *AuthService {
+func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, authService *auth.Service, redisService *redis.Service, resendService *ResendService, featureFlags *FeatureFlags, tenantRepo repo.TenantRepository, domainRepo *repo.DomainValidationRepo, projectRepo repo.ProjectRepository) *AuthService {
 	return &AuthService{
 		agentRepo:     agentRepo,
 		rbacService:   rbacService,
@@ -501,6 +502,22 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 	err = s.tenantRepo.Create(ctx, tenant)
 	if err != nil {
 		return fmt.Errorf("failed to create tenant: %w", err)
+	}
+
+	// Create Project
+	projectID, _ := uuid.NewUUID()
+	project := &db.Project{
+		ID:        projectID,
+		Key:       "default",
+		Name:      "Default",
+		TenantID:  tenantID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = s.projectRepo.Create(ctx, project)
+	if err != nil {
+		return fmt.Errorf("failed to create project: %w", err)
 	}
 
 	// Check rate limiting
