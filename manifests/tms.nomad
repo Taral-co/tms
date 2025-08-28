@@ -69,6 +69,7 @@ job "tms-backend" {
         "traefik.http.routers.tms-api.service=tms-backend",
         "traefik.http.routers.tms-api.middlewares=cors-headers,security-headers,rate-limit,client-ip",
         "traefik.http.routers.tms-api.priority=100",
+        "region=falkenstein",  # or "iowa"
         
         # Service configuration with load balancing
         "traefik.http.services.tms-backend.loadbalancer.server.port=${NOMAD_PORT_http}",
