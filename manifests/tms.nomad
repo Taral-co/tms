@@ -280,7 +280,7 @@ EOF
         GOMEMLIMIT = "450MiB"
         REGION = "${meta.region}"  # or "iowa"
         CORS_ALLOW_CREDENTIALS="true"
-        CORS_ORIGINS="https://*.bareuptime.co,https://bareuptime.co "
+        CORS_ORIGINS="https://*.bareuptime.co,https://bareuptime.co"
       }
       
       # Resource allocation matching Docker Swarm config
