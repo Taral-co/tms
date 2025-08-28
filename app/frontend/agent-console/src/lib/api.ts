@@ -539,8 +539,8 @@ class APIClient {
         'Content-Type': 'application/json',
       },
     })
-    
-    const response = await loginClient.post<LoginResponse>(`/auth/login`, {
+
+    const response = await loginClient.post<LoginResponse>(`/v1/auth/login`, {
       email: data.email,
       password: data.password
     })
@@ -553,16 +553,13 @@ class APIClient {
       localStorage.setItem('refresh_token', response.data.refresh_token)
     }
 
-    // Set default project (Customer Support project)
-    const defaultProjectId = '550e8400-e29b-41d4-a716-446655440001'
-    this.setProjectId(defaultProjectId)
-    
+    this.setTenantId(response.data.user.tenant_id)
+
     return response.data
   }
 
   async refreshToken(): Promise<RefreshTokenResponse> {
     const refreshToken = localStorage.getItem('refresh_token')
-    const tenantId = localStorage.getItem('tenant_id') || '550e8400-e29b-41d4-a716-446655440000'
     
     if (!refreshToken) {
       throw new Error('No refresh token available')
@@ -575,7 +572,7 @@ class APIClient {
       },
     })
 
-    const response = await refreshClient.post<RefreshTokenResponse>(`/tenants/${tenantId}/auth/refresh`, {
+    const response = await refreshClient.post<RefreshTokenResponse>(`/v1/auth/refresh`, {
       refresh_token: refreshToken
     })
 
@@ -611,7 +608,7 @@ class APIClient {
       },
     })
     
-    const response = await signupClient.post(`/auth/signup`, data)
+    const response = await signupClient.post(`/v1/auth/signup`, data)
     return response.data
   }
 
