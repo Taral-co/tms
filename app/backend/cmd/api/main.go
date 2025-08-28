@@ -79,6 +79,7 @@ func main() {
 	redisService := redis.NewService(redis.RedisConfig{
 		Sentinels: cfg.Redis.Sentinels,
 		URL:       cfg.Redis.URL,
+		Password:  cfg.Redis.Password,
 	})
 
 	// Initialize services

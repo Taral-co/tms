@@ -31,7 +31,8 @@ func NewService(config RedisConfig) *Service {
 		// Use Redis Sentinel for production
 		rdb = redis.NewUniversalClient(&redis.UniversalOptions{
 			Addrs:      config.Sentinels,
-			MasterName: "mymaster", // Default master name
+			MasterName: "mymaster",      // Default master name
+			Password:   config.Password, // Password for Redis master
 		})
 	} else {
 		panic("either REDIS_URL or REDIS_SENTINELS must be configured")
@@ -44,8 +45,10 @@ func NewService(config RedisConfig) *Service {
 
 // RedisConfig represents Redis configuration
 type RedisConfig struct {
-	Sentinels []string // Redis Sentinel URLs
-	URL       string   // Redis URL for local development
+	Sentinels        []string // Redis Sentinel URLs
+	URL              string   // Redis URL for local development
+	Password         string   // Password for Redis master
+	SentinelPassword string   // Password for Sentinel authentication
 }
 
 // Close closes the Redis connection

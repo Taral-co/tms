@@ -43,18 +43,18 @@ job "tms-backend" {
       port = "http"
       
       # Health checks
-      check {
-        type     = "http"
-        path     = "/health"
-        interval = "60s"
-        timeout  = "10s"
+      # check {
+      #   type     = "http"
+      #   path     = "/health"
+      #   interval = "60s"
+      #   timeout  = "10s"
         
-        check_restart {
-          limit = 3
-          grace = "30s"
-          ignore_warnings = false
-        }
-      }
+      #   check_restart {
+      #     limit = 3
+      #     grace = "30s"
+      #     ignore_warnings = false
+      #   }
+      # }
       
       # Traefik service discovery tags
       tags = [
@@ -120,30 +120,30 @@ job "tms-backend" {
     }
     
     # Rolling update configuration
-    update {
-      max_parallel      = 1
-      min_healthy_time  = "30s"
-      healthy_deadline  = "3m"
-      progress_deadline = "10m"
-      auto_revert       = true
-      auto_promote      = true
-      canary            = 1
-      stagger           = "5s"
-    }
+    # update {
+    #   max_parallel      = 1
+    #   min_healthy_time  = "30s"
+    #   healthy_deadline  = "3m"
+    #   progress_deadline = "10m"
+    #   auto_revert       = true
+    #   auto_promote      = true
+    #   canary            = 1
+    #   stagger           = "5s"
+    # }
     
     # Placement preferences for load distribution
-    affinity {
-      attribute = "${node.unique.id}"
-      operator  = "regexp"
-      value     = ".*"
-      weight    = 50
-    }
+    # affinity {
+    #   attribute = "${node.unique.id}"
+    #   operator  = "regexp"
+    #   value     = ".*"
+    #   weight    = 50
+    # }
     
     task "backend" {
       driver = "docker"
 
       volume_mount {
-        volume      = "backend_storage_tms"
+        volume      = "backend_storage"
         destination = "/opt/tms"
         read_only   = false
       }
@@ -171,7 +171,7 @@ EOH
       # Database configuration from Vault
       template {
         data = <<EOH
-{{- with secret "secret/data/shared/database" -}}
+{{- with secret "secret/data/bareuptime/database" -}}
 DATABASE_URL=postgresql://{{ .Data.data.POSTGRES_USER }}:{{ .Data.data.POSTGRES_PASSWORD }}@10.10.85.1:5432/tms?sslmode=disable
 {{- end }}
 EOH
@@ -198,7 +198,7 @@ EOH
       # API keys and secrets from Vault
       template {
         data = <<EOH
-{{- with secret "secret/data/tms/auth" -}}
+{{- with secret "secret/data/shared/githubAuth" -}}
 GHC_TOKEN={{ .Data.data.GHC_TOKEN }}
 GITHUB_USERNAME={{ .Data.data.GITHUB_USERNAME }}
 {{- end }}
@@ -223,7 +223,6 @@ EMAIL_FROM_ADDRESS={{ .Data.data.EMAIL_FROM_ADDRESS }}
 EMAIL_FROM_NAME={{ .Data.data.EMAIL_FROM_NAME }}
 EMAIL_REPLY_TO_ADDRESS={{ .Data.data.EMAIL_REPLY_TO_ADDRESS }}
 RESEND_API_KEY={{ .Data.data.RESEND_API_KEY }}
-USE_BREVO={{ .Data.data.USE_BREVO }}
 {{- end }}
 EOH
         destination = "secrets/config.env"
@@ -245,7 +244,7 @@ EOH
       }
       
       config {
-        image = "ghcr.io/bareuptime/backend:latest"
+        image = "ghcr.io/taral-co/tms/tms-backend:latest"
         ports = ["http"]
         
         # Docker authentication for private registry
@@ -270,7 +269,7 @@ until nc -z 10.10.85.1 5432; do
 done &&
 echo 'Database is ready' &&
 echo 'Starting Backend service...' &&
-# sleep 1000 &&  # Ensure PostgreSQL replica is fully initialized
+sleep 1000 &&  # Ensure PostgreSQL replica is fully initialized
 exec /root/tms-backend
 EOF
         ]
