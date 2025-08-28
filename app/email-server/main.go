@@ -59,7 +59,7 @@ func (p *TicketProcessor) Process(e *guerrillamail.Envelope, task backends.Selec
 
 	// Send to your ticket API
 	if err := sendToTicketAPI(ticket); err != nil {
-		log.Printf("Failed to create ticket: %v", err)
+		log.Printf("Failed to create a ticket: %v", err)
 		return backends.NewResult("451 Temporary failure - please retry"), err
 	}
 
