@@ -64,7 +64,7 @@ type SessionMessageHandler func(sessionID string, message *Message)
 
 // ConnectionManager manages WebSocket connections using Redis only for enterprise scaling
 type ConnectionManager struct {
-	redis    *redis.Client
+	redis    redis.UniversalClient
 	serverID string
 	pubsub   *redis.PubSub
 	ctx      context.Context
@@ -84,7 +84,7 @@ type ConnectionManager struct {
 }
 
 // NewConnectionManager creates a new Redis-only connection manager
-func NewConnectionManager(redisClient *redis.Client) *ConnectionManager {
+func NewConnectionManager(redisClient redis.UniversalClient) *ConnectionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	serverID := uuid.New().String() // Unique server instance ID
 
@@ -282,7 +282,7 @@ func (cm *ConnectionManager) GetSessionConnections(sessionID string) ([]*Connect
 }
 
 // GetRedisClient returns the Redis client for external use
-func (cm *ConnectionManager) GetRedisClient() *redis.Client {
+func (cm *ConnectionManager) GetRedisClient() redis.UniversalClient {
 	return cm.redis
 }
 

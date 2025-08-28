@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -77,8 +76,10 @@ func main() {
 	mailService := mail.NewService(mailLogger)
 
 	// Initialize Redis service
-	redisAddr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port)
-	redisService := redis.NewService(redisAddr, cfg.Redis.Password, cfg.Redis.DB)
+	redisService := redis.NewService(redis.RedisConfig{
+		Sentinels: cfg.Redis.Sentinels,
+		URL:       cfg.Redis.URL,
+	})
 
 	// Initialize services
 	resendService := service.NewResendService(&cfg.Resend)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -44,10 +45,8 @@ type DatabaseConfig struct {
 
 // RedisConfig represents Redis configuration
 type RedisConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
+	Sentinels []string `mapstructure:"sentinels"` // Redis Sentinel URLs (comma-separated)
+	URL       string   `mapstructure:"url"`       // Redis URL for local development
 }
 
 // MinIOConfig represents MinIO configuration
@@ -145,8 +144,8 @@ func Load() (*Config, error) {
 	viper.BindEnv("database.dbname", "DB_NAME")
 	viper.BindEnv("database.url", "DATABASE_URL")
 	viper.BindEnv("database.sslmode", "DB_SSLMODE")
-	viper.BindEnv("redis.host", "REDIS_HOST")
-	viper.BindEnv("redis.port", "REDIS_PORT")
+	viper.BindEnv("redis.sentinels", "REDIS_SENTINELS")
+	viper.BindEnv("redis.url", "REDIS_URL")
 
 	// AI configuration bindings
 	viper.BindEnv("ai.enabled", "AI_ENABLED")
@@ -175,6 +174,15 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// Handle comma-separated REDIS_SENTINELS environment variable
+	if sentinelsStr := viper.GetString("redis.sentinels"); sentinelsStr != "" {
+		sentinels := strings.Split(sentinelsStr, ",")
+		for i, sentinel := range sentinels {
+			sentinels[i] = strings.TrimSpace(sentinel)
+		}
+		config.Redis.Sentinels = sentinels
+	}
+
 	return &config, nil
 }
 
@@ -198,10 +206,8 @@ func setDefaults() {
 	viper.SetDefault("database.conn_max_lifetime", "5m")
 
 	// Redis defaults
-	viper.SetDefault("redis.host", "localhost")
-	viper.SetDefault("redis.port", 6379)
-	viper.SetDefault("redis.password", "")
-	viper.SetDefault("redis.db", 0)
+	viper.SetDefault("redis.sentinels", []string{})
+	viper.SetDefault("redis.url", "")
 
 	// MinIO defaults
 	viper.SetDefault("minio.endpoint", "localhost:9000")

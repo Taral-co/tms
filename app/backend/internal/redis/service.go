@@ -12,20 +12,40 @@ import (
 
 // Service provides Redis operations for OTP and caching
 type Service struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
 // NewService creates a new Redis service
-func NewService(addr, password string, db int) *Service {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
-	})
+// Uses REDIS_URL for local development or REDIS_SENTINELS for production
+func NewService(config RedisConfig) *Service {
+	var rdb redis.UniversalClient
+
+	if config.URL != "" {
+		// Use Redis URL for local development
+		opt, err := redis.ParseURL(config.URL)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse Redis URL: %v", err))
+		}
+		rdb = redis.NewClient(opt)
+	} else if len(config.Sentinels) > 0 {
+		// Use Redis Sentinel for production
+		rdb = redis.NewUniversalClient(&redis.UniversalOptions{
+			Addrs:      config.Sentinels,
+			MasterName: "mymaster", // Default master name
+		})
+	} else {
+		panic("either REDIS_URL or REDIS_SENTINELS must be configured")
+	}
 
 	return &Service{
 		client: rdb,
 	}
+}
+
+// RedisConfig represents Redis configuration
+type RedisConfig struct {
+	Sentinels []string // Redis Sentinel URLs
+	URL       string   // Redis URL for local development
 }
 
 // Close closes the Redis connection
@@ -34,7 +54,7 @@ func (s *Service) Close() error {
 }
 
 // GetClient returns the underlying Redis client for advanced operations
-func (s *Service) GetClient() *redis.Client {
+func (s *Service) GetClient() redis.UniversalClient {
 	return s.client
 }
 
