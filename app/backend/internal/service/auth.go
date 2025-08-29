@@ -45,6 +45,7 @@ func NewAuthService(agentRepo repo.AgentRepository, rbacService *rbac.Service, a
 		featureFlags:  featureFlags,
 		tenantRepo:    tenantRepo,
 		domainRepo:    domainRepo,
+		projectRepo:   projectRepo,
 	}
 }
 
@@ -490,35 +491,6 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 	}
 
 	// Create Tenant
-	tenantID, _ := uuid.NewUUID()
-	tenant := &db.Tenant{
-		ID:        tenantID,
-		Name:      domainNameFromEmail,
-		Status:    "active",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	err = s.tenantRepo.Create(ctx, tenant)
-	if err != nil {
-		return fmt.Errorf("failed to create tenant: %w", err)
-	}
-
-	// Create Project
-	projectID, _ := uuid.NewUUID()
-	project := &db.Project{
-		ID:        projectID,
-		Key:       "default",
-		Name:      "Default",
-		TenantID:  tenantID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	err = s.projectRepo.Create(ctx, project)
-	if err != nil {
-		return fmt.Errorf("failed to create project: %w", err)
-	}
 
 	// Check rate limiting
 	attemptKey := fmt.Sprintf("signup_attempts:%s", req.Email)
@@ -549,7 +521,8 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 		"email":         req.Email,
 		"password_hash": hashedPassword,
 		"name":          req.Name,
-		"tenant_id":     tenant.ID.String(),
+		// "tenant_id":     tenant.ID.String(),
+		// "project_id":    project.ID.String(),
 	}
 
 	err = s.redisService.GetClient().HMSet(ctx, signupDataKey, signupData).Err()
@@ -575,7 +548,7 @@ func (s *AuthService) SignUp(ctx context.Context, req SignUpRequest) error {
 }
 
 // VerifySignupOTP verifies the OTP and creates the agent account
-func (s *AuthService) VerifySignupOTP(ctx context.Context, req VerifySignupOTPRequest) (*models.Agent, error) {
+func (s *AuthService) VerifySignupOTP(ctx context.Context, req VerifySignupOTPRequest) (*LoginResponse, error) {
 	// Verify OTP
 	otpKey := fmt.Sprintf("signup_otp:%s", req.Email)
 	isValid, err := s.redisService.VerifyOTP(ctx, otpKey, req.OTP)
@@ -597,9 +570,38 @@ func (s *AuthService) VerifySignupOTP(ctx context.Context, req VerifySignupOTPRe
 		return nil, fmt.Errorf("signup session expired or not found")
 	}
 
-	tenantID, err := uuid.Parse(signupData["tenant_id"])
+	domainNameFromEmail := strings.Split(req.Email, "@")[1]
+
+	tenantID, _ := uuid.NewUUID()
+	tenant := &db.Tenant{
+		ID:        tenantID,
+		Name:      domainNameFromEmail,
+		KMSKeyID:  domainNameFromEmail,
+		Status:    "active",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = s.tenantRepo.Create(ctx, tenant)
 	if err != nil {
-		return nil, fmt.Errorf("invalid tenant ID: %w", err)
+		return nil, fmt.Errorf("failed to create tenant: %w", err)
+	}
+
+	// Create Project
+	projectID, _ := uuid.NewUUID()
+	project := &db.Project{
+		ID:        projectID,
+		Key:       "default",
+		Name:      "Default",
+		Status:    "active",
+		TenantID:  tenantID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = s.projectRepo.Create(ctx, project)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
 	// Create agent account
@@ -615,34 +617,61 @@ func (s *AuthService) VerifySignupOTP(ctx context.Context, req VerifySignupOTPRe
 		UpdatedAt:    time.Now(),
 	}
 
+	fmt.Println("user obj", agent)
+
 	// Create agent in database
 	err = s.agentRepo.Create(ctx, agent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agent: %w", err)
 	}
 
+	fmt.Println("let me assign roles")
+
 	// Assign default agent role (no project ID for global role)
-	err = s.rbacService.AssignRole(ctx, agent.ID, agent.TenantID, uuid.Nil, models.RoleAgent)
+	err = s.rbacService.AssignRole(ctx, agent.ID, agent.TenantID, projectID, models.RoleAgent)
 	if err != nil {
 		// Log error but don't fail - agent is created, role can be assigned later
 		fmt.Printf("Warning: failed to assign default role to agent %s: %v\n", agent.ID, err)
 	}
 
-	// Clean up temporary data
-	s.redisService.GetClient().Del(ctx, signupDataKey)
-	s.redisService.DeleteOTP(ctx, otpKey)
+	// Get role bindings for the new agent
+	roleBindings, err := s.rbacService.GetAgentRoleBindings(ctx, agent.ID, agent.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role bindings: %w", err)
+	}
 
-	// Convert db.Agent to models.Agent for return
-	return &models.Agent{
-		ID:           agent.ID,
-		TenantID:     agent.TenantID,
-		Email:        agent.Email,
-		Name:         agent.Name,
-		Status:       agent.Status,
-		PasswordHash: agent.PasswordHash,
-		LastLoginAt:  nil, // New accounts don't have last login
-		CreatedAt:    agent.CreatedAt,
-		UpdatedAt:    agent.UpdatedAt,
+	fmt.Println("assigning bindings", roleBindings)
+
+	// Generate tokens
+	accessToken, err := s.authService.GenerateAccessToken(
+		agent.ID.String(),
+		agent.TenantID.String(),
+		agent.Email,
+		s.convertRoleBindings(roleBindings),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	refreshToken, err := s.authService.GenerateRefreshToken(
+		agent.ID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	// Clean up temporary data
+	// s.redisService.GetClient().Del(ctx, signupDataKey)
+	// s.redisService.DeleteOTP(ctx, otpKey)
+
+	// Remove password hash from response
+	agent.PasswordHash = nil
+
+	return &LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		Agent:        agent,
+		RoleBindings: s.convertRoleBindings(roleBindings),
 	}, nil
 }
 

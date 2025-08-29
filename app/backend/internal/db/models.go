@@ -14,7 +14,7 @@ type Tenant struct {
 	Name      string    `db:"name" json:"name" validate:"required,min=1,max=255"`
 	Status    string    `db:"status" json:"status" validate:"oneof=active inactive suspended"`
 	Region    string    `db:"region" json:"region"`
-	KMSKeyID  *string   `db:"kms_key_id" json:"kms_key_id,omitempty"`
+	KMSKeyID  string    `db:"kms_key_id" json:"kms_key_id"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }

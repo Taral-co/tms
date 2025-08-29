@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff, Loader2, Shield, Lock, Mail, User, CheckCircle, ArrowLeft } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiClient } from '@/lib/api'
 
 // Simplified components matching our enterprise design (same as LoginPage)
@@ -167,6 +167,7 @@ const isValidCorporateEmail = (email: string): { isValid: boolean; error?: strin
 }
 
 export function SignUpPage() {
+  const navigate = useNavigate()
   const [step, setStep] = useState<SignUpStep>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -227,13 +228,15 @@ export function SignUpPage() {
     setError('')
 
     try {
-      const response = await apiClient.verifySignupOTP({
+      await apiClient.verifySignupOTP({
         email,
         otp
       })
 
-      setSuccess(response.message)
-      setStep('success')
+      // Account created successfully and tokens are stored
+      // Redirect to dashboard
+      // navigate('/dashboard')
+      window.location.assign("/dashboard")
     } catch (err: any) {
       setError(err.response?.data?.error || 'Invalid verification code')
     } finally {

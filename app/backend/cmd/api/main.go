@@ -87,7 +87,7 @@ func main() {
 	})
 
 	// Initialize services
-	resendService := service.NewResendService(&cfg.Resend)
+	resendService := service.NewResendService(&cfg.Resend, cfg.Redis.Environment)
 
 	// Create feature flags for auth service
 	authFeatureFlags := &service.FeatureFlags{

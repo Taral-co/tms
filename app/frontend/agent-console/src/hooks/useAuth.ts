@@ -14,7 +14,7 @@ export function useAuth() {
     const token = localStorage.getItem('auth_token')
     const refreshToken = localStorage.getItem('refresh_token')
     const userData = localStorage.getItem('user_data')
-    const projectId = localStorage.getItem('project_id')
+    // const projectId = localStorage.getItem('project_id')
     
     if (token && refreshToken && userData) {
       try {
@@ -24,11 +24,11 @@ export function useAuth() {
         apiClient.setTenantId(parsedUser.tenant_id)
         
         // Set default project if not already set
-        if (projectId) {
-          apiClient.setProjectId(projectId)
-        } else {
-          apiClient.setProjectId('550e8400-e29b-41d4-a716-446655440001')
-        }
+        // if (projectId) {
+        //   apiClient.setProjectId(projectId)
+        // } else {
+        //   apiClient.setProjectId('550e8400-e29b-41d4-a716-446655440001')
+        // }
       } catch (_err) {
         // Clear corrupted data
         localStorage.removeItem('auth_token')
@@ -42,11 +42,11 @@ export function useAuth() {
       try {
         const parsedUser = JSON.parse(userData)
         apiClient.setTenantId(parsedUser.tenant_id)
-        if (projectId) {
-          apiClient.setProjectId(projectId)
-        } else {
-          apiClient.setProjectId('550e8400-e29b-41d4-a716-446655440001')
-        }
+        // if (projectId) {
+        //   apiClient.setProjectId(projectId)
+        // } else {
+        //   apiClient.setProjectId('550e8400-e29b-41d4-a716-446655440001')
+        // }
         apiClient.refreshToken().then(() => {
           setUser(parsedUser)
           setIsAuthenticated(true)
@@ -81,11 +81,6 @@ export function useAuth() {
       setIsAuthenticated(true)
       localStorage.setItem('user_data', JSON.stringify(response.user))
       apiClient.setTenantId(response.user.tenant_id)
-      
-      // Set default project ID if not already set
-      const defaultProjectId = '550e8400-e29b-41d4-a716-446655440001'
-      apiClient.setProjectId(defaultProjectId)
-      localStorage.setItem('project_id', defaultProjectId)
       
       setIsLoading(false)
       

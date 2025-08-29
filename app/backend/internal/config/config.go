@@ -148,6 +148,7 @@ func Load() (*Config, error) {
 
 	// Bind specific environment variables to config keys
 	viper.BindEnv("server.port", "SERVER_PORT")
+	viper.BindEnv("server.environment", "APP_ENV")
 	viper.BindEnv("database.host", "DB_HOST")
 	viper.BindEnv("database.port", "DB_PORT")
 	viper.BindEnv("database.user", "DB_USER")
@@ -218,6 +219,7 @@ func Load() (*Config, error) {
 func setDefaults() {
 	// Server defaults
 	viper.SetDefault("server.port", ":8080")
+	viper.SetDefault("server.environment", "development")
 	viper.SetDefault("server.read_timeout", "30s")
 	viper.SetDefault("server.write_timeout", "30s")
 	viper.SetDefault("server.idle_timeout", "120s")

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/bareuptime/tms/internal/middleware"
@@ -276,21 +277,38 @@ func (h *AuthHandler) VerifySignupOTP(c *gin.Context) {
 		Email: req.Email,
 		OTP:   req.OTP,
 	}
+	fmt.Print("Verifying signup OTP for email:", req.Email)
 
-	agent, err := h.authService.VerifySignupOTP(c.Request.Context(), verifyReq)
+	response, err := h.authService.VerifySignupOTP(c.Request.Context(), verifyReq)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, VerifySignupOTPResponse{
-		Message: "Account created successfully",
+	// Get primary role for display
+	primaryRole := models.RoleAgent.String() // Default to agent role
+	for _, roles := range response.RoleBindings {
+		for _, role := range roles {
+			primaryRole = role
+			break
+		}
+		if primaryRole == models.RoleTenantAdmin.String() {
+			break
+		}
+	}
+	fmt.Println("Primary role assigned:", primaryRole)
+
+	c.JSON(http.StatusOK, LoginResponse{
+		AccessToken:  response.AccessToken,
+		RefreshToken: response.RefreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    3600, // 1 hour
 		User: User{
-			ID:       agent.ID.String(),
-			Email:    agent.Email,
-			Name:     agent.Name,
-			TenantID: agent.TenantID.String(),
-			Role:     models.RoleAgent.String(), // Default role
+			ID:       response.Agent.ID.String(),
+			Email:    response.Agent.Email,
+			Name:     response.Agent.Name,
+			Role:     primaryRole,
+			TenantID: response.Agent.TenantID.String(),
 		},
 	})
 }

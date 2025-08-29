@@ -10,12 +10,13 @@ import (
 
 // ResendService handles email sending via Resend
 type ResendService struct {
-	client    *resend.Client
-	fromEmail string
+	client      *resend.Client
+	fromEmail   string
+	environment string
 }
 
 // NewResendService creates a new Resend service
-func NewResendService(cfg *config.ResendConfig) *ResendService {
+func NewResendService(cfg *config.ResendConfig, environment string) *ResendService {
 	apiKey := cfg.APIKey
 	if apiKey == "" {
 		// Fall back to a test key for development - should be configured properly
@@ -30,13 +31,19 @@ func NewResendService(cfg *config.ResendConfig) *ResendService {
 
 	client := resend.NewClient(apiKey)
 	return &ResendService{
-		client:    client,
-		fromEmail: fromEmail,
+		client:      client,
+		fromEmail:   fromEmail,
+		environment: environment,
 	}
 }
 
 // SendSignupVerificationEmail sends a verification email for signup
 func (s *ResendService) SendSignupVerificationEmail(ctx context.Context, toEmail, otp string) error {
+	if s.environment == "development" {
+		fmt.Println("Development mode: skipping email. Here is the OTP:", otp)
+		return nil
+	}
+
 	params := &resend.SendEmailRequest{
 		From:    s.fromEmail,
 		To:      []string{toEmail},

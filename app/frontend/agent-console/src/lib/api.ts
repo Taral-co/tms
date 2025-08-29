@@ -612,7 +612,7 @@ class APIClient {
     return response.data
   }
 
-  async verifySignupOTP(data: { email: string; otp: string }): Promise<{ message: string; user: User }> {
+  async verifySignupOTP(data: { email: string; otp: string }): Promise<LoginResponse> {
     
     // Create a separate axios instance for verification to avoid the interceptor adding tenant to URL
     const verifyClient = axios.create({
@@ -622,7 +622,14 @@ class APIClient {
       },
     })
 
-    const response = await verifyClient.post(`/auth/verify-signup-otp`, data)
+    const response = await verifyClient.post<LoginResponse>(`/auth/verify-signup-otp`, data)
+    
+    // Store tokens like in login
+    localStorage.setItem('auth_token', response.data.access_token)
+    localStorage.setItem('refresh_token', response.data.refresh_token)
+
+    this.setTenantId(response.data.user.tenant_id)
+
     return response.data
   }
 
