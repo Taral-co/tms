@@ -929,6 +929,278 @@ export function generateWidgetCSS(widget: ChatWidget): string {
       color: #9ca3af;
     }
 
+    /* ===== Dynamic Forms ===== */
+    .tms-dynamic-form {
+      margin: 8px 0;
+      animation: slideInUp 0.3s ease-out;
+    }
+
+    .tms-form-card {
+      background: var(--tms-background-color);
+      border: 1px solid color-mix(in srgb, var(--tms-secondary-color) 20%, var(--tms-background-color));
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .tms-form-header {
+      background: linear-gradient(135deg, rgba(var(--tms-primary-color-rgb), 0.05) 0%, rgba(var(--tms-primary-color-rgb), 0.02) 100%);
+      padding: 16px;
+      border-bottom: 1px solid color-mix(in srgb, var(--tms-secondary-color) 15%, var(--tms-background-color));
+    }
+
+    .tms-form-title {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: color-mix(in srgb, var(--tms-secondary-color) 10%, #000);
+    }
+
+    .tms-form-description {
+      margin: 0;
+      font-size: 13px;
+      color: color-mix(in srgb, var(--tms-secondary-color) 40%, #000);
+      line-height: 1.4;
+    }
+
+    .tms-form-body {
+      padding: 16px;
+    }
+
+    .tms-form-field {
+      margin-bottom: 14px;
+    }
+
+    .tms-form-field:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .tms-form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: color-mix(in srgb, var(--tms-secondary-color) 25%, #000);
+      margin-bottom: 6px;
+    }
+
+    .tms-form-required {
+      color: #ef4444;
+      margin-left: 2px;
+    }
+
+    .tms-form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid color-mix(in srgb, var(--tms-secondary-color) 25%, var(--tms-background-color));
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--tms-background-color);
+      color: color-mix(in srgb, var(--tms-secondary-color) 15%, #000);
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    .tms-form-input:focus {
+      outline: none;
+      border-color: var(--tms-primary-color);
+      box-shadow: 0 0 0 3px rgba(var(--tms-primary-color-rgb), 0.1);
+    }
+
+    .tms-form-input:disabled {
+      background: color-mix(in srgb, var(--tms-secondary-color) 10%, var(--tms-background-color));
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .tms-form-textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: inherit;
+    }
+
+    .tms-form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .tms-form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid color-mix(in srgb, var(--tms-secondary-color) 15%, var(--tms-background-color));
+    }
+
+    .tms-form-btn {
+      flex: 1;
+      padding: 11px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .tms-form-btn-primary {
+      background: var(--tms-primary-color);
+      color: var(--tms-primary-text-color);
+    }
+
+    .tms-form-btn-primary:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(var(--tms-primary-color-rgb), 0.3);
+    }
+
+    .tms-form-btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .tms-form-btn-secondary {
+      background: var(--tms-background-color);
+      color: color-mix(in srgb, var(--tms-secondary-color) 30%, #000);
+      border: 2px solid color-mix(in srgb, var(--tms-secondary-color) 25%, var(--tms-background-color));
+    }
+
+    .tms-form-btn-secondary:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--tms-secondary-color) 5%, var(--tms-background-color));
+      border-color: color-mix(in srgb, var(--tms-secondary-color) 35%, var(--tms-background-color));
+    }
+
+    /* ===== Markdown Content Styles ===== */
+    .tms-message-bubble.markdown-content {
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+    }
+
+    .tms-message-bubble.markdown-content p {
+      margin: 0 0 8px 0;
+    }
+
+    .tms-message-bubble.markdown-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    .tms-message-bubble.markdown-content strong {
+      font-weight: 600;
+    }
+
+    .tms-message-bubble.markdown-content em {
+      font-style: italic;
+    }
+
+    .tms-message-bubble.markdown-content code {
+      padding: 2px 6px;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.9em;
+    }
+
+    .tms-message-bubble.markdown-content pre {
+      margin: 8px 0;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 6px;
+      overflow-x: auto;
+      border-left: 3px solid var(--tms-primary-color);
+    }
+
+    .tms-message-bubble.markdown-content pre code {
+      padding: 0;
+      background: none;
+      font-size: 0.85em;
+      line-height: 1.5;
+    }
+
+    .tms-message-bubble.markdown-content a {
+      color: var(--tms-primary-color);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(var(--tms-primary-color-rgb), 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .tms-message-bubble.markdown-content a:hover {
+      border-bottom-color: var(--tms-primary-color);
+      filter: brightness(1.1);
+    }
+
+    .tms-message-bubble.markdown-content ul,
+    .tms-message-bubble.markdown-content ol {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+
+    .tms-message-bubble.markdown-content li {
+      margin: 4px 0;
+    }
+
+    .tms-message-bubble.markdown-content blockquote {
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-left: 3px solid rgba(var(--tms-primary-color-rgb), 0.5);
+      background: rgba(var(--tms-primary-color-rgb), 0.05);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .tms-message-bubble.markdown-content h1,
+    .tms-message-bubble.markdown-content h2,
+    .tms-message-bubble.markdown-content h3,
+    .tms-message-bubble.markdown-content h4 {
+      margin: 12px 0 8px 0;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .tms-message-bubble.markdown-content h1 { font-size: 1.5em; }
+    .tms-message-bubble.markdown-content h2 { font-size: 1.3em; }
+    .tms-message-bubble.markdown-content h3 { font-size: 1.1em; }
+    .tms-message-bubble.markdown-content h4 { font-size: 1em; }
+
+    .tms-message-bubble.markdown-content hr {
+      margin: 12px 0;
+      border: none;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .tms-message-bubble.markdown-content table {
+      width: 100%;
+      margin: 8px 0;
+      border-collapse: collapse;
+      font-size: 0.9em;
+    }
+
+    .tms-message-bubble.markdown-content th,
+    .tms-message-bubble.markdown-content td {
+      padding: 6px 8px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      text-align: left;
+    }
+
+    .tms-message-bubble.markdown-content th {
+      background: rgba(0, 0, 0, 0.05);
+      font-weight: 600;
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     /* Visitor Info Form */
     .tms-visitor-info-form {
       padding: 20px 16px;

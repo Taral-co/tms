@@ -17,6 +17,7 @@ from cachetools import TTLCache
 from .knowledge_service import KnowledgeService
 from .agent_auth_service import AgentAuthService
 from .tms_api_client import TMSApiClient, tms_api_client
+from .form_instructions import get_form_enhanced_system_prompt
 from ..config import config
 from ..schemas.knowledge import (
     KnowledgeSearchResponse,
@@ -386,21 +387,28 @@ class AgentService:
         # Fetch about me settings from the API
         about_me_content = await self.api_client.get_about_me_settings(tenant_id, project_id)
         
-        base_instructions = """You are a helpful customer support agent with the ability to perform real actions.
+        base_instructions = """You are a helpful customer support agent with the ability to perform real actions and generate dynamic forms.
 
 Your capabilities:
 1. Search the knowledge base for answers using search_knowledge
 2. Create actual support tickets via create_ticket (this will create a real ticket in the system)
 3. Escalate cases to human agents via escalate_to_human (this will notify human agents)
 4. Save contact information via save_contact_info
+5. Generate dynamic forms to collect structured information from users
 
 Guidelines:
 - Be professional, empathetic, and concise
+- Use **markdown** for formatting your responses (bold, italic, lists, links, code blocks)
 - Search the knowledge base first for common questions
-- **Before creating any ticket, collect and save the user's full name and email using save_contact_info. Do not call create_ticket until both are present in context.**
+- **When you need to collect structured information (like name, email, or ticket details), generate a form** using JSON format
+- **Before creating any ticket, use a form to collect the user's full name, email, and issue details**
 - Create tickets for issues that need follow-up
 - Escalate complex or urgent issues to human agents
-- You can perform actual actions - when you create tickets or escalate, these actions happen immediately in the system"""
+- You can perform actual actions - when you create tickets or escalate, these actions happen immediately in the system
+- Always format URLs as proper markdown links: [Link Text](https://url.com)"""
+        
+        # Enhance with form generation instructions
+        base_instructions = get_form_enhanced_system_prompt(base_instructions)
 
         # If we have about me content, add it to the instructions
         if about_me_content and about_me_content.strip():

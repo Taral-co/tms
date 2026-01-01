@@ -3,6 +3,16 @@ import { ChatAPI } from './api'
 import { ChatMessage, ChatSession, ChatWidget, ChatWidgetOptions, WSMessage } from './types'
 import { SessionStorage, generateVisitorFingerprint, isBusinessHours } from './storage'
 import { injectWidgetCSS, playNotificationSound } from './themes'
+import { 
+  renderMarkdown, 
+  hasMarkdown, 
+  autoLinkText, 
+  renderForm, 
+  parseFormRequest, 
+  FormTemplates,
+  FormConfig,
+  escapeHtml 
+} from './renderers'
 
 type Events = {
   'message:received': ChatMessage
@@ -368,15 +378,34 @@ export class TMSChatWidget {
       messagesContainer.style.display = 'block'
     }
 
-    const messageWrapper = document.createElement('div')
-    messageWrapper.className = `tms-message-wrapper ${message.author_type}`
-
     const isAgent = message.author_type === 'agent' || message.author_type === 'ai-agent'
 
-    // Create message bubble with enhanced styling
+    // Check if this is a form request from AI
+    const formConfig = isAgent ? parseFormRequest(message.content) : null
+    
+    if (formConfig) {
+      // Render form instead of regular message
+      this.displayFormMessage(formConfig, message)
+      return
+    }
+
+    // Create message wrapper
+    const messageWrapper = document.createElement('div')
+    messageWrapper.className = `tms-message-wrapper ${message.author_type}`
+    messageWrapper.setAttribute('data-message-id', message.id)
+
+    // Create message bubble with enhanced content rendering
     const messageBubble = document.createElement('div')
     messageBubble.className = `tms-message-bubble ${message.author_type}`
-    messageBubble.innerHTML = this.escapeHtml(message.content)
+    
+    // Render content based on type (markdown or plain text)
+    if (hasMarkdown(message.content)) {
+      messageBubble.classList.add('markdown-content')
+      messageBubble.innerHTML = renderMarkdown(message.content)
+    } else {
+      // Auto-link URLs and emails in plain text
+      messageBubble.innerHTML = autoLinkText(escapeHtml(message.content))
+    }
 
     // Create timestamp
     const timestamp = document.createElement('div')
@@ -404,6 +433,104 @@ export class TMSChatWidget {
     // Play notification sound for new messages
     if (isAgent && this.widget?.sound_enabled) {
       playNotificationSound('message', true)
+    }
+  }
+
+  /**
+   * Display a form message from AI agent
+   */
+  private displayFormMessage(formConfig: FormConfig, originalMessage: ChatMessage) {
+    const messagesContainer = document.getElementById('tms-chat-messages')
+    if (!messagesContainer) return
+
+    // Create message wrapper for the form
+    const messageWrapper = document.createElement('div')
+    messageWrapper.className = 'tms-message-wrapper agent'
+    messageWrapper.setAttribute('data-message-id', originalMessage.id)
+    messageWrapper.setAttribute('data-form-id', formConfig.id)
+
+    // Add form submit handler
+    formConfig.onSubmit = (data) => {
+      console.log('Form submitted:', data)
+      this.handleFormSubmission(formConfig.id, data)
+    }
+
+    // Add form cancel handler
+    formConfig.onCancel = () => {
+      console.log('Form cancelled')
+      const formWrapper = document.querySelector(`[data-form-id="${formConfig.id}"]`)
+      if (formWrapper) {
+        formWrapper.remove()
+      }
+    }
+
+    // Render the form
+    const formElement = renderForm(formConfig)
+    messageWrapper.appendChild(formElement)
+
+    // Add timestamp
+    const timestamp = document.createElement('div')
+    timestamp.className = 'tms-message-time'
+    timestamp.textContent = new Date(originalMessage.created_at).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
+    messageWrapper.appendChild(timestamp)
+
+    messagesContainer.appendChild(messageWrapper)
+
+    // Auto-scroll to bottom
+    requestAnimationFrame(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight
+    })
+
+    // Play notification sound
+    if (this.widget?.sound_enabled) {
+      playNotificationSound('message', true)
+    }
+  }
+
+  /**
+   * Handle form submission and send data to backend
+   */
+  private async handleFormSubmission(formId: string, formData: Record<string, string>) {
+    try {
+      // Send form data as a regular message
+      const messageContent = `Form submitted: ${formId}\n${Object.entries(formData)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n')}`
+
+      // Send the form data through websocket
+      if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+        const wsMessage: WSMessage = {
+          type: 'chat_message',
+          client_session_id: this.session?.id || '',
+          data: {
+            content: messageContent,
+            form_data: formData,
+            form_id: formId,
+          },
+          timestamp: new Date().toISOString(),
+        }
+        this.websocket.send(JSON.stringify(wsMessage))
+
+        // Display user's submission as a message
+        const displayMessage: ChatMessage = {
+          id: 'form-' + Date.now(),
+          content: Object.entries(formData)
+            .map(([key, value]) => `**${key}**: ${value}`)
+            .join('\n'),
+          author_type: 'visitor',
+          author_name: 'You',
+          created_at: new Date().toISOString(),
+          message_type: 'text',
+          is_private: false,
+        }
+        this.displayMessage(displayMessage)
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      alert('Failed to submit form. Please try again.')
     }
   }
 
@@ -1276,16 +1403,7 @@ export class TMSChatWidget {
     this.messages.forEach(message => this.displayMessage(message))
   }
 
-  private escapeHtml(text: string): string {
-    const map: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    }
-    return text.replace(/[&<>"']/g, (m) => map[m])
-  }
+  // Removed: Using escapeHtml from renderers.ts now
 
   // Public API
   public on<K extends keyof Events>(event: K, handler: (data: Events[K]) => void) {
